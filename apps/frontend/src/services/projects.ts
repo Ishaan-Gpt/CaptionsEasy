@@ -1,4 +1,5 @@
 import { Project, ProjectStatus } from "./types";
+import { apiClient } from "./api-client";
 
 const PROJECTS_KEY = "motionai_mock_projects";
 
@@ -68,15 +69,22 @@ export const projectsService = {
   },
 
   async createProject(title: string): Promise<Project> {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    // Real backend project row — required because the upload endpoint
+    // validates project ownership against the database (contracts/api.md,
+    // contracts/database.md > RLS). Status/listing stay on the local mock
+    // store below until Phase 3 (project CRUD) lands on the backend.
+    const backendProject = await apiClient.post<{ id: string; title: string }>("/projects", {
+      json: { title },
+    });
+
     const newProj: Project = {
-      id: "proj_" + Math.random().toString(36).substr(2, 9),
+      id: backendProject.id,
       title,
       status: "CREATED",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    
+
     const projects = getProjectsFromStorage();
     projects.unshift(newProj);
     saveProjectsToStorage(projects);

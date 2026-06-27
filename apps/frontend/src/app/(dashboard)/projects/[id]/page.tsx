@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { projectsService } from "@/services/projects";
 import { jobsService, LogEntry } from "@/services/jobs";
+import { uploadService, UploadValidationError } from "@/services/upload";
 import { Project, ProjectStatus, Job } from "@/services/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -34,6 +35,7 @@ export default function ProjectWorkspacePage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [jobLogs, setJobLogs] = useState<LogEntry[]>([]);
+  const uploadAbortRef = useRef<(() => void) | null>(null);
   
   // Preview configuration states
   const [selectedStyle, setSelectedStyle] = useState<"formal" | "sarcastic" | "tech" | "non-tech">("tech");
@@ -118,35 +120,40 @@ export default function ProjectWorkspacePage() {
     return match ? match.text : "";
   };
 
-  // Upload handler
-  const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload handler — real backend call (replaces the mocked progress timer).
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validation (MP4, MOV, WEBM, max 500MB)
-    const allowedTypes = ["video/mp4", "video/quicktime", "video/webm"];
-    if (!allowedTypes.includes(file.type)) {
-      alert("Invalid format! Please upload an MP4, MOV, or WEBM video file.");
-      return;
-    }
-
-    if (file.size > 500 * 1024 * 1024) {
-      alert("File is too large! Maximum allowed upload size is 500 MB.");
-      return;
-    }
-
     setUploadProgress(0);
-    jobsService.startUpload(
-      projectId,
-      file,
-      (progress) => setUploadProgress(progress),
-      () => {
-        setUploadProgress(null);
-        refetchProject().then(() => {
-          triggerProcessing();
-        });
+    try {
+      const result = await uploadService.uploadVideo(
+        projectId,
+        file,
+        (progress) => setUploadProgress(progress),
+        (abort) => {
+          uploadAbortRef.current = abort;
+        }
+      );
+      uploadAbortRef.current = null;
+      setUploadProgress(null);
+      // AI processing is not triggered yet — Job `result.jobId` is the
+      // metadata-extraction job created by the backend, queued and not
+      // started. The existing mock pipeline simulation continues to drive
+      // the processing UI until the real AI pipeline (contracts/ai.md) is
+      // wired up in a later sprint.
+      void result.jobId;
+      await refetchProject();
+      triggerProcessing();
+    } catch (err) {
+      uploadAbortRef.current = null;
+      setUploadProgress(null);
+      if (err instanceof UploadValidationError) {
+        alert(err.message);
+      } else if (!(err instanceof DOMException && err.name === "AbortError")) {
+        alert(err instanceof Error ? err.message : "Upload failed. Please try again.");
       }
-    );
+    }
   };
 
   // Processing triggers
@@ -301,7 +308,8 @@ export default function ProjectWorkspacePage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  jobsService.cancelUpload(projectId);
+                  uploadAbortRef.current?.();
+                  uploadAbortRef.current = null;
                   setUploadProgress(null);
                 }}
                 className="text-red-400 hover:bg-red-500/5"
