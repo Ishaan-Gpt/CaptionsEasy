@@ -1,5 +1,6 @@
 from .api_entities import ApiError, Export, JobStatus, JobStatusValue, Project, User, Video
 from .pipeline import CaptionPlan, CaptionSegment, CaptionStyle, CreativePlan, Transcript
+from .motion_script import MotionScript
 from .render_plan import (
     Animation,
     EventType,
@@ -12,6 +13,7 @@ from .render_plan import (
 )
 from .validators import (
     RenderPlanValidationError,
+    MotionScriptValidationError,
     validate_api_error,
     validate_caption_plan,
     validate_creative_plan,
@@ -19,6 +21,7 @@ from .validators import (
     validate_job_status,
     validate_project,
     validate_render_plan,
+    validate_motion_script,
     validate_transcript,
     validate_user,
     validate_video,
@@ -45,7 +48,9 @@ __all__ = [
     "RenderPlanMetadata",
     "ShapeKind",
     "TimelineEvent",
+    "MotionScript",
     "RenderPlanValidationError",
+    "MotionScriptValidationError",
     "validate_api_error",
     "validate_caption_plan",
     "validate_creative_plan",
@@ -53,7 +58,9 @@ __all__ = [
     "validate_job_status",
     "validate_project",
     "validate_render_plan",
+    "validate_motion_script",
     "validate_transcript",
     "validate_user",
     "validate_video",
 ]
+

@@ -9,7 +9,9 @@ from pydantic import ValidationError
 
 from .api_entities import ApiError, Export, JobStatus, Project, User, Video
 from .pipeline import CaptionPlan, CreativePlan, Transcript
-from .render_plan import RenderPlan, TimelineEvent
+from .render_plan import RenderPlan, TimelineEvent, EventType
+from .motion_script import MotionScript
+
 
 
 class RenderPlanValidationError(ValueError):
@@ -103,3 +105,54 @@ def validate_video(data: dict) -> Video:
 
 def validate_export(data: dict) -> Export:
     return Export.model_validate(data)
+
+
+class MotionScriptValidationError(ValueError):
+    pass
+
+
+def validate_motion_script(data: dict) -> MotionScript:
+    """Validate and parse a MotionScript JSON document.
+    
+    Checks chronological timeline event ordering, timestamp ranges,
+    layer/segment overlaps, and scene continuity.
+    """
+    try:
+        script = MotionScript.model_validate(data)
+    except ValidationError as exc:
+        raise MotionScriptValidationError(str(exc)) from exc
+
+    # 1. Timeline Chronology & Timestamp Check
+    last_start = -1
+    for event in script.timeline:
+        if event.start_ms < 0 or event.end_ms < 0:
+            raise MotionScriptValidationError(f"Negative timestamp on event {event.id}")
+        if event.end_ms < event.start_ms:
+            raise MotionScriptValidationError(f"end_ms before start_ms on event {event.id}")
+        if event.start_ms < last_start:
+            raise MotionScriptValidationError(f"Timeline is not chronological at event {event.id}")
+        last_start = event.start_ms
+
+    # 2. Overlap & Layer checks
+    by_layer: dict[str, list[TimelineEvent]] = {}
+    for event in script.timeline:
+        by_layer.setdefault(event.layer.value, []).append(event)
+
+    for layer, events in by_layer.items():
+        ordered = sorted(events, key=lambda e: e.start_ms)
+        for prev, curr in zip(ordered, ordered[1:]):
+            if curr.start_ms < prev.end_ms:
+                raise MotionScriptValidationError(
+                    f"Overlapping events on layer '{layer}': {prev.id} and {curr.id}"
+                )
+
+    # 3. Scene Continuity / Transition checks
+    transitions = [e for e in script.timeline if e.type == EventType.TRANSITION]
+    for prev, curr in zip(transitions, transitions[1:]):
+        if curr.start_ms < prev.end_ms:
+            raise MotionScriptValidationError(
+                f"Overlapping transition events detected: {prev.id} and {curr.id}"
+            )
+
+    return script
+

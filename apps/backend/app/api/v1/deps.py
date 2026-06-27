@@ -18,6 +18,7 @@ from app.services.transcript_repository import TranscriptRepository
 from app.services.video_repository import VideoRepository
 from app.services.creative_plan_repository import CreativePlanRepository
 from app.services.caption_plan_repository import CaptionPlanRepository
+from app.services.motion_script_repository import MotionScriptRepository
 from app.worker.dispatcher import CeleryJobDispatcher, JobDispatcherProtocol
 from app.worker.progress import RedisProgressReporter
 from app.worker.redis_client import get_redis_client
@@ -46,6 +47,10 @@ def get_creative_plan_repository(db: AsyncSession = Depends(get_db)) -> Creative
 
 def get_caption_plan_repository(db: AsyncSession = Depends(get_db)) -> CaptionPlanRepository:
     return CaptionPlanRepository(db)
+
+
+def get_motion_script_repository(db: AsyncSession = Depends(get_db)) -> MotionScriptRepository:
+    return MotionScriptRepository(db)
 
 
 _job_dispatcher = CeleryJobDispatcher()

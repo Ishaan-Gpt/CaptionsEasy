@@ -14,6 +14,7 @@ import { projectsService } from "@/services/projects";
 import { jobsService, JobStatusResponse } from "@/services/jobs";
 import { uploadService, UploadValidationError } from "@/services/upload";
 import { transcriptService, TranscriptResponse } from "@/services/transcript";
+import { motionScriptService } from "@/services/motionScript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
 import Card from "@/components/ui/Card";
@@ -102,6 +103,17 @@ export default function ProjectWorkspacePage() {
   } = useQuery<TranscriptResponse | null>({
     queryKey: ["transcript", projectId],
     queryFn: () => transcriptService.getTranscript(projectId),
+    enabled: project?.status === "COMPLETED",
+  });
+
+  const {
+    data: motionScript,
+    isLoading: isMotionScriptLoading,
+    isError: isMotionScriptError,
+    error: motionScriptQueryError,
+  } = useQuery<any | null>({
+    queryKey: ["motionScript", projectId],
+    queryFn: () => motionScriptService.getMotionScript(projectId),
     enabled: project?.status === "COMPLETED",
   });
 
@@ -383,6 +395,30 @@ export default function ProjectWorkspacePage() {
                     Language: {transcript.transcript.language} &middot; Provider: {transcript.provider}
                   </p>
                 </div>
+              )}
+            </Card>
+
+            <Card className="border-zinc-900 space-y-4">
+              <div>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">MotionScript JSON</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Deterministic rendering instructions</p>
+              </div>
+
+              {isMotionScriptLoading ? (
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <Spinner className="w-4 h-4" />
+                  Loading MotionScript...
+                </div>
+              ) : isMotionScriptError ? (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
+                  {describeError(motionScriptQueryError)}
+                </div>
+              ) : !motionScript ? (
+                <p className="text-xs text-zinc-500 italic">No MotionScript generated yet.</p>
+              ) : (
+                <pre className="text-[10px] text-zinc-400 bg-zinc-950 p-3 rounded-lg overflow-auto max-h-60 font-mono leading-normal border border-zinc-900">
+                  {JSON.stringify(motionScript, null, 2)}
+                </pre>
               )}
             </Card>
 

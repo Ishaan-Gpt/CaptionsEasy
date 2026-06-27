@@ -16,12 +16,13 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.ai.orchestration.factory import build_intelligence_only_engine
+from app.ai.orchestration.factory import build_default_engine
 from app.ai.types import PipelineContext, PipelineStage
 from app.core.config import Settings
 from app.db.models.transcript import Transcript as TranscriptRow
 from app.db.models.creative_plan import CreativePlan as CreativePlanRow
 from app.db.models.caption_plan import CaptionPlan as CaptionPlanRow
+from app.db.models.motion_script import MotionScript as MotionScriptRow
 from app.db.models.video import Video
 from app.worker.stages import Stage
 
@@ -42,10 +43,11 @@ def build_ai_pipeline_stages(
         if video is None:
             raise ValueError(f"No video found for project {project_id}; cannot run AI pipeline.")
 
-        engine, _recorder = build_intelligence_only_engine(
+        engine, _recorder = build_default_engine(
             speech_provider_name=settings.speech_provider_name,
             creative_provider_name=settings.creative_provider_name,
             caption_provider_name=settings.caption_provider_name,
+            render_plan_provider_name=settings.render_plan_provider_name,
         )
         ctx = PipelineContext(
             project_id=project_id,
@@ -56,6 +58,7 @@ def build_ai_pipeline_stages(
                 "speech_provider_name": settings.speech_provider_name,
                 "creative_provider_name": settings.creative_provider_name,
                 "caption_provider_name": settings.caption_provider_name,
+                "render_plan_provider_name": settings.render_plan_provider_name,
             },
         )
 
@@ -93,7 +96,18 @@ def build_ai_pipeline_stages(
             )
         )
 
+        # 4. Persist MotionScript
+        motion_script = ctx.stage_outputs[PipelineStage.RENDER_VALIDATION]
+        session.add(
+            MotionScriptRow(
+                project_id=uuid.UUID(str(project_id)),
+                motion_script_json=motion_script.model_dump(mode="json"),
+                version=1,
+            )
+        )
+
         session.commit()
 
     return [Stage("AI Pipeline Execution", _run_ai_pipeline)]
+
 

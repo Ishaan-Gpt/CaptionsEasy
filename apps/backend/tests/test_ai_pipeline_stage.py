@@ -32,6 +32,7 @@ def test_speech_analysis_stage_persists_a_transcript_using_dummy_provider():
         "speech_provider_name": "dummy",
         "creative_provider_name": "dummy",
         "caption_provider_name": "dummy",
+        "render_plan_provider_name": "dummy",
     })
     session = FakeSession()
 
@@ -43,7 +44,7 @@ def test_speech_analysis_stage_persists_a_transcript_using_dummy_provider():
     stages[0].run()
 
     assert session.commits == 1
-    assert len(session.added) == 3
+    assert len(session.added) == 4
     
     transcript_row = session.added[0]
     assert str(transcript_row.project_id) == project_id
@@ -59,12 +60,17 @@ def test_speech_analysis_stage_persists_a_transcript_using_dummy_provider():
     assert str(caption_row.project_id) == project_id
     assert caption_row.caption_json["caption_segments"]
 
+    motion_script_row = session.added[3]
+    assert str(motion_script_row.project_id) == project_id
+    assert motion_script_row.motion_script_json["timeline"]
+
 
 def test_speech_analysis_stage_raises_when_no_video_exists():
     settings = get_settings().model_copy(update={
         "speech_provider_name": "dummy",
         "creative_provider_name": "dummy",
         "caption_provider_name": "dummy",
+        "render_plan_provider_name": "dummy",
     })
     stages = build_ai_pipeline_stages(
         job_id="job-1", project_id=str(uuid.uuid4()), video=None, settings=settings, session=FakeSession()
@@ -72,4 +78,5 @@ def test_speech_analysis_stage_raises_when_no_video_exists():
 
     with pytest.raises(ValueError, match="No video found"):
         stages[0].run()
+
 

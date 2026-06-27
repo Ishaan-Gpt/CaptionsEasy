@@ -31,9 +31,11 @@ from .deps import (
     get_video_repository,
     get_creative_plan_repository,
     get_caption_plan_repository,
+    get_motion_script_repository,
 )
 from app.services.creative_plan_repository import CreativePlanRepository
 from app.services.caption_plan_repository import CaptionPlanRepository
+from app.services.motion_script_repository import MotionScriptRepository
 
 
 router = APIRouter(tags=["projects"])
@@ -144,4 +146,16 @@ async def get_caption_plan(
     if caption_plan is None:
         raise NotFoundError("No caption plan found for this project yet.")
     return success_response(caption_plan.caption_json)
+
+
+@router.get("/projects/{project_id}/motion-script")
+async def get_motion_script(
+    project: Project = Depends(get_owned_project),
+    motion_script_repository: MotionScriptRepository = Depends(get_motion_script_repository),
+):
+    motion_script = await motion_script_repository.get_latest_for_project(project.id)
+    if motion_script is None:
+        raise NotFoundError("No motion script found for this project yet.")
+    return success_response(motion_script.motion_script_json)
+
 
