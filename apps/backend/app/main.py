@@ -1,7 +1,8 @@
 """FastAPI application bootstrap. Source: contracts/api.md, docs/SYSTEM_OVERVIEW.md"""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.deps import check_rate_limit
 
 from app.api.health import router as health_router
 from app.api.v1.router import api_router
@@ -27,7 +28,7 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(health_router)
-    app.include_router(api_router, prefix=settings.api_v1_prefix)
+    app.include_router(api_router, prefix=settings.api_v1_prefix, dependencies=[Depends(check_rate_limit)])
 
     return app
 

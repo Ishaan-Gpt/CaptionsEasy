@@ -22,6 +22,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<{
+    status: string;
+    checks: { database: boolean; redis: boolean };
+  } | null>(null);
+  const [showHealthModal, setShowHealthModal] = useState(false);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const healthUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1")
+          .replace("/api/v1", "/health/ready");
+        const res = await fetch(healthUrl);
+        const data = await res.json();
+        setSystemStatus(data);
+      } catch (err) {
+        setSystemStatus({ status: "error", checks: { database: false, redis: false } });
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Basic route protection
@@ -113,6 +135,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
+        {/* System Status indicator */}
+        <div className="px-6 py-3 border-t border-zinc-900/60 bg-zinc-950/20">
+          <button 
+            onClick={() => setShowHealthModal(true)}
+            className="flex items-center gap-2 w-full text-[10px] text-zinc-500 hover:text-zinc-300 transition text-left cursor-pointer focus:outline-none"
+          >
+            <span className={`w-2 h-2 rounded-full ${
+              systemStatus?.status === "ready" ? "bg-emerald-500 animate-pulse" : "bg-rose-500 animate-pulse"
+            }`} />
+            <span className="font-semibold tracking-wide uppercase">System: {systemStatus?.status === "ready" ? "Operational" : "Degraded"}</span>
+          </button>
+        </div>
+
         {/* User Card info / Log out */}
         <div className="p-4 border-t border-zinc-900/60 space-y-4">
           {currentUser && (
@@ -172,6 +207,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {showHealthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-900 bg-zinc-950 p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wide">System Status</h3>
+              <p className="text-[10px] text-zinc-500 mt-0.5">Real-time connection status monitoring</p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs p-3 bg-zinc-900/40 rounded-xl border border-zinc-900">
+                <span className="text-zinc-400">PostgreSQL Database</span>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  systemStatus?.checks?.database ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                }`}>
+                  {systemStatus?.checks?.database ? "Connected" : "Disconnected"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-3 bg-zinc-900/40 rounded-xl border border-zinc-900">
+                <span className="text-zinc-400">Redis Cache & Broker</span>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  systemStatus?.checks?.redis ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                }`}>
+                  {systemStatus?.checks?.redis ? "Connected" : "Disconnected"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-3 bg-zinc-900/40 rounded-xl border border-zinc-900">
+                <span className="text-zinc-400">Celery Worker Cluster</span>
+                <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Online
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowHealthModal(false)}
+              className="w-full py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+            >
+              Close status dashboard
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -114,8 +114,13 @@ async def update_project(
 async def delete_project(
     project: Project = Depends(get_owned_project),
     project_repository: ProjectRepository = Depends(get_project_repository),
+    dispatcher: JobDispatcherProtocol = Depends(get_job_dispatcher),
 ):
     await project_repository.soft_delete(project)
+    
+    # Dispatch storage cleanup task via the dispatcher
+    dispatcher.dispatch_cleanup(str(project.id))
+    
     return success_response(None, status_code=204)
 
 

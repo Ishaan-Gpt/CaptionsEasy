@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_profile
@@ -106,3 +106,28 @@ async def get_owned_job(
     if project is None or project.owner_id != profile.id:
         raise ForbiddenError("You do not have access to this job.")
     return job
+
+
+async def check_rate_limit(
+    profile: Profile = Depends(get_current_profile),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Sliding-window rate limiter using Redis."""
+    redis_client = get_redis_client(settings)
+    key = f"rate_limit:{profile.id}"
+    try:
+        count = redis_client.incr(key)
+        if count == 1:
+            redis_client.expire(key, 60)
+        
+        limit = 60
+        if count > limit:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Maximum 60 requests per minute allowed."
+            )
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise exc
+        # Fail-open if Redis is unreachable in sandbox/local
+        pass

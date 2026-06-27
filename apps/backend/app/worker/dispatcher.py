@@ -9,6 +9,7 @@ from typing import Protocol
 
 class JobDispatcherProtocol(Protocol):
     def dispatch(self, job_id: str) -> None: ...
+    def dispatch_cleanup(self, project_id: str) -> None: ...
 
 
 class CeleryJobDispatcher:
@@ -16,3 +17,8 @@ class CeleryJobDispatcher:
         from app.worker.tasks import process_job
 
         process_job.delay(job_id)
+
+    def dispatch_cleanup(self, project_id: str) -> None:
+        from app.worker.tasks import cleanup_project_storage
+
+        cleanup_project_storage.delay(project_id)

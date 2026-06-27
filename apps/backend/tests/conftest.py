@@ -154,9 +154,13 @@ class FakeProgressReporter:
 class FakeJobDispatcher:
     def __init__(self) -> None:
         self.dispatched_job_ids: list[str] = []
+        self.dispatched_cleanup_project_ids: list[str] = []
 
     def dispatch(self, job_id: str) -> None:
         self.dispatched_job_ids.append(job_id)
+
+    def dispatch_cleanup(self, project_id: str) -> None:
+        self.dispatched_cleanup_project_ids.append(project_id)
 
 
 class FakeJobRepository:

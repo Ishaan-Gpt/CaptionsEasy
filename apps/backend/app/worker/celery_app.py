@@ -25,7 +25,19 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=600,
     task_soft_time_limit=540,
+    worker_concurrency=4,
 )
+
+celery_app.conf.beat_schedule = {
+    "cleanup-old-exports-daily": {
+        "task": "motionai.cleanup_old_exports",
+        "schedule": 86400.0,
+    },
+    "recover-failed-jobs-hourly": {
+        "task": "motionai.recover_failed_jobs",
+        "schedule": 3600.0,
+    }
+}
 
 
 @worker_shutting_down.connect
