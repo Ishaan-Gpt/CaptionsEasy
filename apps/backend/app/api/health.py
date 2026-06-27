@@ -5,6 +5,8 @@ Operational infrastructure, not a product API — mounted at the app root
 business endpoint from contracts/api.md.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -15,6 +17,7 @@ from app.db.session import get_db
 from app.worker.redis_client import get_redis_client
 
 router = APIRouter(tags=["health"])
+logger = logging.getLogger("motionai.api")
 
 
 @router.get("/health")
@@ -34,14 +37,14 @@ async def readiness(
     try:
         await db.execute(text("SELECT 1"))
         checks["database"] = True
-    except Exception:  # noqa: BLE001 - readiness probe must never raise
-        pass
+    except Exception as exc:  # noqa: BLE001 - readiness probe must never raise
+        logger.warning("readiness_check_failed dependency=database reason=%s", exc)
 
     try:
         get_redis_client(settings).ping()
         checks["redis"] = True
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("readiness_check_failed dependency=redis reason=%s", exc)
 
     ready = all(checks.values())
     body = {"status": "ready" if ready else "not_ready", "checks": checks}
