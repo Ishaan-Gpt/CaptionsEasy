@@ -6,7 +6,10 @@ services:
     dockerContext: .
     plan: free
     healthCheckPath: /health
-    preDeployCommand: alembic upgrade head
+    # preDeployCommand (alembic upgrade head) isn't supported on the free
+    # plan. Migrations are run manually (`alembic upgrade head` against the
+    # real DATABASE_URL) before each deploy that adds one — already done for
+    # everything currently on main.
     envVars:
       - key: ENVIRONMENT
         value: production
