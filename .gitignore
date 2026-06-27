@@ -5,3 +5,5 @@ build/
 .env*
 *.log
 .pnpm-debug.log
+__pycache__/
+*.pyc

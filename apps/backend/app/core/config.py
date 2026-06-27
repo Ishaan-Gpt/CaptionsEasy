@@ -38,6 +38,14 @@ class Settings(BaseSettings):
         "video/webm",
     )
 
+    # --- Background processing (Celery + Redis). Sprint 1.3. ---
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    job_max_retries: int = Field(default=2, alias="JOB_MAX_RETRIES")
+    job_retry_countdown_seconds: int = Field(default=5, alias="JOB_RETRY_COUNTDOWN_SECONDS")
+    job_lock_ttl_seconds: int = Field(default=900, alias="JOB_LOCK_TTL_SECONDS")
+    job_progress_ttl_seconds: int = Field(default=3600, alias="JOB_PROGRESS_TTL_SECONDS")
+    job_stage_duration_seconds: float = Field(default=1.0, alias="JOB_STAGE_DURATION_SECONDS")
+
 
 @lru_cache
 def get_settings() -> Settings:

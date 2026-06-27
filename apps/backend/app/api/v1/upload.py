@@ -21,8 +21,9 @@ from app.services.upload_service import METADATA_EXTRACTION_JOB_TYPE, UploadServ
 from app.services.video_repository import VideoRepository
 from app.storage.base import StorageClient
 from app.storage.dependencies import get_storage_client
+from app.worker.dispatcher import JobDispatcherProtocol
 
-from .deps import get_job_repository, get_owned_project, get_video_repository
+from .deps import get_job_dispatcher, get_job_repository, get_owned_project, get_video_repository
 
 router = APIRouter(tags=["upload"])
 
@@ -46,6 +47,7 @@ async def upload_video(
     file: UploadFile,
     project: Project = Depends(get_owned_project),
     upload_service: UploadService = Depends(get_upload_service),
+    job_dispatcher: JobDispatcherProtocol = Depends(get_job_dispatcher),
 ):
     content = await file.read()
     result = await upload_service.upload_video(
@@ -54,6 +56,9 @@ async def upload_video(
         content_type=file.content_type or "",
         content=content,
     )
+    # Sprint 1.3: dispatch the queued metadata-extraction job to the
+    # background worker (dummy stages only — see app.worker.stages).
+    job_dispatcher.dispatch(str(result.job.id))
     return success_response(
         {
             "videoId": str(result.video.id),

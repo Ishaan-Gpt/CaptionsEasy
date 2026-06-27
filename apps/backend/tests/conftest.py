@@ -62,6 +62,32 @@ class FakeVideoRepository:
         return video
 
 
+class FakeProgressReporter:
+    def __init__(self) -> None:
+        self._store: dict[str, dict] = {}
+
+    def set_progress(self, job_id, *, stage, percentage, estimated_remaining_ms):
+        self._store[job_id] = {
+            "stage": stage,
+            "percentage": percentage,
+            "estimated_remaining_ms": estimated_remaining_ms,
+        }
+
+    def clear(self, job_id):
+        self._store.pop(job_id, None)
+
+    def get_progress(self, job_id):
+        return self._store.get(job_id)
+
+
+class FakeJobDispatcher:
+    def __init__(self) -> None:
+        self.dispatched_job_ids: list[str] = []
+
+    def dispatch(self, job_id: str) -> None:
+        self.dispatched_job_ids.append(job_id)
+
+
 class FakeJobRepository:
     def __init__(self) -> None:
         self.jobs: list[Job] = []
@@ -105,7 +131,25 @@ def fake_storage_client() -> FakeStorageClient:
 
 
 @pytest.fixture
-def app(fake_profile, fake_project_repository, fake_video_repository, fake_job_repository, fake_storage_client):
+def fake_job_dispatcher() -> FakeJobDispatcher:
+    return FakeJobDispatcher()
+
+
+@pytest.fixture
+def fake_progress_reporter() -> FakeProgressReporter:
+    return FakeProgressReporter()
+
+
+@pytest.fixture
+def app(
+    fake_profile,
+    fake_project_repository,
+    fake_video_repository,
+    fake_job_repository,
+    fake_storage_client,
+    fake_job_dispatcher,
+    fake_progress_reporter,
+):
     from app.api.v1 import deps as v1_deps
     from app.api.v1.upload import get_upload_service
     from app.auth.dependencies import get_current_profile
@@ -118,6 +162,8 @@ def app(fake_profile, fake_project_repository, fake_video_repository, fake_job_r
     fastapi_app.dependency_overrides[v1_deps.get_project_repository] = lambda: fake_project_repository
     fastapi_app.dependency_overrides[v1_deps.get_video_repository] = lambda: fake_video_repository
     fastapi_app.dependency_overrides[v1_deps.get_job_repository] = lambda: fake_job_repository
+    fastapi_app.dependency_overrides[v1_deps.get_job_dispatcher] = lambda: fake_job_dispatcher
+    fastapi_app.dependency_overrides[v1_deps.get_progress_reporter] = lambda: fake_progress_reporter
 
     def _upload_service():
         from app.core.config import get_settings
