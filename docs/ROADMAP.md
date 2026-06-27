@@ -229,7 +229,7 @@ Tasks
 
 □ Prompt Templates
 
-□ Fireworks Integration
+□ Groq Integration (implemented as the speech provider; Fireworks remains a supported-but-unused provider name per contracts/ai.md)
 
 □ Style Selection
 

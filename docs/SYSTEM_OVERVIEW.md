@@ -300,6 +300,8 @@ FFmpeg
 
 AI
 
+Groq API (current speech/creative/caption provider)
+
 Fireworks API
 
 Gemini

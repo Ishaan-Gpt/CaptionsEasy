@@ -86,9 +86,13 @@ class FakeProjectRepository:
         project.status = status
         return project
 
-    async def get_all_by_owner(self, owner_id, *, limit=50, offset=0):
+    async def get_all_by_owner(self, owner_id, *, limit=50, offset=0, include_archived=False):
         matches = [
-            p for p in self.projects.values() if p.owner_id == owner_id and p.deleted_at is None
+            p
+            for p in self.projects.values()
+            if p.owner_id == owner_id
+            and p.deleted_at is None
+            and (include_archived or getattr(p, "archived_at", None) is None)
         ]
         matches.sort(key=lambda p: p.created_at, reverse=True)
         return matches[offset : offset + limit], len(matches)
@@ -108,6 +112,10 @@ class FakeProjectRepository:
 
     async def soft_delete(self, project):
         project.deleted_at = _now()
+        return project
+
+    async def set_archived(self, project, *, archived):
+        project.archived_at = _now() if archived else None
         return project
 
 

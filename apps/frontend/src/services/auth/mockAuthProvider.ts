@@ -80,4 +80,12 @@ export const mockAuthProvider: AuthProvider = {
     if (typeof window === "undefined") return false;
     return !!localStorage.getItem(MOCK_TOKEN_KEY);
   },
+
+  async requestPasswordReset(_email: string) {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  },
+
+  async updatePassword(_newPassword: string) {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  },
 };

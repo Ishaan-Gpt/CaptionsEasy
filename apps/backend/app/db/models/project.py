@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +26,7 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     style: Mapped[str | None] = mapped_column(String, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     owner: Mapped["Profile"] = relationship(back_populates="projects")  # noqa: F821
     videos: Mapped[list["Video"]] = relationship(  # noqa: F821

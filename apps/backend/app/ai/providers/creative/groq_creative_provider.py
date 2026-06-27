@@ -20,9 +20,11 @@ class GroqCreativeProvider(CreativeProvider):
 
     async def analyze(self, *, transcript: Transcript) -> ProviderOutput:
         prompt_template = load_prompt("creative_analysis")
-        # Format prompt with transcript JSON
+        # The prompt's JSON example contains literal { } braces, so a plain
+        # str.format() misparses them as format fields (KeyError). A direct
+        # placeholder substitution avoids that entirely.
         transcript_json_str = json.dumps(transcript.model_dump(), indent=2)
-        user_message = prompt_template.format(transcript_json=transcript_json_str)
+        user_message = prompt_template.replace("{transcript_json}", transcript_json_str)
 
         start = time.monotonic()
         response_json = await self._call_groq(user_message)

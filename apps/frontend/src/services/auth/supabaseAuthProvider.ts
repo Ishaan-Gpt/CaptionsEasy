@@ -18,9 +18,18 @@ function mapSupabaseUser(sbUser: any): User {
 
 let activeToken: string | null = null;
 
-// Track auth state changes to dynamically cache the token
 if (typeof window !== "undefined") {
+  // Track auth state changes (login/logout/token refresh) to dynamically
+  // cache the token. supabase-js fires "INITIAL_SESSION" once its own
+  // startup refresh-if-expired completes, but that's async — until it
+  // fires, getToken() below would otherwise fall back to the raw,
+  // possibly-expired token straight from localStorage. Eagerly awaiting
+  // getSession() here (which itself waits on that same internal refresh)
+  // closes most of that race on page load.
   supabase.auth.onAuthStateChange((_event, session) => {
+    activeToken = session?.access_token || null;
+  });
+  supabase.auth.getSession().then(({ data: { session } }) => {
     activeToken = session?.access_token || null;
   });
 }
@@ -109,5 +118,21 @@ export const supabaseAuthProvider: AuthProvider = {
 
   isAuthenticated() {
     return !!this.getToken();
+  },
+
+  async requestPasswordReset(email: string) {
+    const redirectTo =
+      typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) {
+      throw new Error(error.message);
+    }
+  },
+
+  async updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      throw new Error(error.message);
+    }
   },
 };

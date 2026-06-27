@@ -21,16 +21,25 @@ const GET_RETRY_DELAY_MS = 400;
 export interface ApiErrorBody {
   code: string;
   message: string;
+  details?: Record<string, unknown> | null;
+  retryable?: boolean;
+  timestamp?: string;
 }
 
 export class ApiError extends Error {
   code: string;
   status: number;
+  details: Record<string, unknown> | null;
+  retryable: boolean;
+  timestamp: string | null;
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.message);
     this.code = body.code;
     this.status = status;
+    this.details = body.details ?? null;
+    this.retryable = body.retryable ?? false;
+    this.timestamp = body.timestamp ?? null;
   }
 }
 
@@ -123,6 +132,35 @@ export const apiClient = {
       } catch (err) {
         lastError = err;
         // Only retry network failures, never aborts or backend error responses.
+        if (!(err instanceof NetworkUnavailableError) || attempt === GET_RETRY_ATTEMPTS) {
+          throw err;
+        }
+        await sleep(GET_RETRY_DELAY_MS);
+      }
+    }
+    throw lastError;
+  },
+
+  /** Like `get`, but returns `meta` alongside `data` — needed for paginated
+   * list endpoints (contracts/api.md > Standard Response Format `meta`). */
+  async getWithMeta<T>(path: string, init?: { signal?: AbortSignal }): Promise<{ data: T; meta: Record<string, unknown> }> {
+    const token = getAuthToken();
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= GET_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
+          headers,
+          signal: init?.signal,
+        });
+        const body = await response.json();
+        if (!response.ok || body.success === false) {
+          throw new ApiError(response.status, body.error ?? { code: "UNKNOWN_ERROR", message: "Request failed." });
+        }
+        return { data: body.data as T, meta: body.meta ?? {} };
+      } catch (err) {
+        lastError = err;
         if (!(err instanceof NetworkUnavailableError) || attempt === GET_RETRY_ATTEMPTS) {
           throw err;
         }

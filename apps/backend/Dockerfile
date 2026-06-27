@@ -14,6 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY apps/backend ./apps/backend
 COPY packages ./packages
+# app.ai.prompts.load_prompt resolves prompt templates relative to the repo
+# root (apps/backend/app/ai/prompts.py -> 5 parents up) — without this, every
+# real Groq creative/caption call would 500 with FileNotFoundError.
+COPY prompts ./prompts
 
 WORKDIR /app/apps/backend
 

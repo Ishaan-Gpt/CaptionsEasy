@@ -59,23 +59,20 @@ class StageLogger:
 
     def log_failure(self, *, stage: PipelineStage, error: Exception, attempt: int) -> None:
         logger.error(
-            "ai_stage_failure",
-            extra={
-                **self._base_fields(stage),
-                "attempt": attempt,
-                "success": False,
-                "error": str(error),
-                "error_type": type(error).__name__,
-            },
+            "ai_stage_failure stage=%s job_id=%s attempt=%s error_type=%s error=%s",
+            stage.value,
+            self._job_id,
+            attempt,
+            type(error).__name__,
+            error,
         )
 
     def log_retry(self, *, stage: PipelineStage, attempt: int, error: Exception) -> None:
         logger.warning(
-            "ai_stage_retry",
-            extra={
-                **self._base_fields(stage),
-                "attempt": attempt,
-                "error": str(error),
-                "error_type": type(error).__name__,
-            },
+            "ai_stage_retry stage=%s job_id=%s attempt=%s error_type=%s error=%s",
+            stage.value,
+            self._job_id,
+            attempt,
+            type(error).__name__,
+            error,
         )

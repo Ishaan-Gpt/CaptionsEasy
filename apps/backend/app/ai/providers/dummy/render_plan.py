@@ -343,6 +343,14 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     if hold_extension > 0:
                         curr_evt["end_ms"] += hold_extension
 
+            # Word-alignment search (get_segment_word_timings) can match the
+            # wrong transcript word when segments share repeated phrasing,
+            # producing a group whose end_ms lands after the next group's
+            # start_ms. Clamp rather than let it through as an invalid,
+            # overlapping MotionScript.
+            if curr_evt["end_ms"] >= next_evt["start_ms"]:
+                curr_evt["end_ms"] = max(curr_evt["start_ms"] + 1, next_evt["start_ms"] - 1)
+
         # 2. Quality Evaluation Scoring
         readability_score = max(1.0, 10.0 - (single_word_lines_count * 1.5))
         timing_score = max(1.0, 10.0 - (flashing_captions_count * 2.0))

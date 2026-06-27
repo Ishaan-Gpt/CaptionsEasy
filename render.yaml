@@ -4,23 +4,24 @@ services:
     runtime: docker
     dockerfilePath: ./apps/backend/Dockerfile
     dockerContext: .
-    plan: starter
+    plan: free
     healthCheckPath: /health
     preDeployCommand: alembic upgrade head
     envVars:
       - key: ENVIRONMENT
         value: production
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: motionai-redis
-          property: connectionString
+      # REDIS_URL is the existing Upstash Redis instance already used in
+      # local dev (apps/backend/.env) — no separate Render-managed Redis is
+      # provisioned, since Upstash's free tier already covers this and a
+      # second Redis would be redundant cost/complexity.
+      #
       # Everything below has no safe default and must be set manually in
-      # the Render dashboard (Supabase project + Fireworks account):
-      # DATABASE_URL_ASYNC, DATABASE_URL, SUPABASE_JWT_SECRET, SUPABASE_URL,
-      # SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_BUCKET,
-      # FIREWORKS_API_KEY, CORS_ALLOW_ORIGINS (the Vercel frontend URL),
-      # SPEECH_PROVIDER_NAME=fireworks.
+      # the Render dashboard (real values already live in apps/backend/.env):
+      # REDIS_URL, DATABASE_URL_ASYNC, DATABASE_URL, SUPABASE_JWT_SECRET,
+      # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_BUCKET,
+      # GROQ_API_KEY, CORS_ALLOW_ORIGINS (the Vercel frontend URL),
+      # SPEECH_PROVIDER_NAME=groq, CREATIVE_PROVIDER_NAME=groq,
+      # CAPTION_PROVIDER_NAME=groq.
 
   - type: worker
     name: motionai-worker
@@ -28,19 +29,10 @@ services:
     dockerfilePath: ./apps/backend/Dockerfile
     dockerContext: .
     dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
-    plan: starter
+    plan: free
     envVars:
       - key: ENVIRONMENT
         value: production
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: motionai-redis
-          property: connectionString
-      # Same manual env vars as motionai-backend above — the worker needs
-      # the same Supabase/Fireworks credentials to run the AI pipeline.
-
-  - type: redis
-    name: motionai-redis
-    plan: starter
-    ipAllowList: []
+      # Same manual env vars as motionai-backend above (including REDIS_URL,
+      # the existing Upstash instance) — the worker needs the same
+      # Supabase/Groq credentials to run the AI pipeline.

@@ -30,13 +30,11 @@ class WorkerLogger:
 
     def log_error(self, job_id: str, *, error: Exception, retry_count: int) -> None:
         logger.warning(
-            "job_error",
-            extra={
-                "job_id": job_id,
-                "retry_count": retry_count,
-                "error": str(error),
-                "error_type": type(error).__name__,
-            },
+            "job_error job_id=%s retry_count=%s error_type=%s error=%s",
+            job_id,
+            retry_count,
+            type(error).__name__,
+            error,
         )
 
     def log_dead_letter(self, job_id: str, *, retry_count: int) -> None:

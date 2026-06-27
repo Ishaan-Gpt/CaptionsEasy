@@ -72,15 +72,17 @@ export default function LandingPage() {
             variant="secondary"
             size="lg"
             className="w-48 gap-2 cursor-pointer"
-            onClick={() => alert("Playing product demo video...")}
+            onClick={() =>
+              document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })
+            }
           >
             <Play size={14} className="fill-current" />
-            Watch Demo
+            See How It Works
           </Button>
         </div>
 
         {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-16 w-full text-left">
+        <div id="how-it-works" className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-16 w-full text-left">
           {[
             {
               title: "Speech Analysis",

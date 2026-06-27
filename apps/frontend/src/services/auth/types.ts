@@ -13,4 +13,11 @@ export interface AuthProvider {
   getCurrentUser(): Promise<User | null>;
   getToken(): string | null;
   isAuthenticated(): boolean;
+  /** Sends a real password-recovery email. Resolves on success; throws on
+   * failure (e.g. provider error) — callers show the result as a graceful
+   * error rather than a fake "check your email" success. */
+  requestPasswordReset(email: string): Promise<void>;
+  /** Completes a password reset from the recovery link's session
+   * (established client-side by Supabase's redirect before this is called). */
+  updatePassword(newPassword: string): Promise<void>;
 }

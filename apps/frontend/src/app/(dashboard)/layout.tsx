@@ -16,12 +16,14 @@ import {
 } from "lucide-react";
 import { authService } from "@/services/auth";
 import { User as UserType } from "@/services/types";
+import { usageService, Usage } from "@/services/usage";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const [systemStatus, setSystemStatus] = useState<{
     status: string;
     checks: { database: boolean; redis: boolean };
@@ -54,14 +56,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     authService.getCurrentUser().then((user) => {
       if (!user) {
-        // Create a default session if somehow logged out but token remains
-        authService.register("Creator Chris", "chris@example.com", "password123").then((res) => {
-          setCurrentUser(res.user);
-        });
+        // A token is present but Supabase can't resolve a user for it
+        // (expired/revoked session) — the only honest move is to force a
+        // real re-login, never silently fabricate an account.
+        authService.logout().finally(() => router.push("/login"));
       } else {
         setCurrentUser(user);
       }
     });
+
+    usageService.getUsage().then(setUsage).catch(() => setUsage(null));
   }, [router]);
 
   const handleLogout = async () => {
@@ -197,7 +201,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/5 border border-indigo-500/20 text-xs font-medium text-indigo-400 shadow-sm shadow-indigo-500/5">
               <Sparkles size={13} className="animate-pulse" />
-              <span>95 credits left</span>
+              <span>
+                {usage === null
+                  ? "Usage unavailable"
+                  : `${usage.uploads} upload${usage.uploads === 1 ? "" : "s"} · ${usage.exports} export${usage.exports === 1 ? "" : "s"}`}
+              </span>
             </div>
           </div>
         </header>

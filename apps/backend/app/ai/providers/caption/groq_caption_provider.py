@@ -20,12 +20,15 @@ class GroqCaptionProvider(CaptionProvider):
 
     async def plan(self, *, transcript: Transcript, creative_plan: CreativePlan) -> ProviderOutput:
         prompt_template = load_prompt("caption_planning")
-        # Format prompt with transcript and creative plan JSON
+        # The prompt's JSON example contains literal { } braces, so a plain
+        # str.format() misparses them as format fields (KeyError). A direct
+        # placeholder substitution avoids that entirely.
         transcript_json_str = json.dumps(transcript.model_dump(), indent=2)
         creative_plan_json_str = json.dumps(creative_plan.model_dump(), indent=2)
-        user_message = prompt_template.format(
-            transcript_json=transcript_json_str,
-            creative_plan_json=creative_plan_json_str,
+        user_message = (
+            prompt_template
+            .replace("{transcript_json}", transcript_json_str)
+            .replace("{creative_plan_json}", creative_plan_json_str)
         )
 
         start = time.monotonic()

@@ -18,6 +18,7 @@ interface BackendProject {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  archived_at: string | null;
 }
 
 function toProject(p: BackendProject): Project {
@@ -31,10 +32,40 @@ function toProject(p: BackendProject): Project {
     created_at: p.created_at,
     updated_at: p.updated_at,
     deleted_at: p.deleted_at ?? undefined,
+    archived_at: p.archived_at ?? undefined,
   };
 }
 
+export interface ProjectPage {
+  projects: Project[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export const projectsService = {
+  /** Source: contracts/api.md > GET /projects (paginated). */
+  async getProjectsPage(opts?: {
+    limit?: number;
+    offset?: number;
+    includeArchived?: boolean;
+  }): Promise<ProjectPage> {
+    const params = new URLSearchParams();
+    params.set("limit", String(opts?.limit ?? 20));
+    params.set("offset", String(opts?.offset ?? 0));
+    if (opts?.includeArchived) params.set("include_archived", "true");
+
+    const { data, meta } = await apiClient.getWithMeta<BackendProject[]>(
+      `/projects?${params.toString()}`
+    );
+    return {
+      projects: data.map(toProject),
+      total: (meta.total as number) ?? data.length,
+      limit: (meta.limit as number) ?? opts?.limit ?? 20,
+      offset: (meta.offset as number) ?? opts?.offset ?? 0,
+    };
+  },
+
   async getProjects(): Promise<Project[]> {
     const projects = await apiClient.get<BackendProject[]>("/projects");
     return projects.map(toProject);
@@ -67,6 +98,21 @@ export const projectsService = {
 
   async deleteProject(id: string): Promise<void> {
     await apiClient.delete(`/projects/${id}`);
+  },
+
+  async archiveProject(id: string): Promise<Project> {
+    const project = await apiClient.post<BackendProject>(`/projects/${id}/archive`);
+    return toProject(project);
+  },
+
+  async unarchiveProject(id: string): Promise<Project> {
+    const project = await apiClient.post<BackendProject>(`/projects/${id}/unarchive`);
+    return toProject(project);
+  },
+
+  async duplicateProject(id: string): Promise<Project> {
+    const project = await apiClient.post<BackendProject>(`/projects/${id}/duplicate`);
+    return toProject(project);
   },
 
   async updateProjectStyle(id: string, style: string): Promise<Project> {

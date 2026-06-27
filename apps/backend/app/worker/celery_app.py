@@ -8,6 +8,8 @@ Redis-level half (guards against two workers picking up the same redelivered
 job concurrently).
 """
 
+import ssl
+
 from celery import Celery
 from celery.signals import worker_shutting_down
 
@@ -16,7 +18,20 @@ from app.worker.logging import logger
 
 settings = get_settings()
 
-celery_app = Celery("motionai", broker=settings.redis_url, backend=settings.redis_url)
+celery_app = Celery(
+    "motionai",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+    # `app.worker.tasks` is where every @celery_app.task is defined; it
+    # imports `celery_app` from *this* module, so importing it directly up
+    # top here would be circular. `include` has Celery import it lazily
+    # after construction — without this, `celery -A app.worker.celery_app
+    # worker` (the exact command render.yaml/README.md document) boots
+    # "ready" with zero registered tasks, and every dispatched job is
+    # silently discarded with "Received unregistered task" until a task
+    # message happens to arrive after something else imports tasks.py.
+    include=["app.worker.tasks"],
+)
 
 celery_app.conf.update(
     task_acks_late=True,
@@ -27,6 +42,16 @@ celery_app.conf.update(
     task_soft_time_limit=540,
     worker_concurrency=4,
 )
+
+if settings.redis_url.startswith("rediss://"):
+    # Celery's redis transport requires an explicit ssl_cert_reqs for
+    # rediss:// URLs (e.g. Upstash) — otherwise both the broker and the
+    # result backend raise ValueError on first use (`.delay()`), not at
+    # import time, so this was invisible until something actually
+    # dispatched a task against a managed TLS Redis instance.
+    _ssl_opts = {"ssl_cert_reqs": ssl.CERT_NONE}
+    celery_app.conf.broker_use_ssl = _ssl_opts
+    celery_app.conf.redis_backend_use_ssl = _ssl_opts
 
 celery_app.conf.beat_schedule = {
     "cleanup-old-exports-daily": {

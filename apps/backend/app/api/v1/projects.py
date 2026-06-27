@@ -68,10 +68,13 @@ class UpdateProjectRequest(BaseModel):
 async def list_projects(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    include_archived: bool = Query(default=False),
     profile: Profile = Depends(get_current_profile),
     project_repository: ProjectRepository = Depends(get_project_repository),
 ):
-    projects, total = await project_repository.get_all_by_owner(profile.id, limit=limit, offset=offset)
+    projects, total = await project_repository.get_all_by_owner(
+        profile.id, limit=limit, offset=offset, include_archived=include_archived
+    )
     return success_response(
         [ProjectRead.model_validate(p).model_dump(mode="json") for p in projects],
         meta={"total": total, "limit": limit, "offset": offset},
@@ -122,6 +125,44 @@ async def delete_project(
     dispatcher.dispatch_cleanup(str(project.id))
     
     return success_response(None, status_code=204)
+
+
+@router.post("/projects/{project_id}/archive")
+async def archive_project(
+    project: Project = Depends(get_owned_project),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    updated = await project_repository.set_archived(project, archived=True)
+    return success_response(ProjectRead.model_validate(updated).model_dump(mode="json"))
+
+
+@router.post("/projects/{project_id}/unarchive")
+async def unarchive_project(
+    project: Project = Depends(get_owned_project),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    updated = await project_repository.set_archived(project, archived=False)
+    return success_response(ProjectRead.model_validate(updated).model_dump(mode="json"))
+
+
+@router.post("/projects/{project_id}/duplicate", status_code=201)
+async def duplicate_project(
+    project: Project = Depends(get_owned_project),
+    profile: Profile = Depends(get_current_profile),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    """Clones project metadata (title/description/style) only — a real,
+    minimal duplicate. It does not copy video/job/transcript/export rows;
+    the duplicate starts at CREATED and the user re-uploads, same as any new
+    project. Cloning multi-GB video storage objects silently behind a
+    "duplicate" button would be a surprising, slow, and storage-costly
+    operation to hide from the user."""
+    copy = await project_repository.create(
+        owner_id=profile.id, title=f"{project.title} (Copy)", description=project.description
+    )
+    if project.style is not None:
+        copy = await project_repository.update_fields(copy, style=project.style)
+    return success_response(ProjectRead.model_validate(copy).model_dump(mode="json"), status_code=201)
 
 
 @router.post("/projects/{project_id}/process", status_code=202)

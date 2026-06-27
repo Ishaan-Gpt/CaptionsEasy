@@ -43,11 +43,21 @@ class ProjectRepository:
         return project
 
     async def get_all_by_owner(
-        self, owner_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+        self,
+        owner_id: uuid.UUID,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        include_archived: bool = False,
     ) -> tuple[list[Project], int]:
         """Returns (page of non-deleted projects, total count) for pagination.
-        Source: contracts/api.md > GET /projects ("Returns paginated projects")."""
-        base_filter = (Project.owner_id == owner_id, Project.deleted_at.is_(None))
+        Source: contracts/api.md > GET /projects ("Returns paginated projects").
+        Archived projects are excluded unless `include_archived=True` — they
+        still exist (unlike soft-deleted ones), just hidden from the default
+        dashboard view."""
+        base_filter = [Project.owner_id == owner_id, Project.deleted_at.is_(None)]
+        if not include_archived:
+            base_filter.append(Project.archived_at.is_(None))
 
         total = await self._db.execute(select(func.count()).select_from(Project).where(*base_filter))
         result = await self._db.execute(
@@ -86,6 +96,12 @@ class ProjectRepository:
 
     async def soft_delete(self, project: Project) -> Project:
         project.deleted_at = datetime.now(timezone.utc)
+        await self._db.commit()
+        await self._db.refresh(project)
+        return project
+
+    async def set_archived(self, project: Project, *, archived: bool) -> Project:
+        project.archived_at = datetime.now(timezone.utc) if archived else None
         await self._db.commit()
         await self._db.refresh(project)
         return project

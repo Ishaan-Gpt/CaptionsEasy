@@ -18,6 +18,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  archived_at?: string;
 }
 
 export interface Video {

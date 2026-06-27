@@ -14,6 +14,7 @@ two, via `asyncio.run`, rather than spreading asyncio through the worker.
 import asyncio
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.orchestration.factory import build_default_engine

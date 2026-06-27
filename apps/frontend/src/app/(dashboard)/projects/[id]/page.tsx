@@ -14,6 +14,7 @@ import {
   Check,
 } from "lucide-react";
 import { projectsService } from "@/services/projects";
+import { authService } from "@/services/auth";
 import { jobsService, JobStatusResponse } from "@/services/jobs";
 import { uploadService, UploadValidationError } from "@/services/upload";
 import { transcriptService, TranscriptResponse } from "@/services/transcript";
@@ -66,6 +67,7 @@ export default function ProjectWorkspacePage() {
   } = useQuery<Project | null>({
     queryKey: ["project", projectId],
     queryFn: () => projectsService.getProjectById(projectId),
+    enabled: authService.isAuthenticated(),
   });
 
   const startProcessing = async () => {

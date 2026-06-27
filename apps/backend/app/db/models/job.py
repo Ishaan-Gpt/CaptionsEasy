@@ -23,7 +23,11 @@ class Job(UUIDPKMixin, TimestampMixin, Base):
     # TODO(database.md): job_type has no enumerated values in the contract.
     job_type: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status", native_enum=True),
+        # values_callable: without it, SQLAlchemy sends the enum MEMBER NAME
+        # ("QUEUED") on every INSERT/UPDATE, but the live Postgres `job_status`
+        # type only has the lowercase VALUES ("queued", ...) — every job
+        # write failed with InvalidTextRepresentationError until this was set.
+        Enum(JobStatus, name="job_status", native_enum=True, values_callable=lambda enum: [e.value for e in enum]),
         nullable=False,
         default=JobStatus.QUEUED,
         server_default=JobStatus.QUEUED.value,

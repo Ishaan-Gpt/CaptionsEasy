@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias="DATABASE_URL_ASYNC")
 
     # --- Auth (Supabase) ---
+    # Legacy projects sign access tokens with this shared secret (HS256).
+    # Newer projects use asymmetric "JWT Signing Keys" (e.g. ES256) instead —
+    # those are verified via supabase_url's JWKS endpoint, not this secret.
+    # See app.auth.jwt.decode_supabase_jwt, which tries both.
     supabase_jwt_secret: str = Field(..., alias="SUPABASE_JWT_SECRET")
     supabase_jwt_algorithm: str = Field(default="HS256", alias="SUPABASE_JWT_ALGORITHM")
 

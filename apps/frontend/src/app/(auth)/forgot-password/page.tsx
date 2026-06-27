@@ -6,6 +6,7 @@ import { z } from "zod";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { authService } from "@/services/auth";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -16,6 +17,7 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -25,13 +27,13 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
+    setSubmitError(null);
     try {
       forgotPasswordSchema.parse(data);
-      // Simulate network request
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await authService.requestPasswordReset(data.email);
       setSuccess(true);
     } catch (err) {
-      // Ignored for simulation
+      setSubmitError(err instanceof Error ? err.message : "Failed to send reset email. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +89,10 @@ export default function ForgotPasswordPage() {
             },
           })}
         />
+
+        {submitError && (
+          <p className="text-xs text-red-400 -mt-1">{submitError}</p>
+        )}
 
         <Button
           type="submit"

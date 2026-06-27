@@ -206,6 +206,8 @@ Claude
 
 OpenAI
 
+Groq (current speech provider — see app.ai.providers.speech.groq_speech_provider)
+
 Fireworks
 
 Future providers supported.
