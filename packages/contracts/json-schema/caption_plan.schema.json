@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/caption_plan.schema.json",
+  "title": "CaptionPlan",
+  "description": "Caption segmentation. Never contains font information or animation. Source: contracts/json-schemas.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "caption_segments"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "caption_segments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CaptionSegment" }
+    }
+  },
+  "$defs": {
+    "CaptionSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "start_ms", "end_ms", "emphasis", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "start_ms": { "type": "integer", "minimum": 0 },
+        "end_ms": { "type": "integer", "minimum": 0 },
+        "emphasis": {
+          "description": "TODO(json-schemas.md): field shape not specified beyond its name; assumed to be word-index positions within `text`.",
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

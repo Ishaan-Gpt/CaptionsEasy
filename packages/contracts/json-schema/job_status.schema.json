@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/job_status.schema.json",
+  "title": "JobStatus",
+  "description": "Used by frontend progress UI. Source: contracts/json-schemas.md, contracts/database.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "stage", "progress", "status", "estimated_remaining_ms", "error"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "stage": { "type": "string" },
+    "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "processing", "completed", "failed", "cancelled"]
+    },
+    "estimated_remaining_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "api_error.schema.json" }
+      ]
+    }
+  }
+}

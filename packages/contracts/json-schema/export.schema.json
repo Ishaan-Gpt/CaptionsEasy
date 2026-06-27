@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/export.schema.json",
+  "title": "Export",
+  "description": "Source: contracts/json-schemas.md, contracts/database.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "resolution", "quality", "download_url", "render_time_ms", "file_size"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "resolution": {
+      "type": ["string", "null"],
+      "description": "TODO(database.md): no enumerated resolution values defined in the contracts."
+    },
+    "quality": {
+      "type": ["string", "null"],
+      "description": "TODO(database.md): no enumerated quality values defined in the contracts."
+    },
+    "download_url": { "type": ["string", "null"] },
+    "render_time_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "file_size": { "type": ["integer", "null"], "minimum": 0 }
+  }
+}

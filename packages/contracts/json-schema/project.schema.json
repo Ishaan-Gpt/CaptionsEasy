@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/project.schema.json",
+  "title": "Project",
+  "description": "Source: contracts/json-schemas.md, contracts/database.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "status", "thumbnail", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "title": { "type": "string" },
+    "status": {
+      "type": ["string", "null"],
+      "description": "TODO(database.md): no enumerated status values defined in the contracts."
+    },
+    "thumbnail": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/video.schema.json",
+  "title": "Video",
+  "description": "Source: contracts/json-schemas.md, contracts/database.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "duration_ms", "width", "height", "fps", "codec", "storage_path"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+    "width": { "type": ["integer", "null"], "minimum": 1 },
+    "height": { "type": ["integer", "null"], "minimum": 1 },
+    "fps": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "codec": { "type": ["string", "null"] },
+    "storage_path": { "type": "string" }
+  }
+}

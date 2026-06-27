@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "project_id": "9b1d6e2e-8f3a-4a0a-9d4a-3a2a6f4a0001",
+    "video_id": "9b1d6e2e-8f3a-4a0a-9d4a-3a2a6f4a0002",
+    "generated_at": "2026-06-27T10:00:00Z",
+    "generator_version": "motion-planner-1.0.0"
+  },
+  "assets": [
+    {
+      "id": "font-inter-bold",
+      "type": "font",
+      "source": "https://storage.motionai.dev/fonts/inter-bold.ttf",
+      "preload": true
+    }
+  ],
+  "global_settings": {
+    "canvas": { "width": 1080, "height": 1920 },
+    "frame_rate": 30,
+    "resolution": "1080x1920",
+    "aspect_ratio": "9:16",
+    "safe_area": { "top": 120, "bottom": 200, "left": 60, "right": 60 },
+    "theme": "dark",
+    "default_font": "Inter Bold",
+    "default_colors": ["#FFFFFF", "#FFD60A"],
+    "motion_preset": "cinematic"
+  },
+  "timeline": [
+    {
+      "id": "evt-001",
+      "start_ms": 0,
+      "end_ms": 1200,
+      "layer": "captions",
+      "type": "caption",
+      "payload": {
+        "text": "This changes everything",
+        "font": "Inter Bold",
+        "size": 64,
+        "weight": "700",
+        "color": "#FFFFFF",
+        "alignment": "center",
+        "animation": "pop"
+      }
+    },
+    {
+      "id": "evt-002",
+      "start_ms": 200,
+      "end_ms": 900,
+      "layer": "highlights",
+      "type": "highlight",
+      "payload": {
+        "indices": [1, 2],
+        "color": "#FFD60A",
+        "animation": "scale"
+      }
+    },
+    {
+      "id": "evt-003",
+      "start_ms": 1200,
+      "end_ms": 2400,
+      "layer": "captions",
+      "type": "caption",
+      "payload": {
+        "text": "Watch closely",
+        "font": "Inter Bold",
+        "size": 64,
+        "weight": "700",
+        "color": "#FFFFFF",
+        "alignment": "center",
+        "animation": "slide"
+      }
+    }
+  ],
+  "export_settings": {
+    "resolution": "1080p",
+    "frame_rate": 30,
+    "codec": "h264",
+    "bitrate": "8M",
+    "audio": "aac",
+    "container": "mp4",
+    "quality": "high"
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/render_plan.schema.json",
+  "title": "RenderPlan",
+  "description": "Contract between the AI Pipeline and the Rendering Engine. Source: contracts/renderplan.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "global_settings", "assets", "timeline"],
+  "properties": {
+    "metadata": { "$ref": "#/$defs/Metadata" },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Asset" }
+    },
+    "global_settings": { "$ref": "#/$defs/GlobalSettings" },
+    "timeline": {
+      "type": "array",
+      "description": "Ordered list of events, sorted chronologically. No overlapping events on the same exclusive layer.",
+      "items": { "$ref": "#/$defs/TimelineEvent" }
+    },
+    "export_settings": { "$ref": "#/$defs/ExportSettings" }
+  },
+  "$defs": {
+    "Metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "project_id", "video_id", "generated_at", "generator_version"],
+      "properties": {
+        "version": { "type": "string", "const": "1.0" },
+        "project_id": { "type": "string", "format": "uuid" },
+        "video_id": { "type": "string", "format": "uuid" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "generator_version": { "type": "string" }
+      }
+    },
+    "Asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "source", "preload"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "TODO(renderplan.md): only examples are given (font, image, emoji, audio, icon, brand_asset) — not an exhaustive enum."
+        },
+        "source": { "type": "string" },
+        "preload": { "type": "boolean" }
+      }
+    },
+    "Canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "GlobalSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canvas",
+        "frame_rate",
+        "resolution",
+        "aspect_ratio",
+        "safe_area",
+        "theme",
+        "default_font",
+        "default_colors",
+        "motion_preset"
+      ],
+      "properties": {
+        "canvas": { "$ref": "#/$defs/Canvas" },
+        "frame_rate": { "type": "number", "exclusiveMinimum": 0 },
+        "resolution": { "type": "string" },
+        "aspect_ratio": { "type": "string" },
+        "safe_area": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top", "bottom", "left", "right"],
+          "properties": {
+            "top": { "type": "number", "minimum": 0 },
+            "bottom": { "type": "number", "minimum": 0 },
+            "left": { "type": "number", "minimum": 0 },
+            "right": { "type": "number", "minimum": 0 }
+          }
+        },
+        "theme": { "type": "string" },
+        "default_font": { "type": "string" },
+        "default_colors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "motion_preset": { "type": "string" }
+      }
+    },
+    "Layer": {
+      "type": "string",
+      "enum": ["background", "video", "graphics", "captions", "highlights", "overlays", "debug"]
+    },
+    "EventType": {
+      "type": "string",
+      "enum": ["caption", "highlight", "emoji", "shape", "camera", "transition", "audio_effect"]
+    },
+    "Animation": {
+      "type": "string",
+      "enum": ["fade", "pop", "slide", "bounce", "scale", "rotate", "blur", "elastic", "typewriter"]
+    },
+    "CaptionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "font", "size", "weight", "color", "alignment", "animation"],
+      "properties": {
+        "text": { "type": "string" },
+        "font": { "type": "string" },
+        "size": { "type": "number", "exclusiveMinimum": 0 },
+        "weight": { "type": "string" },
+        "color": { "type": "string" },
+        "alignment": { "type": "string" },
+        "animation": { "$ref": "#/$defs/Animation" }
+      }
+    },
+    "HighlightPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indices", "color", "animation"],
+      "properties": {
+        "indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "color": { "type": "string" },
+        "animation": { "$ref": "#/$defs/Animation" }
+      }
+    },
+    "EmojiPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["emoji", "animation", "position", "scale"],
+      "properties": {
+        "emoji": { "type": "string" },
+        "animation": { "$ref": "#/$defs/Animation" },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        },
+        "scale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "ShapePayload": {
+      "type": "object",
+      "description": "TODO(renderplan.md): only lists shape kinds (rectangle, circle, underline, arrow) without per-kind field definitions.",
+      "additionalProperties": false,
+      "required": ["shape"],
+      "properties": {
+        "shape": { "type": "string", "enum": ["rectangle", "circle", "underline", "arrow"] }
+      }
+    },
+    "CameraPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "zoom": { "type": "number" },
+        "pan": { "type": "object" },
+        "shake": { "type": "number" },
+        "blur": { "type": "number" }
+      }
+    },
+    "TransitionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "duration", "easing"],
+      "properties": {
+        "type": { "type": "string" },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "easing": { "type": "string" }
+      }
+    },
+    "AudioEffectPayload": {
+      "type": "object",
+      "description": "Future only, per renderplan.md.",
+      "additionalProperties": false,
+      "required": ["effect", "volume", "fade"],
+      "properties": {
+        "effect": { "type": "string" },
+        "volume": { "type": "number", "minimum": 0 },
+        "fade": { "type": "number", "minimum": 0 }
+      }
+    },
+    "TimelineEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "start_ms", "end_ms", "layer", "type", "payload"],
+      "properties": {
+        "id": { "type": "string" },
+        "start_ms": { "type": "integer", "minimum": 0 },
+        "end_ms": { "type": "integer", "minimum": 0 },
+        "layer": { "$ref": "#/$defs/Layer" },
+        "type": { "$ref": "#/$defs/EventType" },
+        "payload": {
+          "description": "Shape depends on `type`; see Caption/Highlight/Emoji/Shape/Camera/Transition/AudioEffect payload defs.",
+          "type": "object"
+        }
+      }
+    },
+    "ExportSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolution", "frame_rate", "codec", "bitrate", "audio", "container", "quality"],
+      "properties": {
+        "resolution": { "type": "string" },
+        "frame_rate": { "type": "number", "exclusiveMinimum": 0 },
+        "codec": { "type": "string" },
+        "bitrate": { "type": "string" },
+        "audio": { "type": "string" },
+        "container": { "type": "string" },
+        "quality": { "type": "string" }
+      }
+    }
+  }
+}

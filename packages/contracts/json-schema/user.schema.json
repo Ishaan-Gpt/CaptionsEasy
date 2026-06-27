@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/user.schema.json",
+  "title": "User",
+  "description": "Never exposes authentication secrets. Source: contracts/json-schemas.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "email", "name", "avatar"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "email": { "type": "string", "format": "email" },
+    "name": { "type": ["string", "null"] },
+    "avatar": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/api_error.schema.json",
+  "title": "ApiError",
+  "description": "Used consistently across all APIs. Source: contracts/json-schemas.md, contracts/api.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "details", "retryable", "timestamp"],
+  "properties": {
+    "code": { "type": "string" },
+    "message": { "type": "string" },
+    "details": { "type": ["object", "null"] },
+    "retryable": { "type": "boolean" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

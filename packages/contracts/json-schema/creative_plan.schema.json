@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://motionai.dev/schemas/creative_plan.schema.json",
+  "title": "CreativePlan",
+  "description": "AI's high-level understanding of the video. Contains no rendering instructions. Source: contracts/json-schemas.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "speaking_style",
+    "emotion",
+    "pacing",
+    "energy_curve",
+    "audience",
+    "key_moments",
+    "recommended_style"
+  ],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "speaking_style": { "type": "string" },
+    "emotion": { "type": "string" },
+    "pacing": { "type": "string" },
+    "energy_curve": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["t_ms", "energy"],
+        "properties": {
+          "t_ms": { "type": "integer", "minimum": 0 },
+          "energy": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "audience": { "type": "string" },
+    "key_moments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start_ms", "end_ms", "label"],
+        "properties": {
+          "start_ms": { "type": "integer", "minimum": 0 },
+          "end_ms": { "type": "integer", "minimum": 0 },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    "recommended_style": {
+      "type": "string",
+      "description": "Caption style, per docs/PRD.md Caption Generation styles.",
+      "enum": ["formal", "sarcastic", "humorous_tech", "humorous_non_tech"]
+    }
+  }
+}

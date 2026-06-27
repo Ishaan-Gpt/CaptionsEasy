@@ -1,0 +1,7 @@
+{
+  "code": "VIDEO_TOO_LARGE",
+  "message": "Maximum upload size exceeded.",
+  "details": { "max_size_mb": 500 },
+  "retryable": false,
+  "timestamp": "2026-06-27T10:00:00Z"
+}
