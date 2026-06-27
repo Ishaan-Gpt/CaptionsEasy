@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: motionai-backend
+    runtime: docker
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: motionai-redis
+          property: connectionString
+      # Everything below has no safe default and must be set manually in
+      # the Render dashboard (Supabase project + Fireworks account):
+      # DATABASE_URL_ASYNC, DATABASE_URL, SUPABASE_JWT_SECRET, SUPABASE_URL,
+      # SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_BUCKET,
+      # FIREWORKS_API_KEY, CORS_ALLOW_ORIGINS (the Vercel frontend URL),
+      # SPEECH_PROVIDER_NAME=fireworks.
+
+  - type: worker
+    name: motionai-worker
+    runtime: docker
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    plan: starter
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: motionai-redis
+          property: connectionString
+      # Same manual env vars as motionai-backend above — the worker needs
+      # the same Supabase/Fireworks credentials to run the AI pipeline.
+
+  - type: redis
+    name: motionai-redis
+    plan: starter
+    ipAllowList: []
