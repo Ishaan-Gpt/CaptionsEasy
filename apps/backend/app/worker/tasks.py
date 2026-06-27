@@ -24,22 +24,24 @@ from app.worker.types import JobOutcome
 
 
 def _build_stages(session, job_id: str, settings):
-    """Selects the stage list by the job's `job_type`. The metadata-extraction
-    job created on upload (app.services.upload_service) keeps running the
-    Sprint 1.3 dummy stages; only the AI pipeline job created by
-    POST /projects/{id}/process runs the real speech-recognition stage."""
+    """Selects the stage list by the job's `job_type`."""
     job_row = session.execute(select(Job).where(Job.id == job_id)).scalar_one_or_none()
-    if job_row is not None and job_row.job_type == AI_PIPELINE_JOB_TYPE:
-        video = session.execute(
-            select(Video).where(Video.project_id == job_row.project_id).order_by(Video.created_at.desc())
-        ).scalars().first()
-        return build_ai_pipeline_stages(
-            job_id=job_id,
-            project_id=str(job_row.project_id),
-            video=video,
-            settings=settings,
-            session=session,
-        )
+    if job_row is not None:
+        if job_row.job_type == AI_PIPELINE_JOB_TYPE:
+            video = session.execute(
+                select(Video).where(Video.project_id == job_row.project_id).order_by(Video.created_at.desc())
+            ).scalars().first()
+            return build_ai_pipeline_stages(
+                job_id=job_id,
+                project_id=str(job_row.project_id),
+                video=video,
+                settings=settings,
+                session=session,
+            )
+        elif job_row.job_type == "render":
+            from app.worker.render_stage import build_render_stages
+            return build_render_stages(session, job_id, settings)
+            
     return build_dummy_stages(stage_duration_seconds=settings.job_stage_duration_seconds)
 
 

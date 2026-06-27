@@ -8,12 +8,15 @@ not creative/caption/render planning (out of scope, see docs/ROADMAP.md
 Phases 7+).
 """
 
+import uuid
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth.dependencies import get_current_profile
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ForbiddenError, AppError
 from app.core.responses import success_response
+from app.storage.base import StorageClient
+from app.storage.dependencies import get_storage_client
 from app.db.models.profile import Profile
 from app.db.models.project import Project
 from app.db.schemas.project import ProjectRead
@@ -32,10 +35,12 @@ from .deps import (
     get_creative_plan_repository,
     get_caption_plan_repository,
     get_motion_script_repository,
+    get_export_repository,
 )
 from app.services.creative_plan_repository import CreativePlanRepository
 from app.services.caption_plan_repository import CaptionPlanRepository
 from app.services.motion_script_repository import MotionScriptRepository
+from app.services.export_repository import ExportRepository
 
 
 router = APIRouter(tags=["projects"])
@@ -157,5 +162,78 @@ async def get_motion_script(
     if motion_script is None:
         raise NotFoundError("No motion script found for this project yet.")
     return success_response(motion_script.motion_script_json)
+
+
+class ExportRequest(BaseModel):
+    resolution: str
+    quality: str
+
+
+@router.post("/projects/{project_id}/export", status_code=202)
+async def export_project(
+    body: ExportRequest,
+    project: Project = Depends(get_owned_project),
+    job_repository: JobRepository = Depends(get_job_repository),
+    job_dispatcher: JobDispatcherProtocol = Depends(get_job_dispatcher),
+    motion_script_repository: MotionScriptRepository = Depends(get_motion_script_repository),
+):
+    motion_script = await motion_script_repository.get_latest_for_project(project.id)
+    if motion_script is None:
+        raise AppError("Generate a MotionScript before exporting.", code="BAD_REQUEST", status_code=400)
+
+    job = await job_repository.create_queued(project_id=project.id, job_type="render")
+    job_dispatcher.dispatch(str(job.id))
+    return success_response({"jobId": str(job.id)}, status_code=202)
+
+
+@router.get("/projects/{project_id}/exports")
+async def get_exports(
+    project: Project = Depends(get_owned_project),
+    export_repository: ExportRepository = Depends(get_export_repository),
+    storage_client: StorageClient = Depends(get_storage_client),
+):
+    exports = await export_repository.get_all_by_project(project.id)
+    results = []
+    for exp in exports:
+        download_url = await storage_client.get_signed_url(path=exp.storage_path)
+        data = {
+            "id": str(exp.id),
+            "resolution": exp.resolution,
+            "quality": exp.quality,
+            "download_url": download_url,
+            "render_time_ms": exp.render_duration_ms,
+            "file_size": 0,
+        }
+        results.append(data)
+    return success_response(results)
+
+
+@router.get("/exports/{export_id}")
+async def get_export_by_id(
+    export_id: uuid.UUID,
+    profile: Profile = Depends(get_current_profile),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+    export_repository: ExportRepository = Depends(get_export_repository),
+    storage_client: StorageClient = Depends(get_storage_client),
+):
+    export = await export_repository.get_by_id(export_id)
+    if export is None:
+        raise NotFoundError("Export not found.")
+        
+    project = await project_repository.get_by_id(export.project_id)
+    if project is None or project.owner_id != profile.id:
+        raise ForbiddenError("You do not have access to this export.")
+        
+    download_url = await storage_client.get_signed_url(path=export.storage_path)
+    
+    return success_response({
+        "id": str(export.id),
+        "resolution": export.resolution,
+        "quality": export.quality,
+        "download_url": download_url,
+        "render_time_ms": export.render_duration_ms,
+        "file_size": 0,
+    })
+
 
 

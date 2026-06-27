@@ -25,3 +25,10 @@ class SupabaseStorageClient(StorageClient):
 
     async def download(self, *, path: str) -> bytes:
         return self._client.storage.from_(self._bucket).download(path)
+
+    async def get_signed_url(self, *, path: str, expires_in: int = 3600) -> str:
+        res = self._client.storage.from_(self._bucket).create_signed_url(path, expires_in)
+        if isinstance(res, dict) and "signedURL" in res:
+            return res["signedURL"]
+        return str(res)
+

@@ -18,7 +18,11 @@ class StorageClient(ABC):
 
     @abstractmethod
     async def download(self, *, path: str) -> bytes:
-        """Downloads the bytes stored at `path` in the configured bucket.
-        Added in Sprint 1.5 so the speech provider can fetch uploaded videos
-        without depending on the Supabase SDK directly."""
+        """Downloads the bytes stored at `path` in the configured bucket."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_signed_url(self, *, path: str, expires_in: int = 3600) -> str:
+        """Generates a temporary signed URL to download/stream the file."""
+        raise NotImplementedError
+

@@ -69,4 +69,38 @@ describe("projectsService", () => {
 
     await expect(projectsService.getProjects()).rejects.toBeInstanceOf(NetworkUnavailableError);
   });
+
+  it("calls startExport and getExports correctly", async () => {
+    mockFetch().mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        data: { jobId: "j1" },
+      }, 202)
+    );
+
+    const res = await projectsService.startExport("p1", "1080p", "high");
+    expect(res.jobId).toBe("j1");
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/p1/export"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ resolution: "1080p", quality: "high" }),
+      })
+    );
+
+    mockFetch().mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        data: [{ id: "e1", resolution: "1080p", quality: "high", download_url: "url" }],
+      })
+    );
+
+    const exports = await projectsService.getExports("p1");
+    expect(exports).toHaveLength(1);
+    expect(exports[0].id).toBe("e1");
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/p1/exports"),
+      expect.any(Object)
+    );
+  });
 });

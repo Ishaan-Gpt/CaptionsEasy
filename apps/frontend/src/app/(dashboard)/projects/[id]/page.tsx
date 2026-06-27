@@ -117,6 +117,45 @@ export default function ProjectWorkspacePage() {
     enabled: project?.status === "COMPLETED",
   });
 
+  const {
+    data: exports,
+    refetch: refetchExports,
+  } = useQuery<any[]>({
+    queryKey: ["exports", projectId],
+    queryFn: () => projectsService.getExports(projectId),
+    enabled: project?.status === "COMPLETED",
+  });
+
+  const [renderJobStatus, setRenderJobStatus] = useState<JobStatusResponse | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+  const [devMode, setDevMode] = useState(false);
+
+  const startRendering = async () => {
+    if (isRendering) return;
+    setIsRendering(true);
+    setRenderError(null);
+    setRenderJobStatus(null);
+    
+    try {
+      const { jobId } = await projectsService.startExport(projectId);
+      await jobsService.pollJobStatus(jobId, {
+        onUpdate: (status) => setRenderJobStatus(status),
+      });
+      
+      const finalStatus = await jobsService.getJobStatus(jobId);
+      if (finalStatus.stage.toLowerCase() === "completed" || finalStatus.progress === 100) {
+        await refetchExports();
+      } else {
+        setRenderError(`Rendering failed at stage: ${finalStatus.stage}`);
+      }
+    } catch (err) {
+      setRenderError(describeError(err));
+    } finally {
+      setIsRendering(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       pollAbortRef.current?.abort();
@@ -399,26 +438,39 @@ export default function ProjectWorkspacePage() {
             </Card>
 
             <Card className="border-zinc-900 space-y-4">
-              <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">MotionScript JSON</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Deterministic rendering instructions</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">MotionScript JSON</h3>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Deterministic rendering instructions</p>
+                </div>
+                <Button 
+                  onClick={() => setDevMode(!devMode)} 
+                  variant="secondary" 
+                  className="text-[10px] px-2 py-1 h-auto"
+                >
+                  {devMode ? "Hide Dev Mode" : "Show Dev Mode"}
+                </Button>
               </div>
 
-              {isMotionScriptLoading ? (
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
-                  <Spinner className="w-4 h-4" />
-                  Loading MotionScript...
-                </div>
-              ) : isMotionScriptError ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
-                  {describeError(motionScriptQueryError)}
-                </div>
-              ) : !motionScript ? (
-                <p className="text-xs text-zinc-500 italic">No MotionScript generated yet.</p>
-              ) : (
-                <pre className="text-[10px] text-zinc-400 bg-zinc-950 p-3 rounded-lg overflow-auto max-h-60 font-mono leading-normal border border-zinc-900">
-                  {JSON.stringify(motionScript, null, 2)}
-                </pre>
+              {devMode && (
+                <>
+                  {isMotionScriptLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <Spinner className="w-4 h-4" />
+                      Loading MotionScript...
+                    </div>
+                  ) : isMotionScriptError ? (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
+                      {describeError(motionScriptQueryError)}
+                    </div>
+                  ) : !motionScript ? (
+                    <p className="text-xs text-zinc-500 italic">No MotionScript generated yet.</p>
+                  ) : (
+                    <pre className="text-[10px] text-zinc-400 bg-zinc-950 p-3 rounded-lg overflow-auto max-h-60 font-mono leading-normal border border-zinc-900">
+                      {JSON.stringify(motionScript, null, 2)}
+                    </pre>
+                  )}
+                </>
               )}
             </Card>
 
@@ -435,17 +487,57 @@ export default function ProjectWorkspacePage() {
                 </div>
                 <div className="flex justify-between text-xs border-b border-zinc-900 pb-2">
                   <span className="text-zinc-500">Quality Preset</span>
-                  <span className="font-semibold text-zinc-300">High (Prores)</span>
+                  <span className="font-semibold text-zinc-300">High (H.264 MP4)</span>
                 </div>
               </div>
 
-              <Button disabled className="w-full gap-2 opacity-50 cursor-not-allowed" title="Export/render is not implemented yet">
-                <Download size={14} />
-                Export Clip
-              </Button>
-              <p className="text-[10px] text-zinc-600 text-center">
-                Export rendering is not implemented yet — no backend endpoint exists for this.
-              </p>
+              {isRendering ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium text-zinc-400">
+                    <span>Status: {renderJobStatus?.stage || "Preparing"}</span>
+                    <span>{renderJobStatus?.progress || 0}%</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="bg-indigo-500 h-1.5 transition-all duration-350" 
+                      style={{ width: `${renderJobStatus?.progress || 0}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Button 
+                  onClick={startRendering} 
+                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium animate-pulse"
+                >
+                  <Download size={14} />
+                  Render Video
+                </Button>
+              )}
+
+              {renderError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
+                  {renderError}
+                </div>
+              )}
+
+              {exports && exports.length > 0 && (
+                <div className="pt-2 border-t border-zinc-900 space-y-2">
+                  <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Completed Exports</span>
+                  {exports.map((exp: any) => (
+                    <div key={exp.id} className="flex justify-between items-center text-xs p-2 bg-zinc-950 rounded border border-zinc-900">
+                      <span className="text-zinc-400 font-mono text-[10px]">{exp.resolution} · {exp.quality}</span>
+                      <a 
+                        href={exp.download_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-indigo-400 hover:text-indigo-300 font-semibold underline"
+                      >
+                        Download MP4
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
         </div>

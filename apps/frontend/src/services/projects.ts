@@ -72,4 +72,14 @@ export const projectsService = {
   async startProcessing(id: string): Promise<{ jobId: string }> {
     return apiClient.post<{ jobId: string }>(`/projects/${id}/process`);
   },
+
+  async startExport(id: string, resolution: string = "1080p", quality: string = "high"): Promise<{ jobId: string }> {
+    return apiClient.post<{ jobId: string }>(`/projects/${id}/export`, {
+      json: { resolution, quality }
+    });
+  },
+
+  async getExports(id: string): Promise<any[]> {
+    return apiClient.get<any[]>(`/projects/${id}/exports`);
+  },
 };

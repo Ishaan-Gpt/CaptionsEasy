@@ -51,6 +51,10 @@ class FakeStorageClient:
     async def download(self, *, path: str) -> bytes:
         return self.files[path]
 
+    async def get_signed_url(self, *, path: str, expires_in: int = 3600) -> str:
+        return f"https://mock-supabase.co/storage/v1/object/sign/{path}?token=mock"
+
+
 
 class FakeProjectRepository:
     def __init__(self) -> None:
