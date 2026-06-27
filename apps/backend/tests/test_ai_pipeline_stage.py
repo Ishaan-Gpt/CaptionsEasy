@@ -28,30 +28,48 @@ class FakeSession:
 def test_speech_analysis_stage_persists_a_transcript_using_dummy_provider():
     project_id = str(uuid.uuid4())
     video = Video(id=uuid.uuid4(), project_id=uuid.UUID(project_id), storage_path="projects/p/videos/v.mp4")
-    settings = get_settings().model_copy(update={"speech_provider_name": "dummy"})
+    settings = get_settings().model_copy(update={
+        "speech_provider_name": "dummy",
+        "creative_provider_name": "dummy",
+        "caption_provider_name": "dummy",
+    })
     session = FakeSession()
 
     stages = build_ai_pipeline_stages(
         job_id="job-1", project_id=project_id, video=video, settings=settings, session=session
     )
 
-    assert [s.name for s in stages] == ["Speech Analysis"]
+    assert [s.name for s in stages] == ["AI Pipeline Execution"]
     stages[0].run()
 
     assert session.commits == 1
-    assert len(session.added) == 1
+    assert len(session.added) == 3
+    
     transcript_row = session.added[0]
     assert str(transcript_row.project_id) == project_id
     assert transcript_row.language == "en"
     assert transcript_row.provider == "dummy"
     assert transcript_row.transcript_json["words"]
 
+    creative_row = session.added[1]
+    assert str(creative_row.project_id) == project_id
+    assert creative_row.creative_plan["speaking_style"] == "conversational"
+
+    caption_row = session.added[2]
+    assert str(caption_row.project_id) == project_id
+    assert caption_row.caption_json["caption_segments"]
+
 
 def test_speech_analysis_stage_raises_when_no_video_exists():
-    settings = get_settings().model_copy(update={"speech_provider_name": "dummy"})
+    settings = get_settings().model_copy(update={
+        "speech_provider_name": "dummy",
+        "creative_provider_name": "dummy",
+        "caption_provider_name": "dummy",
+    })
     stages = build_ai_pipeline_stages(
         job_id="job-1", project_id=str(uuid.uuid4()), video=None, settings=settings, session=FakeSession()
     )
 
     with pytest.raises(ValueError, match="No video found"):
         stages[0].run()
+

@@ -16,10 +16,12 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.ai.orchestration.factory import build_speech_only_engine
+from app.ai.orchestration.factory import build_intelligence_only_engine
 from app.ai.types import PipelineContext, PipelineStage
 from app.core.config import Settings
 from app.db.models.transcript import Transcript as TranscriptRow
+from app.db.models.creative_plan import CreativePlan as CreativePlanRow
+from app.db.models.caption_plan import CaptionPlan as CaptionPlanRow
 from app.db.models.video import Video
 from app.worker.stages import Stage
 
@@ -36,23 +38,32 @@ def build_ai_pipeline_stages(
     settings: Settings,
     session: Session,
 ) -> list[Stage]:
-    def _run_speech_analysis() -> None:
+    def _run_ai_pipeline() -> None:
         if video is None:
-            raise ValueError(f"No video found for project {project_id}; cannot run speech recognition.")
+            raise ValueError(f"No video found for project {project_id}; cannot run AI pipeline.")
 
-        engine, _recorder = build_speech_only_engine(speech_provider_name=settings.speech_provider_name)
+        engine, _recorder = build_intelligence_only_engine(
+            speech_provider_name=settings.speech_provider_name,
+            creative_provider_name=settings.creative_provider_name,
+            caption_provider_name=settings.caption_provider_name,
+        )
         ctx = PipelineContext(
             project_id=project_id,
             video_id=str(video.id),
             job_id=job_id,
             video=video,
-            config={"speech_provider_name": settings.speech_provider_name},
+            config={
+                "speech_provider_name": settings.speech_provider_name,
+                "creative_provider_name": settings.creative_provider_name,
+                "caption_provider_name": settings.caption_provider_name,
+            },
         )
 
         outcome = asyncio.run(engine.run(ctx))
         if not outcome.success:
-            raise RuntimeError(f"Speech recognition failed at {outcome.failed_stage}: {outcome.reason}")
+            raise RuntimeError(f"AI pipeline failed at {outcome.failed_stage}: {outcome.reason}")
 
+        # 1. Persist Transcript
         transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]
         session.add(
             TranscriptRow(
@@ -63,6 +74,26 @@ def build_ai_pipeline_stages(
                 transcript_json=transcript.model_dump(mode="json"),
             )
         )
+
+        # 2. Persist Creative Plan
+        creative_plan = ctx.stage_outputs[PipelineStage.CREATIVE_VALIDATION]
+        session.add(
+            CreativePlanRow(
+                project_id=uuid.UUID(str(project_id)),
+                creative_plan=creative_plan.model_dump(mode="json"),
+            )
+        )
+
+        # 3. Persist Caption Plan
+        caption_plan = ctx.stage_outputs[PipelineStage.CAPTION_VALIDATION]
+        session.add(
+            CaptionPlanRow(
+                project_id=uuid.UUID(str(project_id)),
+                caption_json=caption_plan.model_dump(mode="json"),
+            )
+        )
+
         session.commit()
 
-    return [Stage("Speech Analysis", _run_speech_analysis)]
+    return [Stage("AI Pipeline Execution", _run_ai_pipeline)]
+

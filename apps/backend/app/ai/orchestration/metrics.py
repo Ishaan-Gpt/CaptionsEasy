@@ -39,6 +39,8 @@ class StageMetric:
     video_id: str | None = None
     language: str | None = None
     duration_ms: int | None = None
+    repair_count: int = 0
+    validation_failures: int = 0
 
     @classmethod
     def from_usage(
@@ -51,6 +53,8 @@ class StageMetric:
         video_id: str | None = None,
         language: str | None = None,
         duration_ms: int | None = None,
+        repair_count: int = 0,
+        validation_failures: int = 0,
     ) -> "StageMetric":
         return cls(
             job_id=job_id,
@@ -66,6 +70,8 @@ class StageMetric:
             video_id=video_id,
             language=language,
             duration_ms=duration_ms,
+            repair_count=repair_count,
+            validation_failures=validation_failures,
         )
 
 

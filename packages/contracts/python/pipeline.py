@@ -58,6 +58,7 @@ class EnergyCurvePoint(StrictModel):
     energy: float = Field(ge=0, le=1)
 
 
+
 class KeyMoment(StrictModel):
     start_ms: int = Field(ge=0)
     end_ms: int = Field(ge=0)
@@ -74,6 +75,29 @@ class CreativePlan(StrictModel):
     key_moments: list[KeyMoment]
     recommended_style: CaptionStyle
 
+    # Sprint 2 added fields:
+    speaking_pace: str | None = None
+    emotional_progression: str | None = None
+    hook_quality: str | None = None
+    strongest_moments: list[str] | None = None
+    audience_engagement_score: float | None = Field(default=None, ge=0, le=10)
+    audience_type: str | None = None
+    tone: str | None = None
+    storytelling_structure: str | None = None
+    key_highlights: list[str] | None = None
+    emphasis_suggestions: list[str] | None = None
+    pause_opportunities: list[int] | None = None
+    filler_word_analysis: str | None = None
+    viral_worthy_moments: list[str] | None = None
+    cta_detection: str | None = None
+
+    @model_validator(mode="after")
+    def _check_key_moments(self) -> "CreativePlan":
+        for moment in self.key_moments:
+            if moment.end_ms < moment.start_ms:
+                raise ValueError(f"Key moment end_ms before start_ms: {moment!r}")
+        return self
+
 
 class CaptionSegment(StrictModel):
     id: str
@@ -85,7 +109,37 @@ class CaptionSegment(StrictModel):
     emphasis: list[int]
     confidence: float = Field(ge=0, le=1)
 
+    # Sprint 2 added fields:
+    speaker_id: str | None = None
+    emoji_suggestions: list[str] | None = None
+    keywords: list[str] | None = None
+
 
 class CaptionPlan(StrictModel):
     version: Literal["1.0"] = "1.0"
     caption_segments: list[CaptionSegment]
+
+    @model_validator(mode="after")
+    def _check_caption_segments(self) -> "CaptionPlan":
+        if not self.caption_segments:
+            return self
+        previous: CaptionSegment | None = None
+        for segment in self.caption_segments:
+            if segment.end_ms < segment.start_ms:
+                raise ValueError(f"Caption segment end_ms before start_ms: {segment!r}")
+            
+            # Line break and length validation
+            lines = segment.text.split("\n")
+            if len(lines) > 2:
+                raise ValueError(f"Caption segment text must contain at most 2 lines: {segment.text!r}")
+            for line in lines:
+                if len(line) > 40:
+                    raise ValueError(f"Caption segment line exceeds max length of 40 characters: {line!r}")
+            
+            if previous is not None:
+                if segment.start_ms < previous.start_ms:
+                    raise ValueError(f"Caption segments are not sorted chronologically: {previous!r} / {segment!r}")
+                if segment.start_ms < previous.end_ms:
+                    raise ValueError(f"Overlapping caption segments detected: {previous!r} / {segment!r}")
+            previous = segment
+        return self

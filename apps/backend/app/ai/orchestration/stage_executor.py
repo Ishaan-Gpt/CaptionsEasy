@@ -16,6 +16,7 @@ StageLogger (app.ai.logging.structured) — no new logging shape invented.
 """
 
 from dataclasses import replace
+from pydantic import ValidationError
 
 from app.ai.logging.structured import StageLogger
 from app.ai.orchestration.metrics import MetricsRecorder, StageMetric
@@ -79,6 +80,8 @@ class StageExecutor:
     async def _execute_provider_stage(self, definition: StageDefinition, ctx, stage_logger):
         last_error: Exception | None = None
         last_usage: ProviderUsage | None = None
+        repair_count = 0
+        validation_failures = 0
 
         for attempt in (1, 2):  # initial call + "retry provider once"
             try:
@@ -89,17 +92,41 @@ class StageExecutor:
                 continue
 
             try:
-                validated, repaired = await validate_with_repair(
-                    stage=definition.stage,
-                    raw=output.data,
-                    model=definition.output_model,
-                    repair_fn=self._repair_fn,
-                )
-            except StageFailure as exc:
-                last_error = exc
-                last_usage = output.usage
-                stage_logger.log_retry(stage=definition.stage, attempt=attempt, error=exc)
-                continue
+                # Validate output
+                validated = definition.output_model.model_validate(output.data)
+                repaired = False
+            except ValidationError as first_error:
+                validation_failures += 1
+                if self._repair_fn is None:
+                    last_error = StageFailure(
+                        definition.stage,
+                        "Invalid JSON output and no repair function configured",
+                        cause=first_error,
+                    )
+                    last_usage = output.usage
+                    stage_logger.log_retry(stage=definition.stage, attempt=attempt, error=last_error)
+                    continue
+
+                repair_count += 1
+                try:
+                    repaired_raw = await self._repair_fn(output.data, first_error)
+                    validated = definition.output_model.model_validate(repaired_raw)
+                    repaired = True
+                except ValidationError as second_error:
+                    validation_failures += 1
+                    last_error = StageFailure(
+                        definition.stage, "JSON repair attempt failed validation", cause=second_error
+                    )
+                    last_usage = output.usage
+                    stage_logger.log_retry(stage=definition.stage, attempt=attempt, error=last_error)
+                    continue
+                except Exception as repair_exc:
+                    last_error = StageFailure(
+                        definition.stage, "JSON repair attempt raised an error", cause=repair_exc
+                    )
+                    last_usage = output.usage
+                    stage_logger.log_retry(stage=definition.stage, attempt=attempt, error=last_error)
+                    continue
 
             usage = replace(output.usage, retries=attempt - 1)
             self._record(
@@ -110,6 +137,8 @@ class StageExecutor:
                 video_id=ctx.video_id,
                 language=getattr(validated, "language", None),
                 duration_ms=getattr(validated, "duration_ms", None),
+                repair_count=repair_count,
+                validation_failures=validation_failures,
             )
             stage_logger.log_success(
                 stage=definition.stage, usage=usage, attempt=attempt, repaired=repaired
@@ -121,7 +150,14 @@ class StageExecutor:
             if last_usage is not None
             else ProviderUsage(provider="unknown", model="unknown", latency_ms=0.0, retries=1)
         )
-        self._record(ctx.job_id, definition.stage, final_usage, success=False)
+        self._record(
+            ctx.job_id,
+            definition.stage,
+            final_usage,
+            success=False,
+            repair_count=repair_count,
+            validation_failures=validation_failures,
+        )
         stage_logger.log_failure(stage=definition.stage, error=last_error, attempt=2)
         raise StageFailure(
             definition.stage,
@@ -139,6 +175,8 @@ class StageExecutor:
         video_id: str | None = None,
         language: str | None = None,
         duration_ms: int | None = None,
+        repair_count: int = 0,
+        validation_failures: int = 0,
     ) -> None:
         self._metrics.record(
             StageMetric.from_usage(
@@ -149,5 +187,7 @@ class StageExecutor:
                 video_id=video_id,
                 language=language,
                 duration_ms=duration_ms,
+                repair_count=repair_count,
+                validation_failures=validation_failures,
             )
         )

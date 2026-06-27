@@ -20,6 +20,8 @@ from app.ai.orchestration.validators import (
 )
 from app.ai.providers.dummy import register_dummy_providers
 from app.ai.providers.speech import register_groq_speech_provider
+from app.ai.providers.creative import register_groq_creative_provider
+from app.ai.providers.caption import register_groq_caption_provider
 from app.ai.providers.stage_provider_registry import (
     caption_provider_registry,
     creative_provider_registry,
@@ -137,6 +139,8 @@ def build_default_engine(
     Returns the recorder too, so callers can read metrics back out."""
     register_dummy_providers()  # idempotent; ensures "dummy" is always resolvable.
     register_groq_speech_provider()  # idempotent; ensures "groq" is resolvable.
+    register_groq_creative_provider()
+    register_groq_caption_provider()
     recorder = metrics_recorder or InMemoryMetricsRecorder()
 
     stage_registry = build_stage_registry(
@@ -147,6 +151,77 @@ def build_default_engine(
     )
     executor = StageExecutor(metrics_recorder=recorder)
     engine = AIPipelineOrchestrationEngine(stage_registry=stage_registry, stage_executor=executor)
+    return engine, recorder
+
+def build_intelligence_only_engine(
+    *,
+    speech_provider_name: str = "dummy",
+    creative_provider_name: str = "dummy",
+    caption_provider_name: str = "dummy",
+    metrics_recorder: MetricsRecorder | None = None,
+) -> tuple[AIPipelineOrchestrationEngine, MetricsRecorder]:
+    """Sprint 2: engine restricted to SPEECH -> CREATIVE -> CAPTION stages (no rendering)."""
+    register_dummy_providers()
+    register_groq_speech_provider()
+    register_groq_creative_provider()
+    register_groq_caption_provider()
+    recorder = metrics_recorder or InMemoryMetricsRecorder()
+
+    async def run_speech(ctx: PipelineContext):
+        video_storage_path = getattr(ctx.video, "storage_path", None) or ctx.config.get(
+            "video_storage_path"
+        )
+        return await speech_provider_registry.create(speech_provider_name).transcribe(video_storage_path=video_storage_path)
+
+    async def run_creative(ctx: PipelineContext):
+        transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]
+        return await creative_provider_registry.create(creative_provider_name).analyze(transcript=transcript)
+
+    async def run_caption(ctx: PipelineContext):
+        transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]
+        creative_plan = ctx.stage_outputs[PipelineStage.CREATIVE_VALIDATION]
+        return await caption_provider_registry.create(caption_provider_name).plan(transcript=transcript, creative_plan=creative_plan)
+
+    registry = StageRegistry()
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.SPEECH_RECOGNITION, output_model=Transcript, provider_call=run_speech
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.TRANSCRIPT_VALIDATION,
+            output_model=Transcript,
+            validator_call=validate_transcript_business_rules,
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.CREATIVE_ANALYSIS, output_model=CreativePlan, provider_call=run_creative
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.CREATIVE_VALIDATION,
+            output_model=CreativePlan,
+            validator_call=validate_creative_plan_business_rules,
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.CAPTION_PLANNING, output_model=CaptionPlan, provider_call=run_caption
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.CAPTION_VALIDATION,
+            output_model=CaptionPlan,
+            validator_call=validate_caption_plan_business_rules,
+        )
+    )
+
+    executor = StageExecutor(metrics_recorder=recorder)
+    engine = AIPipelineOrchestrationEngine(stage_registry=registry, stage_executor=executor)
     return engine, recorder
 
 

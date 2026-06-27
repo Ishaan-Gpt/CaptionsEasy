@@ -29,7 +29,12 @@ from .deps import (
     get_owned_project,
     get_project_repository,
     get_video_repository,
+    get_creative_plan_repository,
+    get_caption_plan_repository,
 )
+from app.services.creative_plan_repository import CreativePlanRepository
+from app.services.caption_plan_repository import CaptionPlanRepository
+
 
 router = APIRouter(tags=["projects"])
 
@@ -117,3 +122,26 @@ async def process_project(
     job = await job_repository.create_queued(project_id=project.id, job_type=AI_PIPELINE_JOB_TYPE)
     job_dispatcher.dispatch(str(job.id))
     return success_response({"jobId": str(job.id)}, status_code=202)
+
+
+@router.get("/projects/{project_id}/creative-plan")
+async def get_creative_plan(
+    project: Project = Depends(get_owned_project),
+    creative_plan_repository: CreativePlanRepository = Depends(get_creative_plan_repository),
+):
+    creative_plan = await creative_plan_repository.get_latest_for_project(project.id)
+    if creative_plan is None:
+        raise NotFoundError("No creative plan found for this project yet.")
+    return success_response(creative_plan.creative_plan)
+
+
+@router.get("/projects/{project_id}/caption-plan")
+async def get_caption_plan(
+    project: Project = Depends(get_owned_project),
+    caption_plan_repository: CaptionPlanRepository = Depends(get_caption_plan_repository),
+):
+    caption_plan = await caption_plan_repository.get_latest_for_project(project.id)
+    if caption_plan is None:
+        raise NotFoundError("No caption plan found for this project yet.")
+    return success_response(caption_plan.caption_json)
+

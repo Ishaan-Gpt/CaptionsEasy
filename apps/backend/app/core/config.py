@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     groq_speech_model: str = Field(default="whisper-large-v3", alias="GROQ_SPEECH_MODEL")
     groq_timeout_seconds: float = Field(default=120.0, alias="GROQ_TIMEOUT_SECONDS")
     groq_cost_per_second_usd: float = Field(default=0.0001, alias="GROQ_COST_PER_SECOND_USD")
+    groq_creative_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_CREATIVE_MODEL")
+    groq_caption_model: str = Field(default="llama-3.3-70b-versatile", alias="GROQ_CAPTION_MODEL")
+    groq_creative_cost_input_usd: float = Field(default=0.59 / 1000000.0, alias="GROQ_CREATIVE_COST_INPUT_USD")
+    groq_creative_cost_output_usd: float = Field(default=0.79 / 1000000.0, alias="GROQ_CREATIVE_COST_OUTPUT_USD")
+    groq_caption_cost_input_usd: float = Field(default=0.59 / 1000000.0, alias="GROQ_CAPTION_COST_INPUT_USD")
+    groq_caption_cost_output_usd: float = Field(default=0.79 / 1000000.0, alias="GROQ_CAPTION_COST_OUTPUT_USD")
+
 
 
 @lru_cache
