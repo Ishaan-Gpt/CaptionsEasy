@@ -19,6 +19,7 @@ class ProjectUpdate(BaseModel):
     # TODO(database.md): status has no enumerated values in the contract.
     status: str | None = None
     thumbnail_url: str | None = None
+    style: str | None = None
 
 
 class ProjectRead(ProjectBase):
@@ -28,6 +29,7 @@ class ProjectRead(ProjectBase):
     owner_id: uuid.UUID
     status: str | None = None
     thumbnail_url: str | None = None
+    style: str | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None

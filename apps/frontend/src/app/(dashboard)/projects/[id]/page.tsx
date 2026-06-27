@@ -9,6 +9,9 @@ import {
   Download,
   AlertTriangle,
   FileVideo,
+  Sparkles,
+  Play,
+  Check,
 } from "lucide-react";
 import { projectsService } from "@/services/projects";
 import { jobsService, JobStatusResponse } from "@/services/jobs";
@@ -28,6 +31,17 @@ function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return "Something went wrong. Please try again.";
 }
+
+const STYLE_PRESETS = [
+  { id: "minimal", name: "Minimal", desc: "Clean typography, light outline", font: "Inter", color: "White" },
+  { id: "modern", name: "Modern", desc: "Outfit font with yellow highlights", font: "Outfit", color: "Yellow" },
+  { id: "podcast", name: "Podcast", desc: "Bold slides, word-by-word green active", font: "Inter", color: "Green" },
+  { id: "documentary", name: "Documentary", desc: "Elegant serif with subtle fade", font: "Cinzel", color: "Beige" },
+  { id: "viral shorts", name: "Viral Shorts", desc: "Ultra bold uppercase with emojis", font: "Outfit", color: "Gold" },
+  { id: "educational", name: "Educational", desc: "Rounded sans-serif bounce layouts", font: "Outfit", color: "Pink" },
+  { id: "luxury", name: "Luxury", desc: "Bodoni elegance with gold coloring", font: "Cinzel", color: "Gold" },
+];
+
 
 export default function ProjectWorkspacePage() {
   const params = useParams();
@@ -111,6 +125,7 @@ export default function ProjectWorkspacePage() {
     isLoading: isMotionScriptLoading,
     isError: isMotionScriptError,
     error: motionScriptQueryError,
+    refetch: refetchMotionScript,
   } = useQuery<any | null>({
     queryKey: ["motionScript", projectId],
     queryFn: () => motionScriptService.getMotionScript(projectId),
@@ -125,6 +140,32 @@ export default function ProjectWorkspacePage() {
     queryFn: () => projectsService.getExports(projectId),
     enabled: project?.status === "COMPLETED",
   });
+
+  const [selectedStyle, setSelectedStyle] = useState<string>("minimal");
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [scriptError, setScriptError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (project?.style) {
+      setSelectedStyle(project.style);
+    }
+  }, [project?.style]);
+
+  const handleStyleSelect = async (styleId: string) => {
+    setSelectedStyle(styleId);
+    setScriptError(null);
+    setIsGeneratingScript(true);
+    try {
+      await projectsService.updateProjectStyle(projectId, styleId);
+      await projectsService.generateMotionScript(projectId);
+      await refetchMotionScript();
+      await refetchProject();
+    } catch (err) {
+      setScriptError(describeError(err));
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  };
 
   const [renderJobStatus, setRenderJobStatus] = useState<JobStatusResponse | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -401,39 +442,193 @@ export default function ProjectWorkspacePage() {
       {/* 3. WORKSPACE EDITOR VIEW (COMPLETED) */}
       {project.status === "COMPLETED" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* LEFT COLUMN: PLAYER & STYLE SELECTOR */}
           <div className="lg:col-span-8 space-y-6">
-            <Card className="p-0 overflow-hidden border-zinc-900 bg-zinc-950 relative aspect-[9/16] max-w-sm mx-auto flex flex-col justify-center items-center">
-              <FileVideo size={48} className="text-zinc-800 mb-4" />
-              <span className="text-xs text-zinc-650 font-semibold tracking-wide uppercase">Video Preview Unavailable</span>
-              <span className="text-[10px] text-zinc-600 mt-1">Captioned preview rendering is not in scope yet</span>
+            <Card className="p-0 overflow-hidden border-zinc-900 bg-zinc-950 relative aspect-[9/16] max-w-sm mx-auto flex flex-col justify-center items-center shadow-2xl rounded-xl">
+              {exports && exports.filter((e: any) => e.status === "completed").length > 0 ? (
+                <video 
+                  src={exports.filter((e: any) => e.status === "completed")[0].download_url} 
+                  controls 
+                  className="w-full h-full object-contain"
+                  poster={project.thumbnail_url || undefined}
+                />
+              ) : (
+                <div className="p-6 text-center space-y-4">
+                  <FileVideo size={48} className="text-zinc-800 mx-auto animate-pulse" />
+                  <div>
+                    <span className="text-xs text-zinc-400 font-semibold tracking-wide uppercase block">No Export Rendered Yet</span>
+                    <span className="text-[10px] text-zinc-500 block mt-1">Choose a style below and click "Render Video" to burn captions.</span>
+                  </div>
+                </div>
+              )}
             </Card>
+
+            {/* STYLE SELECTOR */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-300 tracking-wide uppercase">Cinematic Styles</h3>
+                <p className="text-[11px] text-zinc-550 mt-0.5">Select a reusable style template to generate your layout rules</p>
+              </div>
+
+              {isGeneratingScript && (
+                <div className="flex items-center gap-2 text-xs text-zinc-450 bg-indigo-500/10 border border-indigo-500/25 rounded-lg p-3">
+                  <Spinner className="w-4 h-4 text-indigo-400" />
+                  <span>Applying style rules and compiling MotionScript intermediate representation...</span>
+                </div>
+              )}
+
+              {scriptError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
+                  {scriptError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {STYLE_PRESETS.map((preset) => {
+                  const isActive = selectedStyle === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => handleStyleSelect(preset.id)}
+                      disabled={isGeneratingScript || isRendering}
+                      className={`text-left p-4 rounded-xl border transition-all duration-250 flex flex-col justify-between h-32 relative overflow-hidden ${
+                        isActive 
+                          ? "border-indigo-500 bg-indigo-500/5 shadow-[0_0_15px_rgba(99,102,241,0.15)]" 
+                          : "border-zinc-900 bg-zinc-950/40 hover:border-zinc-800"
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-0.5">
+                          <Check size={10} />
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-xs font-bold text-zinc-200 block">{preset.name}</span>
+                        <span className="text-[10px] text-zinc-500 mt-1 block leading-normal">{preset.desc}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-[9px] text-zinc-600 font-mono tracking-tight">{preset.font}</span>
+                        <span 
+                          className="w-3 h-3 rounded-full border border-zinc-900 shadow-inner"
+                          style={{
+                            backgroundColor: 
+                              preset.color === "Yellow" ? "#FFFF00" :
+                              preset.color === "Green" ? "#00FF00" :
+                              preset.color === "Beige" ? "#F5F5DC" :
+                              preset.color === "Gold" ? "#D4AF37" :
+                              preset.color === "Pink" ? "#FF4081" : "#FFFFFF"
+                          }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
+          {/* RIGHT COLUMN: ACTION CONTROLS & EXPORT HISTORY */}
           <div className="lg:col-span-4 space-y-6">
             <Card className="border-zinc-900 space-y-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Transcript</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Fetched from the stored speech-recognition output</p>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Export Asset</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Start video rendering with the active StylePreset</p>
               </div>
 
-              {isTranscriptLoading ? (
-                <div className="flex items-center gap-2 text-xs text-zinc-500">
-                  <Spinner className="w-4 h-4" />
-                  Loading transcript...
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">Resolution</span>
+                  <span className="font-semibold text-zinc-300">1080p (Full HD)</span>
                 </div>
-              ) : isTranscriptError ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
-                  {describeError(transcriptQueryError)}
+                <div className="flex justify-between text-xs border-b border-zinc-900 pb-2">
+                  <span className="text-zinc-500">Style applied</span>
+                  <span className="font-semibold text-zinc-300 capitalize">{selectedStyle}</span>
                 </div>
-              ) : !transcript ? (
-                <p className="text-xs text-zinc-500 italic">No transcript has been generated for this project yet.</p>
+              </div>
+
+              {isRendering ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium text-zinc-400">
+                    <span>Status: {renderJobStatus?.stage || "Preparing"}</span>
+                    <span>{renderJobStatus?.progress || 0}%</span>
+                  </div>
+                  <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="bg-indigo-500 h-1.5 transition-all duration-350" 
+                      style={{ width: `${renderJobStatus?.progress || 0}%` }}
+                    />
+                  </div>
+                </div>
               ) : (
-                <div className="text-xs text-zinc-300 leading-relaxed max-h-64 overflow-y-auto space-y-1">
-                  <p>{transcript.transcript.words.map((w) => w.text).join(" ")}</p>
-                  <p className="text-[10px] text-zinc-500 pt-2 border-t border-zinc-900">
-                    Language: {transcript.transcript.language} &middot; Provider: {transcript.provider}
-                  </p>
+                <Button 
+                  onClick={startRendering} 
+                  disabled={isGeneratingScript}
+                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                >
+                  <Download size={14} />
+                  Render Video
+                </Button>
+              )}
+
+              {renderError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
+                  {renderError}
                 </div>
+              )}
+            </Card>
+
+            {/* EXPORT HISTORY */}
+            <Card className="border-zinc-900 space-y-4">
+              <div>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Export History</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">cinematic rendering logs & assets</p>
+              </div>
+
+              {exports && exports.length > 0 ? (
+                <div className="space-y-3">
+                  {exports.map((exp: any) => {
+                    const formattedSize = exp.file_size ? `${(exp.file_size / (1024 * 1024)).toFixed(2)} MB` : "N/A";
+                    const formattedDur = exp.duration_ms ? `${(exp.duration_ms / 1000).toFixed(1)}s` : "N/A";
+                    const formattedRender = exp.render_time_ms ? `${(exp.render_time_ms / 1000).toFixed(1)}s` : "N/A";
+                    const dateStr = exp.created_at ? new Date(exp.created_at).toLocaleDateString() : "Recent";
+                    
+                    return (
+                      <div key={exp.id} className="p-3 bg-zinc-950/60 rounded-xl border border-zinc-900 space-y-2 text-xs flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="font-bold text-zinc-200 capitalize">{exp.style} Preset</span>
+                            <span className="text-[10px] text-zinc-500 block mt-0.5">{dateStr} &middot; {exp.resolution}</span>
+                          </div>
+                          <a 
+                            href={exp.download_url} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 p-1.5 rounded-lg border border-zinc-800 transition"
+                            title="Re-download MP4"
+                          >
+                            <Download size={12} />
+                          </a>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-900 text-[10px] text-zinc-500">
+                          <div>
+                            <span className="block text-zinc-600">Duration</span>
+                            <span className="font-semibold">{formattedDur}</span>
+                          </div>
+                          <div>
+                            <span className="block text-zinc-600">File Size</span>
+                            <span className="font-semibold">{formattedSize}</span>
+                          </div>
+                          <div>
+                            <span className="block text-zinc-600">Render Time</span>
+                            <span className="font-semibold">{formattedRender}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-500 italic">No assets have been rendered yet.</p>
               )}
             </Card>
 
@@ -476,66 +671,27 @@ export default function ProjectWorkspacePage() {
 
             <Card className="border-zinc-900 space-y-4">
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Export Asset</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Generate production rendering outputs</p>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Transcript</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Speech-recognition output</p>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs border-b border-zinc-900 pb-2">
-                  <span className="text-zinc-500">Resolution</span>
-                  <span className="font-semibold text-zinc-300">1080p (Full HD)</span>
+              {isTranscriptLoading ? (
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <Spinner className="w-4 h-4" />
+                  Loading transcript...
                 </div>
-                <div className="flex justify-between text-xs border-b border-zinc-900 pb-2">
-                  <span className="text-zinc-500">Quality Preset</span>
-                  <span className="font-semibold text-zinc-300">High (H.264 MP4)</span>
-                </div>
-              </div>
-
-              {isRendering ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-medium text-zinc-400">
-                    <span>Status: {renderJobStatus?.stage || "Preparing"}</span>
-                    <span>{renderJobStatus?.progress || 0}%</span>
-                  </div>
-                  <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="bg-indigo-500 h-1.5 transition-all duration-350" 
-                      style={{ width: `${renderJobStatus?.progress || 0}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <Button 
-                  onClick={startRendering} 
-                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium animate-pulse"
-                >
-                  <Download size={14} />
-                  Render Video
-                </Button>
-              )}
-
-              {renderError && (
+              ) : isTranscriptError ? (
                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-xs font-medium">
-                  {renderError}
+                  {describeError(transcriptQueryError)}
                 </div>
-              )}
-
-              {exports && exports.length > 0 && (
-                <div className="pt-2 border-t border-zinc-900 space-y-2">
-                  <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Completed Exports</span>
-                  {exports.map((exp: any) => (
-                    <div key={exp.id} className="flex justify-between items-center text-xs p-2 bg-zinc-950 rounded border border-zinc-900">
-                      <span className="text-zinc-400 font-mono text-[10px]">{exp.resolution} · {exp.quality}</span>
-                      <a 
-                        href={exp.download_url} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="text-indigo-400 hover:text-indigo-300 font-semibold underline"
-                      >
-                        Download MP4
-                      </a>
-                    </div>
-                  ))}
+              ) : !transcript ? (
+                <p className="text-xs text-zinc-500 italic">No transcript has been generated for this project yet.</p>
+              ) : (
+                <div className="text-xs text-zinc-300 leading-relaxed max-h-64 overflow-y-auto space-y-1">
+                  <p>{transcript.transcript.words.map((w) => w.text).join(" ")}</p>
+                  <p className="text-[10px] text-zinc-500 pt-2 border-t border-zinc-900">
+                    Language: {transcript.transcript.language} &middot; Provider: {transcript.provider}
+                  </p>
                 </div>
               )}
             </Card>

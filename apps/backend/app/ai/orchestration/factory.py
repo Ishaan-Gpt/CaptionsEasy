@@ -72,6 +72,7 @@ def build_stage_registry(
             caption_plan=caption_plan,
             project_id=ctx.project_id,
             video_id=ctx.video_id,
+            style=ctx.config.get("style"),
         )
 
     registry.register(

@@ -30,6 +30,10 @@ class ExportRepository:
         quality: str | None = None,
         storage_path: str | None = None,
         render_duration_ms: int | None = None,
+        style: str | None = None,
+        duration_ms: int | None = None,
+        file_size: int | None = None,
+        status: str | None = None,
     ) -> Export:
         export = Export(
             id=id or uuid.uuid4(),
@@ -38,6 +42,10 @@ class ExportRepository:
             quality=quality,
             storage_path=storage_path,
             render_duration_ms=render_duration_ms,
+            style=style,
+            duration_ms=duration_ms,
+            file_size=file_size,
+            status=status,
         )
         self._db.add(export)
         await self._db.commit()

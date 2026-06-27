@@ -20,6 +20,7 @@ from app.services.creative_plan_repository import CreativePlanRepository
 from app.services.caption_plan_repository import CaptionPlanRepository
 from app.services.motion_script_repository import MotionScriptRepository
 from app.services.export_repository import ExportRepository
+from app.services.transcript_repository import TranscriptRepository
 from app.worker.dispatcher import CeleryJobDispatcher, JobDispatcherProtocol
 from app.worker.progress import RedisProgressReporter
 from app.worker.redis_client import get_redis_client
@@ -56,6 +57,10 @@ def get_motion_script_repository(db: AsyncSession = Depends(get_db)) -> MotionSc
 
 def get_export_repository(db: AsyncSession = Depends(get_db)) -> ExportRepository:
     return ExportRepository(db)
+
+
+def get_transcript_repository(db: AsyncSession = Depends(get_db)) -> TranscriptRepository:
+    return TranscriptRepository(db)
 
 
 _job_dispatcher = CeleryJobDispatcher()

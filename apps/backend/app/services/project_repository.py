@@ -67,11 +67,9 @@ class ProjectRepository:
         description: str | None = None,
         status: str | None = None,
         thumbnail_url: str | None = None,
+        style: str | None = None,
     ) -> Project:
-        """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite).
-        Only `status`/`title`/`description`/`thumbnail_url` exist on the model
-        (database.md defines no separate archive/favorite columns), so
-        "archive"/"favorite" are expressed by callers setting `status`."""
+        """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite)."""
         if title is not None:
             project.title = title
         if description is not None:
@@ -80,6 +78,8 @@ class ProjectRepository:
             project.status = status
         if thumbnail_url is not None:
             project.thumbnail_url = thumbnail_url
+        if style is not None:
+            project.style = style
         await self._db.commit()
         await self._db.refresh(project)
         return project

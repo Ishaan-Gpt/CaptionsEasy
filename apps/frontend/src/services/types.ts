@@ -13,6 +13,7 @@ export interface Project {
   title: string;
   description?: string;
   status: ProjectStatus;
+  style?: string;
   thumbnail_url?: string;
   created_at: string;
   updated_at: string;
@@ -91,11 +92,15 @@ export interface RenderPlan {
 export interface Export {
   id: string;
   project_id: string;
-  resolution: "1080p" | "720p";
-  quality: "high" | "medium";
+  resolution: string;
+  quality: string;
   storage_path?: string;
   download_url?: string;
   render_duration_ms?: number;
   file_size?: number;
+  style?: string;
+  duration_ms?: number;
+  status?: string;
   created_at: string;
 }
+

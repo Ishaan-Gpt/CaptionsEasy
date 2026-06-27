@@ -133,6 +133,11 @@ def test_render_stages_pipeline():
 
 class MockExportRow:
     def __init__(self, **kwargs):
+        self.file_size = None
+        self.style = None
+        self.duration_ms = None
+        self.status = None
+        self.created_at = None
         for k, v in kwargs.items():
             setattr(self, k, v)
 

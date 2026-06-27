@@ -13,6 +13,7 @@ interface BackendProject {
   title: string;
   description: string | null;
   status: string | null;
+  style: string | null;
   thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ function toProject(p: BackendProject): Project {
     title: p.title,
     description: p.description ?? undefined,
     status: (p.status as ProjectStatus) ?? "CREATED",
+    style: p.style ?? undefined,
     thumbnail_url: p.thumbnail_url ?? undefined,
     created_at: p.created_at,
     updated_at: p.updated_at,
@@ -67,6 +69,11 @@ export const projectsService = {
     await apiClient.delete(`/projects/${id}`);
   },
 
+  async updateProjectStyle(id: string, style: string): Promise<Project> {
+    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { style } });
+    return toProject(project);
+  },
+
   /** Source: contracts/api.md > POST /projects/{id}/process. Queues the AI
    * pipeline job for the project's latest uploaded video. */
   async startProcessing(id: string): Promise<{ jobId: string }> {
@@ -81,5 +88,9 @@ export const projectsService = {
 
   async getExports(id: string): Promise<any[]> {
     return apiClient.get<any[]>(`/projects/${id}/exports`);
+  },
+
+  async generateMotionScript(id: string): Promise<any> {
+    return apiClient.post<any>(`/projects/${id}/motion-script`);
   },
 };

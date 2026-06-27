@@ -24,6 +24,7 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Left as free-form text until contracts/database.md enumerates them.
     status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    style: Mapped[str | None] = mapped_column(String, nullable=True)
 
     owner: Mapped["Profile"] = relationship(back_populates="projects")  # noqa: F821
     videos: Mapped[list["Video"]] = relationship(  # noqa: F821

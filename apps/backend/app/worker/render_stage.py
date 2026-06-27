@@ -134,6 +134,13 @@ def build_render_stages(
         except Exception as exc:
             raise RuntimeError(f"Failed to upload rendered output to storage: {exc}") from exc
 
+        # Fetch selected style from project
+        from app.db.models.project import Project as ProjectModel
+        project_row = session.execute(
+            select(ProjectModel).where(ProjectModel.id == ctx.project_id)
+        ).scalar_one_or_none()
+        style_name = project_row.style if project_row else "minimal"
+
         # Save Export record to DB
         export_row = ExportRow(
             id=export_id,
@@ -142,6 +149,10 @@ def build_render_stages(
             quality=ctx.motion_script.export_settings.quality if ctx.motion_script.export_settings else "high",
             storage_path=export_storage_path,
             render_duration_ms=ctx.meta.get("render_duration_ms", 0),
+            style=style_name,
+            duration_ms=int(ctx.meta.get("duration_s", 0.0) * 1000),
+            file_size=ctx.meta.get("size_bytes", 0),
+            status="completed",
         )
         session.add(export_row)
         session.commit()

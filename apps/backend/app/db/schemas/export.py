@@ -22,5 +22,9 @@ class ExportRead(ExportBase):
     project_id: uuid.UUID
     storage_path: str | None = None
     render_duration_ms: int | None = None
+    style: str | None = None
+    duration_ms: int | None = None
+    file_size: int | None = None
+    status: str | None = None
     created_at: datetime
     updated_at: datetime

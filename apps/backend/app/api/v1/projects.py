@@ -36,11 +36,13 @@ from .deps import (
     get_caption_plan_repository,
     get_motion_script_repository,
     get_export_repository,
+    get_transcript_repository,
 )
 from app.services.creative_plan_repository import CreativePlanRepository
 from app.services.caption_plan_repository import CaptionPlanRepository
 from app.services.motion_script_repository import MotionScriptRepository
 from app.services.export_repository import ExportRepository
+from app.services.transcript_repository import TranscriptRepository
 
 
 router = APIRouter(tags=["projects"])
@@ -59,6 +61,7 @@ class UpdateProjectRequest(BaseModel):
     description: str | None = None
     status: str | None = None
     thumbnail_url: str | None = None
+    style: str | None = None
 
 
 @router.get("/projects")
@@ -102,6 +105,7 @@ async def update_project(
         description=body.description,
         status=body.status,
         thumbnail_url=body.thumbnail_url,
+        style=body.style,
     )
     return success_response(ProjectRead.model_validate(updated).model_dump(mode="json"))
 
@@ -164,6 +168,45 @@ async def get_motion_script(
     return success_response(motion_script.motion_script_json)
 
 
+@router.post("/projects/{project_id}/motion-script")
+async def generate_motion_script(
+    project: Project = Depends(get_owned_project),
+    transcript_repository: TranscriptRepository = Depends(get_transcript_repository),
+    creative_plan_repository: CreativePlanRepository = Depends(get_creative_plan_repository),
+    caption_plan_repository: CaptionPlanRepository = Depends(get_caption_plan_repository),
+    motion_script_repository: MotionScriptRepository = Depends(get_motion_script_repository),
+):
+    transcript = await transcript_repository.get_latest_for_project(project.id)
+    creative_plan = await creative_plan_repository.get_latest_for_project(project.id)
+    caption_plan = await caption_plan_repository.get_latest_for_project(project.id)
+    
+    if not transcript or not creative_plan or not caption_plan:
+        raise AppError("Complete transcript and caption planning first.", code="BAD_REQUEST", status_code=400)
+
+    from app.ai.providers.dummy.render_plan import DummyRenderPlanProvider
+    from packages.contracts.python import Transcript as TranscriptModel, CreativePlan as CreativePlanModel, CaptionPlan as CaptionPlanModel
+    
+    parsed_transcript = TranscriptModel.model_validate(transcript.transcript_json)
+    parsed_creative = CreativePlanModel.model_validate(creative_plan.creative_plan)
+    parsed_caption = CaptionPlanModel.model_validate(caption_plan.caption_json)
+
+    provider = DummyRenderPlanProvider()
+    output = await provider.plan(
+        transcript=parsed_transcript,
+        creative_plan=parsed_creative,
+        caption_plan=parsed_caption,
+        project_id=str(project.id),
+        video_id=str(project.id),
+        style=project.style,
+    )
+    
+    motion_script = await motion_script_repository.create(
+        project_id=project.id,
+        motion_script_json=output.data,
+    )
+    return success_response(motion_script.motion_script_json)
+
+
 class ExportRequest(BaseModel):
     resolution: str
     quality: str
@@ -202,7 +245,11 @@ async def get_exports(
             "quality": exp.quality,
             "download_url": download_url,
             "render_time_ms": exp.render_duration_ms,
-            "file_size": 0,
+            "file_size": exp.file_size or 0,
+            "style": exp.style or "minimal",
+            "duration_ms": exp.duration_ms or 0,
+            "status": exp.status or "completed",
+            "created_at": exp.created_at.isoformat() if exp.created_at else None,
         }
         results.append(data)
     return success_response(results)
@@ -232,7 +279,11 @@ async def get_export_by_id(
         "quality": export.quality,
         "download_url": download_url,
         "render_time_ms": export.render_duration_ms,
-        "file_size": 0,
+        "file_size": export.file_size or 0,
+        "style": export.style or "minimal",
+        "duration_ms": export.duration_ms or 0,
+        "status": export.status or "completed",
+        "created_at": export.created_at.isoformat() if export.created_at else None,
     })
 
 

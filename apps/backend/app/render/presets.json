@@ -1,0 +1,240 @@
+{
+  "minimal": {
+    "name": "Minimal",
+    "typography": {
+      "font": "Inter",
+      "size": 48.0,
+      "weight": "400",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 0.0,
+      "outline": 1.0
+    },
+    "animation": {
+      "caption_animation": "fade",
+      "motion_preset": "minimal",
+      "intensity": "low"
+    },
+    "highlight": {
+      "colors": ["#E0E0E0"]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 80.0,
+      "left": 40.0,
+      "right": 40.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 3,
+      "caption_spacing_ms": 100
+    },
+    "transitions": "none"
+  },
+  "modern": {
+    "name": "Modern",
+    "typography": {
+      "font": "Outfit",
+      "size": 52.0,
+      "weight": "700",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 1.0,
+      "outline": 2.0
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": ["#FFFF00"]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "occasional"
+    },
+    "timing": {
+      "word_limit": 2,
+      "caption_spacing_ms": 50
+    },
+    "transitions": "fade"
+  },
+  "podcast": {
+    "name": "Podcast",
+    "typography": {
+      "font": "Inter",
+      "size": 46.0,
+      "weight": "800",
+      "color": "#FFFFFF",
+      "alignment": "left",
+      "shadow": 2.0,
+      "outline": 2.5
+    },
+    "animation": {
+      "caption_animation": "slide",
+      "motion_preset": "smooth",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": ["#00FF00", "#FFFF00"]
+    },
+    "safe_area": {
+      "top": 100.0,
+      "bottom": 150.0,
+      "left": 80.0,
+      "right": 80.0
+    },
+    "emoji": {
+      "behavior": "occasional"
+    },
+    "timing": {
+      "word_limit": 1,
+      "caption_spacing_ms": 30
+    },
+    "transitions": "none"
+  },
+  "documentary": {
+    "name": "Documentary",
+    "typography": {
+      "font": "Cinzel",
+      "size": 42.0,
+      "weight": "400",
+      "color": "#F5F5DC",
+      "alignment": "center",
+      "shadow": 0.0,
+      "outline": 0.5
+    },
+    "animation": {
+      "caption_animation": "fade",
+      "motion_preset": "minimal",
+      "intensity": "low"
+    },
+    "highlight": {
+      "colors": ["#FFFFFF"]
+    },
+    "safe_area": {
+      "top": 120.0,
+      "bottom": 120.0,
+      "left": 100.0,
+      "right": 100.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 4,
+      "caption_spacing_ms": 150
+    },
+    "transitions": "fade"
+  },
+  "viral shorts": {
+    "name": "Viral Shorts",
+    "typography": {
+      "font": "Outfit",
+      "size": 60.0,
+      "weight": "900",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 3.0,
+      "outline": 4.0
+    },
+    "animation": {
+      "caption_animation": "scale",
+      "motion_preset": "dynamic",
+      "intensity": "high"
+    },
+    "highlight": {
+      "colors": ["#FFEA00"]
+    },
+    "safe_area": {
+      "top": 60.0,
+      "bottom": 160.0,
+      "left": 40.0,
+      "right": 40.0
+    },
+    "emoji": {
+      "behavior": "frequent"
+    },
+    "timing": {
+      "word_limit": 1,
+      "caption_spacing_ms": 20
+    },
+    "transitions": "pop"
+  },
+  "educational": {
+    "name": "Educational",
+    "typography": {
+      "font": "Outfit",
+      "size": 48.0,
+      "weight": "600",
+      "color": "#E0F7FA",
+      "alignment": "center",
+      "shadow": 1.5,
+      "outline": 2.0
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "smooth",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": ["#FF4081"]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 100.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "occasional"
+    },
+    "timing": {
+      "word_limit": 2,
+      "caption_spacing_ms": 80
+    },
+    "transitions": "fade"
+  },
+  "luxury": {
+    "name": "Luxury",
+    "typography": {
+      "font": "Cinzel",
+      "size": 40.0,
+      "weight": "500",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 1.0,
+      "outline": 1.5
+    },
+    "animation": {
+      "caption_animation": "fade",
+      "motion_preset": "minimal",
+      "intensity": "low"
+    },
+    "highlight": {
+      "colors": ["#D4AF37"]
+    },
+    "safe_area": {
+      "top": 100.0,
+      "bottom": 100.0,
+      "left": 80.0,
+      "right": 80.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 3,
+      "caption_spacing_ms": 120
+    },
+    "transitions": "fade"
+  }
+}

@@ -25,5 +25,9 @@ class Export(UUIDPKMixin, TimestampMixin, Base):
     quality: Mapped[str | None] = mapped_column(String, nullable=True)
     storage_path: Mapped[str | None] = mapped_column(String, nullable=True)
     render_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    style: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str | None] = mapped_column(String, nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="exports")  # noqa: F821
