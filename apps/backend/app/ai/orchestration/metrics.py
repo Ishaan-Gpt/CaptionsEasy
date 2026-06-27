@@ -31,10 +31,26 @@ class StageMetric:
     retries: int
     success: bool
     recorded_at: float = field(default_factory=time.time)
+    # Sprint 1.5 brief > Observability adds language/duration to the metric
+    # set already tracked here. `video_id` is additive too, so the speech
+    # stage's metrics correlate back to the video even though the
+    # `transcripts` table itself has no video_id column (contracts/
+    # database.md only defines project_id for that table).
+    video_id: str | None = None
+    language: str | None = None
+    duration_ms: int | None = None
 
     @classmethod
     def from_usage(
-        cls, *, job_id: str, stage: PipelineStage, usage: ProviderUsage, success: bool
+        cls,
+        *,
+        job_id: str,
+        stage: PipelineStage,
+        usage: ProviderUsage,
+        success: bool,
+        video_id: str | None = None,
+        language: str | None = None,
+        duration_ms: int | None = None,
     ) -> "StageMetric":
         return cls(
             job_id=job_id,
@@ -47,6 +63,9 @@ class StageMetric:
             estimated_cost_usd=usage.estimated_cost_usd,
             retries=usage.retries,
             success=success,
+            video_id=video_id,
+            language=language,
+            duration_ms=duration_ms,
         )
 
 

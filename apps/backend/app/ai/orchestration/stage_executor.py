@@ -64,7 +64,15 @@ class StageExecutor:
             stage_logger.log_failure(stage=definition.stage, error=exc, attempt=1)
             raise StageFailure(definition.stage, f"Business validation failed: {exc}", cause=exc) from exc
 
-        self._record(ctx.job_id, definition.stage, usage, success=True)
+        self._record(
+            ctx.job_id,
+            definition.stage,
+            usage,
+            success=True,
+            video_id=ctx.video_id,
+            language=getattr(result, "language", None),
+            duration_ms=getattr(result, "duration_ms", None),
+        )
         stage_logger.log_success(stage=definition.stage, usage=usage, attempt=1, repaired=False)
         return result
 
@@ -94,7 +102,15 @@ class StageExecutor:
                 continue
 
             usage = replace(output.usage, retries=attempt - 1)
-            self._record(ctx.job_id, definition.stage, usage, success=True)
+            self._record(
+                ctx.job_id,
+                definition.stage,
+                usage,
+                success=True,
+                video_id=ctx.video_id,
+                language=getattr(validated, "language", None),
+                duration_ms=getattr(validated, "duration_ms", None),
+            )
             stage_logger.log_success(
                 stage=definition.stage, usage=usage, attempt=attempt, repaired=repaired
             )
@@ -113,7 +129,25 @@ class StageExecutor:
             cause=last_error,
         )
 
-    def _record(self, job_id, stage, usage: ProviderUsage, *, success: bool) -> None:
+    def _record(
+        self,
+        job_id,
+        stage,
+        usage: ProviderUsage,
+        *,
+        success: bool,
+        video_id: str | None = None,
+        language: str | None = None,
+        duration_ms: int | None = None,
+    ) -> None:
         self._metrics.record(
-            StageMetric.from_usage(job_id=job_id, stage=stage, usage=usage, success=success)
+            StageMetric.from_usage(
+                job_id=job_id,
+                stage=stage,
+                usage=usage,
+                success=success,
+                video_id=video_id,
+                language=language,
+                duration_ms=duration_ms,
+            )
         )

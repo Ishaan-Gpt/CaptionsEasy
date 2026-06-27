@@ -19,6 +19,7 @@ from app.ai.orchestration.validators import (
     validate_transcript_business_rules,
 )
 from app.ai.providers.dummy import register_dummy_providers
+from app.ai.providers.speech import register_fireworks_speech_provider
 from app.ai.providers.stage_provider_registry import (
     caption_provider_registry,
     creative_provider_registry,
@@ -135,6 +136,7 @@ def build_default_engine(
     here — see contracts/ai.md > Providers) and assembles the engine.
     Returns the recorder too, so callers can read metrics back out."""
     register_dummy_providers()  # idempotent; ensures "dummy" is always resolvable.
+    register_fireworks_speech_provider()  # idempotent; ensures "fireworks" is resolvable.
     recorder = metrics_recorder or InMemoryMetricsRecorder()
 
     stage_registry = build_stage_registry(

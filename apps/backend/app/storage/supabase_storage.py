@@ -22,3 +22,6 @@ class SupabaseStorageClient(StorageClient):
             {"content-type": content_type},
         )
         return path
+
+    async def download(self, *, path: str) -> bytes:
+        return self._client.storage.from_(self._bucket).download(path)

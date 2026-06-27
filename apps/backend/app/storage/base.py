@@ -15,3 +15,10 @@ class StorageClient(ABC):
         storage path (never a public URL — ai-context/SHARED_CONTEXT.md:
         "Never expose storage buckets publicly.")."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def download(self, *, path: str) -> bytes:
+        """Downloads the bytes stored at `path` in the configured bucket.
+        Added in Sprint 1.5 so the speech provider can fetch uploaded videos
+        without depending on the Supabase SDK directly."""
+        raise NotImplementedError

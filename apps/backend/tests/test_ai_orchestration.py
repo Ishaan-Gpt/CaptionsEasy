@@ -117,7 +117,10 @@ class TestPipelineExecution:
 class TestValidationFailure:
     async def test_repair_fn_fixing_output_succeeds_on_first_attempt(self):
         async def fixing_repair(raw, error):
-            return {**raw, "words": []}
+            return {
+                **raw,
+                "words": [{"text": "hi", "start_ms": 0, "end_ms": 200, "confidence": 0.9}],
+            }
 
         provider = FlakySpeechProvider(fail_times=1)
         executor = StageExecutor(metrics_recorder=InMemoryMetricsRecorder(), repair_fn=fixing_repair)

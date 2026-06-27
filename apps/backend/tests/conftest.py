@@ -41,10 +41,15 @@ def _now() -> datetime:
 class FakeStorageClient:
     def __init__(self) -> None:
         self.uploads: list[dict] = []
+        self.files: dict[str, bytes] = {}
 
     async def upload(self, *, path: str, content: bytes, content_type: str) -> str:
         self.uploads.append({"path": path, "size": len(content), "content_type": content_type})
+        self.files[path] = content
         return path
+
+    async def download(self, *, path: str) -> bytes:
+        return self.files[path]
 
 
 class FakeProjectRepository:
