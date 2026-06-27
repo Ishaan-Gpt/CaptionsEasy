@@ -1,8 +1,9 @@
 """Project repository. Source: contracts/database.md > projects"""
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.project import Project
@@ -37,6 +38,54 @@ class ProjectRepository:
 
     async def update_status(self, project: Project, status: str) -> Project:
         project.status = status
+        await self._db.commit()
+        await self._db.refresh(project)
+        return project
+
+    async def get_all_by_owner(
+        self, owner_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+    ) -> tuple[list[Project], int]:
+        """Returns (page of non-deleted projects, total count) for pagination.
+        Source: contracts/api.md > GET /projects ("Returns paginated projects")."""
+        base_filter = (Project.owner_id == owner_id, Project.deleted_at.is_(None))
+
+        total = await self._db.execute(select(func.count()).select_from(Project).where(*base_filter))
+        result = await self._db.execute(
+            select(Project)
+            .where(*base_filter)
+            .order_by(Project.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all()), total.scalar_one()
+
+    async def update_fields(
+        self,
+        project: Project,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        status: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> Project:
+        """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite).
+        Only `status`/`title`/`description`/`thumbnail_url` exist on the model
+        (database.md defines no separate archive/favorite columns), so
+        "archive"/"favorite" are expressed by callers setting `status`."""
+        if title is not None:
+            project.title = title
+        if description is not None:
+            project.description = description
+        if status is not None:
+            project.status = status
+        if thumbnail_url is not None:
+            project.thumbnail_url = thumbnail_url
+        await self._db.commit()
+        await self._db.refresh(project)
+        return project
+
+    async def soft_delete(self, project: Project) -> Project:
+        project.deleted_at = datetime.now(timezone.utc)
         await self._db.commit()
         await self._db.refresh(project)
         return project

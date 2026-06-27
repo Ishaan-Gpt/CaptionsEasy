@@ -14,6 +14,7 @@ from app.db.models.project import Project
 from app.db.session import get_db
 from app.services.job_repository import JobRepository
 from app.services.project_repository import ProjectRepository
+from app.services.transcript_repository import TranscriptRepository
 from app.services.video_repository import VideoRepository
 from app.worker.dispatcher import CeleryJobDispatcher, JobDispatcherProtocol
 from app.worker.progress import RedisProgressReporter
@@ -31,6 +32,10 @@ def get_job_repository(db: AsyncSession = Depends(get_db)) -> JobRepository:
 
 def get_video_repository(db: AsyncSession = Depends(get_db)) -> VideoRepository:
     return VideoRepository(db)
+
+
+def get_transcript_repository(db: AsyncSession = Depends(get_db)) -> TranscriptRepository:
+    return TranscriptRepository(db)
 
 
 _job_dispatcher = CeleryJobDispatcher()

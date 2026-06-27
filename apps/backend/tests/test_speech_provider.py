@@ -1,8 +1,8 @@
-"""FireworksSpeechProvider tests. Source: Sprint 1.5 brief > Tests.
+"""GroqSpeechProvider tests. Source: Sprint 1.5 brief > Tests.
 
 Covers: successful transcription, silent video, unsupported media, provider
 timeout, invalid transcript, retry, schema validation. No real network calls
-— httpx.MockTransport fakes the Fireworks HTTP endpoint.
+— httpx.MockTransport fakes the Groq HTTP endpoint.
 """
 
 import uuid
@@ -17,7 +17,7 @@ from app.ai.orchestration.stage_executor import StageExecutor
 from app.ai.orchestration.stage_registry import StageRegistry
 from app.ai.orchestration.engine import AIPipelineOrchestrationEngine
 from app.ai.providers.speech.audio_extractor import AudioExtractor, UnsupportedMediaTypeError
-from app.ai.providers.speech.fireworks_speech_provider import FireworksSpeechProvider
+from app.ai.providers.speech.groq_speech_provider import GroqSpeechProvider
 from app.ai.types import PipelineContext, PipelineStage
 from app.core.config import get_settings
 from packages.contracts.python import Transcript
@@ -30,7 +30,7 @@ class FakeAudioExtractor(AudioExtractor):
 
 def _settings():
     return get_settings().model_copy(
-        update={"fireworks_api_key": "test-key", "fireworks_speech_model": "whisper-v3"}
+        update={"groq_api_key": "test-key", "groq_speech_model": "whisper-v3"}
     )
 
 
@@ -72,7 +72,7 @@ class TestSuccessfulTranscription:
             )
 
         storage = await _populated_storage_client()
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -86,7 +86,7 @@ class TestSuccessfulTranscription:
         assert transcript.duration_ms == 1800
         assert [w.text for w in transcript.words] == ["hello", "world"]
         assert all(0.0 <= w.confidence <= 1.0 for w in transcript.words)
-        assert output.usage.provider == "fireworks"
+        assert output.usage.provider == "groq"
         assert output.usage.model == "whisper-v3"
         assert output.usage.estimated_cost_usd is not None
 
@@ -99,7 +99,7 @@ class TestSilentVideo:
             )
 
         storage = await _populated_storage_client()
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -116,7 +116,7 @@ class TestSilentVideo:
 class TestUnsupportedMedia:
     async def test_unsupported_extension_is_rejected_before_any_network_call(self):
         storage = await _populated_storage_client(path="projects/p/videos/v.avi")
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(), storage_client=storage, audio_extractor=FakeAudioExtractor()
         )
 
@@ -137,7 +137,7 @@ class TestUnsupportedMedia:
             )
 
         storage = await _populated_storage_client(path=f"projects/p/videos/{path}")
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -151,10 +151,10 @@ class TestUnsupportedMedia:
 class TestProviderTimeout:
     async def test_timeout_propagates_to_caller(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            raise httpx.TimeoutException("Fireworks request timed out")
+            raise httpx.TimeoutException("Groq request timed out")
 
         storage = await _populated_storage_client()
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -243,7 +243,7 @@ class TestRetry:
             )
 
         storage = await _populated_storage_client()
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -275,7 +275,7 @@ class TestRetry:
             raise httpx.TimeoutException("always times out")
 
         storage = await _populated_storage_client()
-        provider = FireworksSpeechProvider(
+        provider = GroqSpeechProvider(
             settings=_settings(),
             storage_client=storage,
             audio_extractor=FakeAudioExtractor(),
@@ -303,11 +303,11 @@ class TestRetry:
 
 
 class TestRegistration:
-    def test_fireworks_provider_is_registered_and_replaceable(self):
-        from app.ai.providers.speech import FIREWORKS_PROVIDER_NAME, register_fireworks_speech_provider
+    def test_groq_provider_is_registered_and_replaceable(self):
+        from app.ai.providers.speech import GROQ_PROVIDER_NAME, register_groq_speech_provider
         from app.ai.providers.stage_provider_registry import speech_provider_registry
 
-        register_fireworks_speech_provider()
-        assert FIREWORKS_PROVIDER_NAME in speech_provider_registry.available()
-        provider = speech_provider_registry.create(FIREWORKS_PROVIDER_NAME)
-        assert isinstance(provider, FireworksSpeechProvider)
+        register_groq_speech_provider()
+        assert GROQ_PROVIDER_NAME in speech_provider_registry.available()
+        provider = speech_provider_registry.create(GROQ_PROVIDER_NAME)
+        assert isinstance(provider, GroqSpeechProvider)

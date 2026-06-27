@@ -10,6 +10,7 @@ records `video_id` alongside every stage metric; no column is invented here.
 
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.transcript import Transcript
@@ -18,6 +19,15 @@ from app.db.models.transcript import Transcript
 class TranscriptRepository:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+
+    async def get_latest_for_project(self, project_id: uuid.UUID) -> Transcript | None:
+        result = await self._db.execute(
+            select(Transcript)
+            .where(Transcript.project_id == project_id)
+            .order_by(Transcript.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def create(
         self,

@@ -55,20 +55,16 @@ class Settings(BaseSettings):
     caption_provider_name: str = Field(default="dummy", alias="CAPTION_PROVIDER_NAME")
     render_plan_provider_name: str = Field(default="dummy", alias="RENDER_PLAN_PROVIDER_NAME")
 
-    # --- Fireworks AI (speech provider). Sprint 1.5. ---
-    # Fireworks exposes an OpenAI-Whisper-compatible transcription endpoint.
+    # --- Groq AI (speech provider). Sprint 1.5/1.6. ---
+    # Groq exposes an OpenAI-Whisper-compatible transcription endpoint.
     # Never hardcoded outside app.ai.providers.speech — these are the only
     # vendor-specific knobs, and SPEECH_PROVIDER_NAME stays the single
     # switch that decides whether this vendor is even used.
-    fireworks_api_key: str | None = Field(default=None, alias="FIREWORKS_API_KEY")
-    fireworks_base_url: str = Field(
-        default="https://api.fireworks.ai/inference/v1", alias="FIREWORKS_BASE_URL"
-    )
-    fireworks_speech_model: str = Field(default="whisper-v3", alias="FIREWORKS_SPEECH_MODEL")
-    fireworks_timeout_seconds: float = Field(default=120.0, alias="FIREWORKS_TIMEOUT_SECONDS")
-    fireworks_cost_per_second_usd: float = Field(
-        default=0.0001, alias="FIREWORKS_COST_PER_SECOND_USD"
-    )
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    groq_speech_model: str = Field(default="whisper-large-v3", alias="GROQ_SPEECH_MODEL")
+    groq_timeout_seconds: float = Field(default=120.0, alias="GROQ_TIMEOUT_SECONDS")
+    groq_cost_per_second_usd: float = Field(default=0.0001, alias="GROQ_COST_PER_SECOND_USD")
 
 
 @lru_cache

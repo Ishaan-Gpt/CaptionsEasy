@@ -82,6 +82,28 @@ class FakeProjectRepository:
         project.status = status
         return project
 
+    async def get_all_by_owner(self, owner_id, *, limit=50, offset=0):
+        matches = [
+            p for p in self.projects.values() if p.owner_id == owner_id and p.deleted_at is None
+        ]
+        matches.sort(key=lambda p: p.created_at, reverse=True)
+        return matches[offset : offset + limit], len(matches)
+
+    async def update_fields(self, project, *, title=None, description=None, status=None, thumbnail_url=None):
+        if title is not None:
+            project.title = title
+        if description is not None:
+            project.description = description
+        if status is not None:
+            project.status = status
+        if thumbnail_url is not None:
+            project.thumbnail_url = thumbnail_url
+        return project
+
+    async def soft_delete(self, project):
+        project.deleted_at = _now()
+        return project
+
 
 class FakeVideoRepository:
     def __init__(self) -> None:
@@ -99,6 +121,10 @@ class FakeVideoRepository:
         )
         self.videos.append(video)
         return video
+
+    async def get_latest_for_project(self, project_id):
+        matches = [v for v in self.videos if v.project_id == project_id]
+        return matches[-1] if matches else None
 
 
 class FakeProgressReporter:
@@ -153,6 +179,31 @@ class FakeJobRepository:
         return matches[-1] if matches else None
 
 
+class FakeTranscriptRepository:
+    def __init__(self) -> None:
+        self.transcripts: list = []
+
+    async def get_latest_for_project(self, project_id):
+        matches = [t for t in self.transcripts if t.project_id == project_id]
+        return matches[-1] if matches else None
+
+    async def create(self, *, project_id, language, provider, version, transcript_json):
+        from app.db.models.transcript import Transcript
+
+        transcript = Transcript(
+            id=uuid.uuid4(),
+            project_id=project_id,
+            language=language,
+            provider=provider,
+            version=version,
+            transcript_json=transcript_json,
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        self.transcripts.append(transcript)
+        return transcript
+
+
 @pytest.fixture
 def fake_profile() -> Profile:
     now = _now()
@@ -196,6 +247,11 @@ def fake_progress_reporter() -> FakeProgressReporter:
 
 
 @pytest.fixture
+def fake_transcript_repository() -> FakeTranscriptRepository:
+    return FakeTranscriptRepository()
+
+
+@pytest.fixture
 def app(
     fake_profile,
     fake_project_repository,
@@ -204,6 +260,7 @@ def app(
     fake_storage_client,
     fake_job_dispatcher,
     fake_progress_reporter,
+    fake_transcript_repository,
 ):
     from app.api.v1 import deps as v1_deps
     from app.api.v1.upload import get_upload_service
@@ -219,6 +276,7 @@ def app(
     fastapi_app.dependency_overrides[v1_deps.get_job_repository] = lambda: fake_job_repository
     fastapi_app.dependency_overrides[v1_deps.get_job_dispatcher] = lambda: fake_job_dispatcher
     fastapi_app.dependency_overrides[v1_deps.get_progress_reporter] = lambda: fake_progress_reporter
+    fastapi_app.dependency_overrides[v1_deps.get_transcript_repository] = lambda: fake_transcript_repository
 
     def _upload_service():
         from app.core.config import get_settings

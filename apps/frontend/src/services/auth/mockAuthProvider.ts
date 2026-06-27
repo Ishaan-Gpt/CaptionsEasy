@@ -1,13 +1,19 @@
-import { User } from "./types";
+import { User } from "../types";
+import { AuthProvider } from "./types";
 
+/**
+ * Temporary mock auth — localStorage only, no backend call. Source: Sprint
+ * 1.6 brief > Authentication ("Clearly isolate temporary mock auth.").
+ * Kept verbatim from the pre-Sprint-1.6 services/auth.ts so the only thing
+ * that changes when Supabase Auth lands is `./index.ts`'s export.
+ */
 const MOCK_USER_KEY = "motionai_mock_user";
 const MOCK_TOKEN_KEY = "motionai_mock_token";
 
-export const authService = {
-  async register(name: string, email: string, password: string): Promise<{ user: User; token: string }> {
+export const mockAuthProvider: AuthProvider = {
+  async register(name: string, email: string, password: string) {
     await new Promise((resolve) => setTimeout(resolve, 800));
-    
-    // Simulate error cases for testing
+
     if (email.includes("error")) {
       throw new Error("Email already registered");
     }
@@ -26,7 +32,7 @@ export const authService = {
     return { user, token: "mock_jwt_token_123" };
   },
 
-  async login(email: string, password: string): Promise<{ user: User; token: string }> {
+  async login(email: string, password: string) {
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     if (email.includes("error")) {
@@ -48,13 +54,13 @@ export const authService = {
     return { user, token: "mock_jwt_token_456" };
   },
 
-  async logout(): Promise<void> {
+  async logout() {
     await new Promise((resolve) => setTimeout(resolve, 300));
     localStorage.removeItem(MOCK_USER_KEY);
     localStorage.removeItem(MOCK_TOKEN_KEY);
   },
 
-  async getCurrentUser(): Promise<User | null> {
+  async getCurrentUser() {
     await new Promise((resolve) => setTimeout(resolve, 400));
     const userStr = localStorage.getItem(MOCK_USER_KEY);
     if (!userStr) return null;
@@ -65,8 +71,13 @@ export const authService = {
     }
   },
 
-  isAuthenticated(): boolean {
+  getToken() {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(MOCK_TOKEN_KEY);
+  },
+
+  isAuthenticated() {
     if (typeof window === "undefined") return false;
     return !!localStorage.getItem(MOCK_TOKEN_KEY);
-  }
+  },
 };

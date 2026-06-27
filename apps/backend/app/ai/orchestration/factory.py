@@ -19,7 +19,7 @@ from app.ai.orchestration.validators import (
     validate_transcript_business_rules,
 )
 from app.ai.providers.dummy import register_dummy_providers
-from app.ai.providers.speech import register_fireworks_speech_provider
+from app.ai.providers.speech import register_groq_speech_provider
 from app.ai.providers.stage_provider_registry import (
     caption_provider_registry,
     creative_provider_registry,
@@ -136,7 +136,7 @@ def build_default_engine(
     here — see contracts/ai.md > Providers) and assembles the engine.
     Returns the recorder too, so callers can read metrics back out."""
     register_dummy_providers()  # idempotent; ensures "dummy" is always resolvable.
-    register_fireworks_speech_provider()  # idempotent; ensures "fireworks" is resolvable.
+    register_groq_speech_provider()  # idempotent; ensures "groq" is resolvable.
     recorder = metrics_recorder or InMemoryMetricsRecorder()
 
     stage_registry = build_stage_registry(
@@ -147,4 +147,47 @@ def build_default_engine(
     )
     executor = StageExecutor(metrics_recorder=recorder)
     engine = AIPipelineOrchestrationEngine(stage_registry=stage_registry, stage_executor=executor)
+    return engine, recorder
+
+
+def build_speech_only_engine(
+    *,
+    speech_provider_name: str = "dummy",
+    metrics_recorder: MetricsRecorder | None = None,
+) -> tuple[AIPipelineOrchestrationEngine, MetricsRecorder]:
+    """Sprint 1.6: engine restricted to SPEECH_RECOGNITION + TRANSCRIPT_VALIDATION.
+
+    Creative/caption/render planning are explicitly out of scope for this
+    integration sprint (docs/ROADMAP.md Phases 7+) — `StageRegistry.ordered_stages()`
+    only yields stages that were registered, so simply not registering the
+    other six keeps the engine from running them, with no change to the
+    full-pipeline `build_default_engine`/`build_stage_registry` above.
+    """
+    register_dummy_providers()
+    register_groq_speech_provider()
+    recorder = metrics_recorder or InMemoryMetricsRecorder()
+    speech_provider = speech_provider_registry.create(speech_provider_name)
+
+    async def run_speech(ctx: PipelineContext):
+        video_storage_path = getattr(ctx.video, "storage_path", None) or ctx.config.get(
+            "video_storage_path"
+        )
+        return await speech_provider.transcribe(video_storage_path=video_storage_path)
+
+    registry = StageRegistry()
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.SPEECH_RECOGNITION, output_model=Transcript, provider_call=run_speech
+        )
+    )
+    registry.register(
+        StageDefinition(
+            stage=PipelineStage.TRANSCRIPT_VALIDATION,
+            output_model=Transcript,
+            validator_call=validate_transcript_business_rules,
+        )
+    )
+
+    executor = StageExecutor(metrics_recorder=recorder)
+    engine = AIPipelineOrchestrationEngine(stage_registry=registry, stage_executor=executor)
     return engine, recorder

@@ -1,137 +1,75 @@
+/**
+ * Real projects service. Source: contracts/api.md > Projects. Sprint 1.6
+ * replaces the previous localStorage-backed mock (list/rename/status/
+ * delete) with the backend endpoints added this sprint
+ * (apps/backend/app/api/v1/projects.py).
+ */
+
 import { Project, ProjectStatus } from "./types";
-import { apiClient } from "./api-client";
+import { apiClient, ApiError } from "./api-client";
 
-const PROJECTS_KEY = "motionai_mock_projects";
+interface BackendProject {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+  thumbnail_url: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
 
-// Prepopulate storage with some mock projects for visual demo
-const getPrepopulatedProjects = (): Project[] => {
-  return [
-    {
-      id: "proj_1",
-      title: "Viral Reels - Tech Setup",
-      description: "Short promo clip showing new mechanical keyboard setup.",
-      status: "COMPLETED",
-      thumbnail_url: "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?w=400&q=80",
-      created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-    {
-      id: "proj_2",
-      title: "Podcast Ep 12 Highlight",
-      description: "Snippet about AI agents coding on developer machines.",
-      status: "PROCESSING",
-      thumbnail_url: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=400&q=80",
-      created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "proj_3",
-      title: "Fitness VLog Intro",
-      description: "Motivation monologue.",
-      status: "CREATED",
-      created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-      updated_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-    }
-  ];
-};
-
-const getProjectsFromStorage = (): Project[] => {
-  if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(PROJECTS_KEY);
-  if (!stored) {
-    const initial = getPrepopulatedProjects();
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(initial));
-    return initial;
-  }
-  try {
-    return JSON.parse(stored) as Project[];
-  } catch {
-    return [];
-  }
-};
-
-const saveProjectsToStorage = (projects: Project[]) => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  }
-};
+function toProject(p: BackendProject): Project {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description ?? undefined,
+    status: (p.status as ProjectStatus) ?? "CREATED",
+    thumbnail_url: p.thumbnail_url ?? undefined,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    deleted_at: p.deleted_at ?? undefined,
+  };
+}
 
 export const projectsService = {
   async getProjects(): Promise<Project[]> {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    return getProjectsFromStorage().filter((p) => !p.deleted_at);
+    const projects = await apiClient.get<BackendProject[]>("/projects");
+    return projects.map(toProject);
   },
 
   async getProjectById(id: string): Promise<Project | null> {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const project = getProjectsFromStorage().find((p) => p.id === id && !p.deleted_at);
-    return project || null;
+    try {
+      const project = await apiClient.get<BackendProject>(`/projects/${id}`);
+      return toProject(project);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "NOT_FOUND") return null;
+      throw err;
+    }
   },
 
   async createProject(title: string): Promise<Project> {
-    // Real backend project row — required because the upload endpoint
-    // validates project ownership against the database (contracts/api.md,
-    // contracts/database.md > RLS). Status/listing stay on the local mock
-    // store below until Phase 3 (project CRUD) lands on the backend.
-    const backendProject = await apiClient.post<{ id: string; title: string }>("/projects", {
-      json: { title },
-    });
-
-    const newProj: Project = {
-      id: backendProject.id,
-      title,
-      status: "CREATED",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const projects = getProjectsFromStorage();
-    projects.unshift(newProj);
-    saveProjectsToStorage(projects);
-    return newProj;
+    const project = await apiClient.post<BackendProject>("/projects", { json: { title } });
+    return toProject(project);
   },
 
   async renameProject(id: string, title: string): Promise<Project> {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    const projects = getProjectsFromStorage();
-    const index = projects.findIndex((p) => p.id === id);
-    if (index === -1) throw new Error("Project not found");
-    
-    projects[index] = {
-      ...projects[index],
-      title,
-      updated_at: new Date().toISOString()
-    };
-    saveProjectsToStorage(projects);
-    return projects[index];
+    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { title } });
+    return toProject(project);
   },
 
   async updateProjectStatus(id: string, status: ProjectStatus): Promise<Project> {
-    const projects = getProjectsFromStorage();
-    const index = projects.findIndex((p) => p.id === id);
-    if (index === -1) throw new Error("Project not found");
-    
-    projects[index] = {
-      ...projects[index],
-      status,
-      updated_at: new Date().toISOString()
-    };
-    saveProjectsToStorage(projects);
-    return projects[index];
+    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { status } });
+    return toProject(project);
   },
 
   async deleteProject(id: string): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    const projects = getProjectsFromStorage();
-    const index = projects.findIndex((p) => p.id === id);
-    if (index === -1) throw new Error("Project not found");
-    
-    // Soft delete
-    projects[index] = {
-      ...projects[index],
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    saveProjectsToStorage(projects);
-  }
+    await apiClient.delete(`/projects/${id}`);
+  },
+
+  /** Source: contracts/api.md > POST /projects/{id}/process. Queues the AI
+   * pipeline job for the project's latest uploaded video. */
+  async startProcessing(id: string): Promise<{ jobId: string }> {
+    return apiClient.post<{ jobId: string }>(`/projects/${id}/process`);
+  },
 };

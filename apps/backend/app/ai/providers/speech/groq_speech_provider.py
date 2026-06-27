@@ -1,6 +1,6 @@
-"""Fireworks-compatible SpeechProvider. Source: Sprint 1.5 brief.
+"""Groq-compatible SpeechProvider. Source: Sprint 1.5/1.6 brief.
 
-Video -> download from storage -> extract audio -> Fireworks Whisper
+Video -> download from storage -> extract audio -> Groq Whisper
 transcription endpoint (OpenAI-compatible) -> Transcript-shaped raw dict.
 
 No business-rule validation happens here — "every provider output must
@@ -43,7 +43,7 @@ TRANSCRIPT_VERSION = "1.0"
 FALLBACK_CONFIDENCE = 0.5
 
 
-class FireworksSpeechProvider(SpeechProvider):
+class GroqSpeechProvider(SpeechProvider):
     def __init__(
         self,
         *,
@@ -66,25 +66,25 @@ class FireworksSpeechProvider(SpeechProvider):
         )
 
         start = time.monotonic()
-        response_json = await self._call_fireworks(audio_bytes)
+        response_json = await self._call_groq(audio_bytes)
         latency_ms = (time.monotonic() - start) * 1000
 
         data = _map_response_to_transcript(response_json)
         duration_seconds = data["duration_ms"] / 1000
         usage = ProviderUsage(
-            provider="fireworks",
-            model=self._settings.fireworks_speech_model,
+            provider="groq",
+            model=self._settings.groq_speech_model,
             latency_ms=latency_ms,
-            estimated_cost_usd=duration_seconds * self._settings.fireworks_cost_per_second_usd,
+            estimated_cost_usd=duration_seconds * self._settings.groq_cost_per_second_usd,
         )
         return ProviderOutput(data=data, usage=usage)
 
-    async def _call_fireworks(self, audio_bytes: bytes) -> dict[str, Any]:
-        url = f"{self._settings.fireworks_base_url}/audio/transcriptions"
-        headers = {"Authorization": f"Bearer {self._settings.fireworks_api_key}"}
+    async def _call_groq(self, audio_bytes: bytes) -> dict[str, Any]:
+        url = f"{self._settings.groq_base_url}/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {self._settings.groq_api_key}"}
         files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
         data = {
-            "model": self._settings.fireworks_speech_model,
+            "model": self._settings.groq_speech_model,
             "response_format": "verbose_json",
             "timestamp_granularities[]": "word",
         }
@@ -92,7 +92,7 @@ class FireworksSpeechProvider(SpeechProvider):
         client = self._http_client
         owns_client = client is None
         if owns_client:
-            client = httpx.AsyncClient(timeout=self._settings.fireworks_timeout_seconds)
+            client = httpx.AsyncClient(timeout=self._settings.groq_timeout_seconds)
         try:
             response = await client.post(url, headers=headers, files=files, data=data)
             response.raise_for_status()

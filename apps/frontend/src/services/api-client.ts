@@ -1,17 +1,22 @@
 /**
- * Thin client for the real MotionAI backend. Source: contracts/api.md >
- * Standard Response Format.
+ * Centralized client for the real MotionAI backend. Source: contracts/api.md
+ * > Standard Response Format. Source: Sprint 1.6 brief > API Client
+ * ("Centralize: API client, Request interceptors, Error handling, Retry
+ * policy, Upload progress, Abort handling.").
  *
- * TODO: the bearer token currently comes from the mock authService
- * (localStorage "motionai_mock_token"), which is not a real Supabase JWT.
- * Auth/login integration against the real backend is Phase 1
- * (docs/ROADMAP.md) and out of scope for this upload-foundation sprint —
- * the upload endpoints will reject this mock token with 401 until that
- * lands.
+ * Every service module routes HTTP calls through this module — none of
+ * them touch `fetch`/`XMLHttpRequest`/localStorage directly.
  */
 
+import { authService } from "./auth";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
-const MOCK_TOKEN_KEY = "motionai_mock_token";
+
+/** Idempotent GETs only get one extra attempt — a network blip, not a
+ * fixed contract response, is the only thing worth retrying automatically.
+ * 4xx/5xx responses (the backend answered) are never retried here. */
+const GET_RETRY_ATTEMPTS = 1;
+const GET_RETRY_DELAY_MS = 400;
 
 export interface ApiErrorBody {
   code: string;
@@ -29,9 +34,17 @@ export class ApiError extends Error {
   }
 }
 
+/** Thrown when the backend cannot be reached at all (DNS/connection
+ * refused/CORS) — distinct from ApiError, which means the backend *did*
+ * respond, just with an error. */
+export class NetworkUnavailableError extends Error {
+  constructor() {
+    super("Could not reach the backend. Check your connection and try again.");
+  }
+}
+
 function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(MOCK_TOKEN_KEY);
+  return authService.getToken();
 }
 
 async function unwrap<T>(response: Response): Promise<T> {
@@ -42,25 +55,81 @@ async function unwrap<T>(response: Response): Promise<T> {
   return body.data as T;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithNetworkErrorHandling(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new NetworkUnavailableError();
+  }
+}
+
 export const apiClient = {
-  async post<T>(path: string, init?: { json?: unknown; formData?: FormData }): Promise<T> {
+  async post<T>(path: string, init?: { json?: unknown; formData?: FormData; signal?: AbortSignal }): Promise<T> {
     const token = getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
       method: "POST",
       headers: init?.formData ? headers : { ...headers, "Content-Type": "application/json" },
       body: init?.formData ?? (init?.json !== undefined ? JSON.stringify(init.json) : undefined),
+      signal: init?.signal,
     });
     return unwrap<T>(response);
   },
 
-  async get<T>(path: string): Promise<T> {
+  async patch<T>(path: string, init?: { json?: unknown; signal?: AbortSignal }): Promise<T> {
     const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const headers: HeadersInit = { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" };
+
+    const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
+      method: "PATCH",
+      headers,
+      body: init?.json !== undefined ? JSON.stringify(init.json) : undefined,
+      signal: init?.signal,
     });
     return unwrap<T>(response);
+  },
+
+  async delete<T = void>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
+    const token = getAuthToken();
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
+      method: "DELETE",
+      headers,
+      signal: init?.signal,
+    });
+    if (response.status === 204) return undefined as T;
+    return unwrap<T>(response);
+  },
+
+  async get<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
+    const token = getAuthToken();
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= GET_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
+          headers,
+          signal: init?.signal,
+        });
+        return await unwrap<T>(response);
+      } catch (err) {
+        lastError = err;
+        // Only retry network failures, never aborts or backend error responses.
+        if (!(err instanceof NetworkUnavailableError) || attempt === GET_RETRY_ATTEMPTS) {
+          throw err;
+        }
+        await sleep(GET_RETRY_DELAY_MS);
+      }
+    }
+    throw lastError;
   },
 
   /** Multipart upload with progress reporting (fetch has no upload-progress event).
@@ -100,7 +169,7 @@ export const apiClient = {
         }
       };
 
-      xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.onerror = () => reject(new NetworkUnavailableError());
       xhr.onabort = () => reject(new DOMException("Upload cancelled.", "AbortError"));
 
       xhr.send(formData);
