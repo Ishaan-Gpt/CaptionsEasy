@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     job_progress_ttl_seconds: int = Field(default=3600, alias="JOB_PROGRESS_TTL_SECONDS")
     job_stage_duration_seconds: float = Field(default=1.0, alias="JOB_STAGE_DURATION_SECONDS")
 
+    # --- AI provider selection (contracts/ai.md > Providers). Sprint 1.4. ---
+    # "Provider selection must come from configuration" — every stage's
+    # provider name resolves through app.ai.providers.stage_provider_registry.
+    # Only "dummy" providers exist so far (no real AI calls this sprint).
+    speech_provider_name: str = Field(default="dummy", alias="SPEECH_PROVIDER_NAME")
+    creative_provider_name: str = Field(default="dummy", alias="CREATIVE_PROVIDER_NAME")
+    caption_provider_name: str = Field(default="dummy", alias="CAPTION_PROVIDER_NAME")
+    render_plan_provider_name: str = Field(default="dummy", alias="RENDER_PLAN_PROVIDER_NAME")
+
 
 @lru_cache
 def get_settings() -> Settings:

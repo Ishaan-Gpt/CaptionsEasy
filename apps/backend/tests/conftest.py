@@ -1,7 +1,18 @@
 import os
+import sys
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
+
+# app.ai.* imports `packages.contracts.python` (the monorepo's shared
+# contracts package, living at the repo root — see e.g.
+# app/ai/services/base.py's TODO about real workspace packaging). Make the
+# repo root importable so that resolves under pytest.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # Settings are required env vars — set test values before any app module
 # (which calls get_settings() at import time) is imported.
@@ -20,6 +31,13 @@ from app.db.models.project import Project  # noqa: E402
 from app.db.models.video import Video  # noqa: E402
 
 
+def _now() -> datetime:
+    """Fakes don't touch a real DB, so server_default=func.now() never
+    fires — fixtures must set created_at/updated_at themselves to match
+    what a persisted row would actually look like."""
+    return datetime.now(timezone.utc)
+
+
 class FakeStorageClient:
     def __init__(self) -> None:
         self.uploads: list[dict] = []
@@ -34,7 +52,15 @@ class FakeProjectRepository:
         self.projects: dict[uuid.UUID, Project] = {}
 
     async def create(self, *, owner_id, title, description=None):
-        project = Project(id=uuid.uuid4(), owner_id=owner_id, title=title, description=description)
+        now = _now()
+        project = Project(
+            id=uuid.uuid4(),
+            owner_id=owner_id,
+            title=title,
+            description=description,
+            created_at=now,
+            updated_at=now,
+        )
         self.projects[project.id] = project
         return project
 
@@ -57,7 +83,15 @@ class FakeVideoRepository:
         self.videos: list[Video] = []
 
     async def create(self, *, project_id, storage_path, file_size):
-        video = Video(id=uuid.uuid4(), project_id=project_id, storage_path=storage_path, file_size=file_size)
+        now = _now()
+        video = Video(
+            id=uuid.uuid4(),
+            project_id=project_id,
+            storage_path=storage_path,
+            file_size=file_size,
+            created_at=now,
+            updated_at=now,
+        )
         self.videos.append(video)
         return video
 
@@ -93,7 +127,16 @@ class FakeJobRepository:
         self.jobs: list[Job] = []
 
     async def create_queued(self, *, project_id, job_type):
-        job = Job(id=uuid.uuid4(), project_id=project_id, job_type=job_type, status=JobStatus.QUEUED, progress=0)
+        now = _now()
+        job = Job(
+            id=uuid.uuid4(),
+            project_id=project_id,
+            job_type=job_type,
+            status=JobStatus.QUEUED,
+            progress=0,
+            created_at=now,
+            updated_at=now,
+        )
         self.jobs.append(job)
         return job
 
@@ -107,7 +150,14 @@ class FakeJobRepository:
 
 @pytest.fixture
 def fake_profile() -> Profile:
-    return Profile(id=uuid.uuid4(), auth_user_id=uuid.uuid4(), full_name="Test User")
+    now = _now()
+    return Profile(
+        id=uuid.uuid4(),
+        auth_user_id=uuid.uuid4(),
+        full_name="Test User",
+        created_at=now,
+        updated_at=now,
+    )
 
 
 @pytest.fixture

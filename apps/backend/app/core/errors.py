@@ -68,7 +68,10 @@ class ForbiddenError(AppError):
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
-        logger.warning("app_error", extra={"code": exc.code, "message": exc.message, "path": request.url.path})
+        logger.warning(
+            "app_error",
+            extra={"code": exc.code, "error_message": exc.message, "path": request.url.path},
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content=error_payload(code=exc.code, message=exc.message),
