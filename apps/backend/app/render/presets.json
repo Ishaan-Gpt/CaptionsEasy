@@ -29,7 +29,11 @@
     },
     "timing": {
       "word_limit": 3,
-      "caption_spacing_ms": 100
+      "caption_spacing_ms": 100,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 18
     },
     "transitions": "none"
   },
@@ -63,7 +67,11 @@
     },
     "timing": {
       "word_limit": 2,
-      "caption_spacing_ms": 50
+      "caption_spacing_ms": 50,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22
     },
     "transitions": "fade"
   },
@@ -97,7 +105,11 @@
     },
     "timing": {
       "word_limit": 1,
-      "caption_spacing_ms": 30
+      "caption_spacing_ms": 30,
+      "word_pacing": "dynamic",
+      "pause_handling": "clear",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 25
     },
     "transitions": "none"
   },
@@ -131,7 +143,11 @@
     },
     "timing": {
       "word_limit": 4,
-      "caption_spacing_ms": 150
+      "caption_spacing_ms": 150,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 15
     },
     "transitions": "fade"
   },
@@ -165,7 +181,11 @@
     },
     "timing": {
       "word_limit": 1,
-      "caption_spacing_ms": 20
+      "caption_spacing_ms": 20,
+      "word_pacing": "dynamic",
+      "pause_handling": "clear",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 28
     },
     "transitions": "pop"
   },
@@ -199,7 +219,11 @@
     },
     "timing": {
       "word_limit": 2,
-      "caption_spacing_ms": 80
+      "caption_spacing_ms": 80,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 20
     },
     "transitions": "fade"
   },
@@ -233,7 +257,11 @@
     },
     "timing": {
       "word_limit": 3,
-      "caption_spacing_ms": 120
+      "caption_spacing_ms": 120,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 16
     },
     "transitions": "fade"
   }

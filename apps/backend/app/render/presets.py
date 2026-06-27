@@ -32,6 +32,10 @@ class EmojiPreset(BaseModel):
 class TimingPreset(BaseModel):
     word_limit: int
     caption_spacing_ms: int
+    word_pacing: str
+    pause_handling: str
+    sentence_segmentation: str
+    reading_speed_limit_cps: int
 
 class StylePreset(BaseModel):
     name: str

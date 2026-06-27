@@ -60,6 +60,7 @@ class RenderPlanMetadata(StrictModel):
     video_id: str
     generated_at: datetime
     generator_version: str
+    quality_evaluation: dict | None = None
 
 
 class RenderPlanAsset(StrictModel):
