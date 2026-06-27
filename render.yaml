@@ -10,9 +10,19 @@ services:
     # plan. Migrations are run manually (`alembic upgrade head` against the
     # real DATABASE_URL) before each deploy that adds one — already done for
     # everything currently on main.
+    #
+    # Render's free tier has no Background Worker service type at all, so
+    # there is no separate motionai-worker service — RUN_WORKER_INLINE=true
+    # makes this same process also run the Celery worker loop in a
+    # background thread (see app.main._start_inline_worker). It sleeps
+    # along with this free web service after ~15min of no HTTP traffic,
+    # same as the API itself; move to a paid plan + separate worker service
+    # later if jobs need to process while the API is idle.
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: RUN_WORKER_INLINE
+        value: "true"
       # REDIS_URL is the existing Upstash Redis instance already used in
       # local dev (apps/backend/.env) — no separate Render-managed Redis is
       # provisioned, since Upstash's free tier already covers this and a
@@ -25,17 +35,3 @@ services:
       # GROQ_API_KEY, CORS_ALLOW_ORIGINS (the Vercel frontend URL),
       # SPEECH_PROVIDER_NAME=groq, CREATIVE_PROVIDER_NAME=groq,
       # CAPTION_PROVIDER_NAME=groq.
-
-  - type: worker
-    name: motionai-worker
-    runtime: docker
-    dockerfilePath: ./apps/backend/Dockerfile
-    dockerContext: .
-    dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
-    plan: free
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      # Same manual env vars as motionai-backend above (including REDIS_URL,
-      # the existing Upstash instance) — the worker needs the same
-      # Supabase/Groq credentials to run the AI pipeline.

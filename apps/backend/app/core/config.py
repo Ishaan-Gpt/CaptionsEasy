@@ -44,6 +44,11 @@ class Settings(BaseSettings):
 
     # --- Background processing (Celery + Redis). Sprint 1.3. ---
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    # When true, the web process also runs the Celery worker loop in a
+    # background thread instead of relying on a separate worker service.
+    # Render's free tier has no Background Worker service type at all, so
+    # this is the only free way to process jobs there — see DEPLOYMENT.md.
+    run_worker_inline: bool = Field(default=False, alias="RUN_WORKER_INLINE")
     job_max_retries: int = Field(default=2, alias="JOB_MAX_RETRIES")
     job_retry_countdown_seconds: int = Field(default=5, alias="JOB_RETRY_COUNTDOWN_SECONDS")
     job_lock_ttl_seconds: int = Field(default=900, alias="JOB_LOCK_TTL_SECONDS")
