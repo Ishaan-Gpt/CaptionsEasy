@@ -2,8 +2,20 @@ import { User } from "../types";
 import { AuthProvider } from "./types";
 import { supabase } from "./supabaseClient";
 
-const PROJECT_REF = "sqalfzybuydgsaqocysb";
-const STORAGE_KEY = `sb-${PROJECT_REF}-auth-token`;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const getProjectRef = (url: string | undefined): string => {
+  if (!url) return "";
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.split(".")[0] || "";
+  } catch {
+    return "";
+  }
+};
+
+const projectRef = getProjectRef(supabaseUrl);
+const STORAGE_KEY = projectRef ? `sb-${projectRef}-auth-token` : "sb-auth-token";
 
 function mapSupabaseUser(sbUser: any): User {
   const name = sbUser.user_metadata?.name || sbUser.email?.split("@")[0] || "User";

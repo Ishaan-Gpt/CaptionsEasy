@@ -41,17 +41,51 @@ def decode_supabase_jwt(token: str, settings: Settings) -> dict:
         alg = header.get("alg", settings.supabase_jwt_algorithm)
 
         if alg in _HS_ALGORITHMS:
-            signing_key: str | jwt.PyJWK = settings.supabase_jwt_secret
+            import base64
+            keys_to_try = []
+
+            # 1. Try base64-decoded secret (standard for Supabase dashboard secrets)
+            try:
+                padded = settings.supabase_jwt_secret
+                missing_padding = len(padded) % 4
+                if missing_padding:
+                    padded += "=" * (4 - missing_padding)
+                keys_to_try.append(base64.b64decode(padded))
+            except Exception:
+                pass
+
+            # 2. Try raw string/bytes (standard for local/test secrets like "test-secret")
+            keys_to_try.append(settings.supabase_jwt_secret.encode("utf-8"))
+            keys_to_try.append(settings.supabase_jwt_secret)
+
+            decoded = None
+            last_exc = None
+            for key in keys_to_try:
+                try:
+                    decoded = jwt.decode(
+                        token,
+                        key,
+                        algorithms=[alg],
+                        options={"verify_aud": False},
+                    )
+                    break
+                except jwt.PyJWTError as exc:
+                    last_exc = exc
+
+            if decoded is None:
+                if last_exc:
+                    raise last_exc
+                raise jwt.PyJWTError("Failed to decode JWT with any secret variant.")
+            return decoded
         else:
             jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
             signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(token).key
-
-        return jwt.decode(
-            token,
-            signing_key,
-            algorithms=[alg],
-            options={"verify_aud": False},
-        )
+            return jwt.decode(
+                token,
+                signing_key,
+                algorithms=[alg],
+                options={"verify_aud": False},
+            )
     except jwt.PyJWTError as exc:
         # The *reason* a token failed (expired/bad signature/wrong alg) is
         # safe, useful diagnostic info on its own — only the raw token value

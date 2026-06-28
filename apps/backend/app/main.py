@@ -26,7 +26,7 @@ def _start_inline_worker() -> None:
 
     def _run() -> None:
         celery_app.worker_main(
-            ["worker", "--loglevel=info", "--pool=solo", "--concurrency=1"]
+            ["worker", "--loglevel=info", "--pool=solo", "--concurrency=1", "--without-gossip", "--without-mingle"]
         )
 
     thread = threading.Thread(target=_run, name="inline-celery-worker", daemon=True)

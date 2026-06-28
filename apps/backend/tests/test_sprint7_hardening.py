@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi import HTTPException
+from app.core.errors import RateLimitExceededError
 
 from app.api.v1.deps import check_rate_limit
 from app.worker.tasks import cleanup_project_storage, cleanup_old_exports, recover_failed_jobs
@@ -38,10 +39,10 @@ async def test_rate_limiter_allows_under_limit_and_blocks_above():
             await check_rate_limit(profile=profile, settings=settings)
             
         # 61st request should raise 429
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(RateLimitExceededError) as exc_info:
             await check_rate_limit(profile=profile, settings=settings)
         assert exc_info.value.status_code == 429
-        assert "Rate limit exceeded" in exc_info.value.detail
+        assert "Rate limit exceeded" in exc_info.value.message
 
 
 def test_cleanup_project_storage_purges_videos_and_exports():

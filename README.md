@@ -74,11 +74,16 @@ python -m uvicorn app.main:app --reload
 ```
 
 ### 2. Celery Worker Setup
-Ensure Redis is running locally, then start the worker:
+Ensure a local Redis instance is running. You can run one quickly via Docker:
+```bash
+docker run -d -p 6379:6379 --name motionai-redis redis:alpine
+```
+
+Then start the worker (recommended with `--without-gossip --without-mingle` to minimize background Redis commands):
 ```bash
 cd apps/backend
 .venv\Scripts\activate
-celery -A app.worker.celery_app worker --loglevel=info
+celery -A app.worker.celery_app worker --loglevel=info --without-gossip --without-mingle
 ```
 To run periodic cleanups and recovery tasks, start Celery Beat:
 ```bash

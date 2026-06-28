@@ -82,7 +82,14 @@ class ForbiddenError(AppError):
     code = "FORBIDDEN"
 
 
+class RateLimitExceededError(AppError):
+    status_code = 429
+    code = "RATE_LIMIT_EXCEEDED"
+
+
 def register_exception_handlers(app: FastAPI) -> None:
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
         logger.warning(
@@ -95,6 +102,17 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             content=error_payload(
                 code=exc.code, message=exc.message, details=exc.details, retryable=exc.retryable
+            ),
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_payload(
+                code="HTTP_ERROR",
+                message=exc.detail,
+                retryable=(exc.status_code == 429 or exc.status_code >= 500)
             ),
         )
 

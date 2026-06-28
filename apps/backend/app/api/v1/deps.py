@@ -113,6 +113,11 @@ async def check_rate_limit(
     settings: Settings = Depends(get_settings),
 ) -> None:
     """Sliding-window rate limiter using Redis."""
+    if settings.environment == "development":
+        return
+
+    from app.core.errors import RateLimitExceededError
+
     redis_client = get_redis_client(settings)
     key = f"rate_limit:{profile.id}"
     try:
@@ -122,12 +127,9 @@ async def check_rate_limit(
         
         limit = 60
         if count > limit:
-            raise HTTPException(
-                status_code=429,
-                detail="Rate limit exceeded. Maximum 60 requests per minute allowed."
-            )
+            raise RateLimitExceededError("Rate limit exceeded. Maximum 60 requests per minute allowed.")
     except Exception as exc:
-        if isinstance(exc, HTTPException):
+        if isinstance(exc, RateLimitExceededError):
             raise exc
         # Fail-open if Redis is unreachable in sandbox/local
         pass

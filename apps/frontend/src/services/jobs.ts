@@ -31,7 +31,7 @@ export const jobsService = {
    * is aborted. Resolves with the final status (or rejects on abort/network
    * error so callers can distinguish "job failed" from "couldn't reach
    * the backend"). */
-  async pollJobStatus(jobId: string, { intervalMs = 1500, onUpdate, signal }: PollJobStatusOptions): Promise<JobStatusResponse> {
+  async pollJobStatus(jobId: string, { intervalMs = 3000, onUpdate, signal }: PollJobStatusOptions): Promise<JobStatusResponse> {
     while (true) {
       if (signal?.aborted) {
         throw new DOMException("Polling cancelled.", "AbortError");

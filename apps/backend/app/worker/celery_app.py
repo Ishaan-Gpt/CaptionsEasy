@@ -21,7 +21,6 @@ settings = get_settings()
 celery_app = Celery(
     "motionai",
     broker=settings.redis_url,
-    backend=settings.redis_url,
     # `app.worker.tasks` is where every @celery_app.task is defined; it
     # imports `celery_app` from *this* module, so importing it directly up
     # top here would be circular. `include` has Celery import it lazily
@@ -41,6 +40,10 @@ celery_app.conf.update(
     task_time_limit=600,
     task_soft_time_limit=540,
     worker_concurrency=4,
+    task_ignore_result=True,
+    broker_transport_options={
+        "polling_interval": 10.0,  # poll Redis for jobs every 10 seconds (default is 2.0s or faster)
+    },
 )
 
 if settings.redis_url.startswith("rediss://"):
@@ -51,7 +54,6 @@ if settings.redis_url.startswith("rediss://"):
     # dispatched a task against a managed TLS Redis instance.
     _ssl_opts = {"ssl_cert_reqs": ssl.CERT_NONE}
     celery_app.conf.broker_use_ssl = _ssl_opts
-    celery_app.conf.redis_backend_use_ssl = _ssl_opts
 
 celery_app.conf.beat_schedule = {
     "cleanup-old-exports-daily": {
