@@ -312,7 +312,9 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     curr_color = highlight_color
                 else:
                     # Regular highlighted coloring
-                    if preset.highlight.colors and segment.emphasis:
+                    if template == "word_by_word" and preset.highlight.colors:
+                        curr_color = preset.highlight.colors[g_idx % len(preset.highlight.colors)]
+                    elif preset.highlight.colors and segment.emphasis:
                         curr_color = highlight_color
 
                 # Append emoji suggestion if requested by style preset and exists

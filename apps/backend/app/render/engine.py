@@ -52,34 +52,60 @@ class RenderEngine:
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
         ]
 
-        # Read typography styles from settings
-        font_family = motion_script.global_settings.default_font
-        font_size = 48 # default fallback
-        
-        # Check first caption event to adapt style if available
+        # Load style preset settings
+        from app.render.presets import StylePresetManager
+        preset_name = motion_script.global_settings.motion_preset
+        preset = StylePresetManager.get_preset(preset_name)
+
+        font_family = preset.typography.font
+        font_size = preset.typography.size
+        base_color = self.hex_to_ass_abgr(preset.typography.color)
+        outline = preset.typography.outline
+        shadow = preset.typography.shadow
+        margin_l = int(preset.safe_area.left)
+        margin_r = int(preset.safe_area.right)
+        margin_v = int(preset.safe_area.bottom)
+
+        bold_str = str(preset.typography.weight)
+        if bold_str.isdigit():
+            bold_val = int(bold_str)
+        elif bold_str.lower() in {"bold", "true"}:
+            bold_val = -1
+        else:
+            bold_val = 0
+
+        alignment = preset.typography.alignment
+        alignment_code = 2
+        if alignment == "left":
+            alignment_code = 1
+        elif alignment == "right":
+            alignment_code = 3
+
+        # Allow caption event payloads to override defaults (retains backward compatibility)
         caption_events = [e for e in motion_script.timeline if e.type == EventType.CAPTION]
-        base_color = "&H00FFFFFF"
-        alignment_code = 2 # default bottom-center
-        
         if caption_events:
             first_payload = caption_events[0].parsed_payload()
             font_family = getattr(first_payload, "font", font_family)
             font_size = getattr(first_payload, "size", font_size)
-            alignment = getattr(first_payload, "alignment", "center")
+            
+            color_hex = getattr(first_payload, "color", None)
+            if color_hex:
+                base_color = self.hex_to_ass_abgr(color_hex)
+                
+            alignment = getattr(first_payload, "alignment", alignment)
             if alignment == "left":
                 alignment_code = 1
             elif alignment == "right":
                 alignment_code = 3
-            color_hex = getattr(first_payload, "color", "#FFFFFF")
-            base_color = self.hex_to_ass_abgr(color_hex)
 
         # Style definition line
         ass_lines.append(
-            f"Style: Default,{font_family},{font_size},{base_color},&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,2,{alignment_code},40,40,80,1"
+            f"Style: Default,{font_family},{font_size},{base_color},&H000000FF,&H00000000,&H80000000,{bold_val},0,0,0,100,100,0,0,1,{outline},{shadow},{alignment_code},{margin_l},{margin_r},{margin_v},1"
         )
         ass_lines.append("")
         ass_lines.append("[Events]")
         ass_lines.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text")
+
 
         # Compile timeline events
         highlight_events = [e for e in motion_script.timeline if e.type == EventType.HIGHLIGHT]
@@ -120,7 +146,18 @@ class RenderEngine:
                 formatted_words = []
                 for idx, w in enumerate(words):
                     if idx in highlighted_indices and active_color:
-                        formatted_words.append(f"{{\\1c{active_color}}}{w}{{\\1c{base_color}}}")
+                        # Determine highlight color with rotating support
+                        if len(preset.highlight.colors) > 1:
+                            color_idx = idx % len(preset.highlight.colors)
+                            word_color = self.hex_to_ass_abgr(preset.highlight.colors[color_idx])
+                        else:
+                            word_color = active_color
+                        
+                        # Apply subtle scale-up for active word pop animation (e.g. Hormozi captions style)
+                        if preset.animation.motion_preset in {"dynamic", "smooth"}:
+                            formatted_words.append(f"{{\\1c{word_color}\\fscx115\\fscy115}}{w}{{\\1c{base_color}\\fscx100\\fscy100}}")
+                        else:
+                            formatted_words.append(f"{{\\1c{word_color}}}{w}{{\\1c{base_color}}}")
                     else:
                         formatted_words.append(w)
                 
@@ -144,12 +181,17 @@ class RenderEngine:
                         anim_tags = f"{{\\fad({fade_in},{fade_out})}}"
                 elif is_first_seg:
                     if anim_preset == "pop":
-                        # Scale pop effect
                         anim_tags = "{\\fscx110\\fscy110}{\\t(0,100,\\fscx100\\fscy100)}"
                     elif anim_preset == "scale":
                         anim_tags = "{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}"
                     elif anim_preset == "slide":
                         anim_tags = "{\\an2}{\\move(540,1000,540,960,0,200)}"
+                    elif anim_preset == "bounce":
+                        anim_tags = "{\\t(0,100,\\fscy115\\fscx105)}{\\t(100,200,\\fscy100\\fscx100)}"
+                    elif anim_preset == "rotate":
+                        anim_tags = "{\\frz-5}{\\t(0,150,\\frz0)}"
+                    elif anim_preset == "elastic":
+                        anim_tags = "{\\fscx0\\fscy0}{\\t(0,100,\\fscx120\\fscy120)}{\\t(100,180,\\fscx95\\fscy95)}{\\t(180,250,\\fscx100\\fscy100)}"
                 
                 full_text = f"{anim_tags}{segment_text}"
                 

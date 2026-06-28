@@ -271,5 +271,161 @@
       "caption_template": "sentence_highlight"
     },
     "transitions": "fade"
+  },
+  "formal": {
+    "name": "Formal",
+    "typography": {
+      "font": "Inter",
+      "size": 44.0,
+      "weight": "500",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 0.0,
+      "outline": 1.0
+    },
+    "animation": {
+      "caption_animation": "fade",
+      "motion_preset": "minimal",
+      "intensity": "low"
+    },
+    "highlight": {
+      "colors": ["#007AFF"]
+    },
+    "safe_area": {
+      "top": 100.0,
+      "bottom": 100.0,
+      "left": 60.0,
+      "right": 60.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 4,
+      "caption_spacing_ms": 120,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 16,
+      "caption_template": "sentence_clean"
+    },
+    "transitions": "fade"
+  },
+  "sarcastic": {
+    "name": "Sarcastic",
+    "typography": {
+      "font": "Outfit",
+      "size": 52.0,
+      "weight": "800",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 2.0,
+      "outline": 3.0
+    },
+    "animation": {
+      "caption_animation": "rotate",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": ["#FF007F", "#FF5E00"]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "occasional"
+    },
+    "timing": {
+      "word_limit": 2,
+      "caption_spacing_ms": 60,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22,
+      "caption_template": "sentence_highlight"
+    },
+    "transitions": "pop"
+  },
+  "humorous_tech": {
+    "name": "Humorous Tech",
+    "typography": {
+      "font": "Outfit",
+      "size": 56.0,
+      "weight": "900",
+      "color": "#00FFFF",
+      "alignment": "center",
+      "shadow": 3.0,
+      "outline": 3.5
+    },
+    "animation": {
+      "caption_animation": "scale",
+      "motion_preset": "dynamic",
+      "intensity": "high"
+    },
+    "highlight": {
+      "colors": ["#FFFF00", "#00FF00"]
+    },
+    "safe_area": {
+      "top": 60.0,
+      "bottom": 150.0,
+      "left": 40.0,
+      "right": 40.0
+    },
+    "emoji": {
+      "behavior": "frequent"
+    },
+    "timing": {
+      "word_limit": 1,
+      "caption_spacing_ms": 20,
+      "word_pacing": "dynamic",
+      "pause_handling": "clear",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 26,
+      "caption_template": "word_by_word"
+    },
+    "transitions": "pop"
+  },
+  "humorous_non_tech": {
+    "name": "Humorous Non-Tech",
+    "typography": {
+      "font": "Outfit",
+      "size": 50.0,
+      "weight": "700",
+      "color": "#FFFDD0",
+      "alignment": "center",
+      "shadow": 1.5,
+      "outline": 2.5
+    },
+    "animation": {
+      "caption_animation": "bounce",
+      "motion_preset": "smooth",
+      "intensity": "high"
+    },
+    "highlight": {
+      "colors": ["#FF4500"]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 110.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "frequent"
+    },
+    "timing": {
+      "word_limit": 3,
+      "caption_spacing_ms": 80,
+      "word_pacing": "even",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 20,
+      "caption_template": "sentence_highlight"
+    },
+    "transitions": "fade"
   }
 }
