@@ -36,6 +36,7 @@ class TimingPreset(BaseModel):
     pause_handling: str
     sentence_segmentation: str
     reading_speed_limit_cps: int
+    caption_template: str = "word_by_word"
 
 class StylePreset(BaseModel):
     name: str

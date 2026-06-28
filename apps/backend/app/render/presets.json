@@ -33,7 +33,8 @@
       "word_pacing": "even",
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 18
+      "reading_speed_limit_cps": 18,
+      "caption_template": "sentence_highlight"
     },
     "transitions": "none"
   },
@@ -71,7 +72,8 @@
       "word_pacing": "dynamic",
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 22
+      "reading_speed_limit_cps": 22,
+      "caption_template": "sentence_highlight"
     },
     "transitions": "fade"
   },
@@ -109,7 +111,8 @@
       "word_pacing": "dynamic",
       "pause_handling": "clear",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 25
+      "reading_speed_limit_cps": 25,
+      "caption_template": "word_by_word"
     },
     "transitions": "none"
   },
@@ -147,7 +150,8 @@
       "word_pacing": "even",
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 15
+      "reading_speed_limit_cps": 15,
+      "caption_template": "sentence_clean"
     },
     "transitions": "fade"
   },
@@ -185,7 +189,8 @@
       "word_pacing": "dynamic",
       "pause_handling": "clear",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 28
+      "reading_speed_limit_cps": 28,
+      "caption_template": "word_by_word"
     },
     "transitions": "pop"
   },
@@ -223,7 +228,8 @@
       "word_pacing": "even",
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 20
+      "reading_speed_limit_cps": 20,
+      "caption_template": "sentence_highlight"
     },
     "transitions": "fade"
   },
@@ -261,7 +267,8 @@
       "word_pacing": "even",
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
-      "reading_speed_limit_cps": 16
+      "reading_speed_limit_cps": 16,
+      "caption_template": "sentence_highlight"
     },
     "transitions": "fade"
   }

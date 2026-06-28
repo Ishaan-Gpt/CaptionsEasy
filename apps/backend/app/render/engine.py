@@ -127,18 +127,29 @@ class RenderEngine:
                 segment_text = " ".join(formatted_words)
                 
                 # Apply Animation Preset tags
-                anim_preset = getattr(cap_payload, "animation", "fade").value
+                anim_preset = getattr(cap_payload, "animation", "fade")
+                if hasattr(anim_preset, "value"):
+                    anim_preset = anim_preset.value
+                else:
+                    anim_preset = str(anim_preset)
+
                 anim_tags = ""
-                duration_ms = t_end - t_start
+                is_first_seg = (t_start == cap.start_ms)
+                is_last_seg = (t_end == cap.end_ms)
+
                 if anim_preset == "fade":
-                    anim_tags = "{\\fad(150,150)}"
-                elif anim_preset == "pop":
-                    # Scale pop effect
-                    anim_tags = "{\\fscx110\\fscy110}{\\t(0,100,\\fscx100\\fscy100)}"
-                elif anim_preset == "scale":
-                    anim_tags = "{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}"
-                elif anim_preset == "slide":
-                    anim_tags = "{\\an2}{\\move(540,1000,540,960,0,200)}"
+                    fade_in = 150 if is_first_seg else 0
+                    fade_out = 150 if is_last_seg else 0
+                    if fade_in > 0 or fade_out > 0:
+                        anim_tags = f"{{\\fad({fade_in},{fade_out})}}"
+                elif is_first_seg:
+                    if anim_preset == "pop":
+                        # Scale pop effect
+                        anim_tags = "{\\fscx110\\fscy110}{\\t(0,100,\\fscx100\\fscy100)}"
+                    elif anim_preset == "scale":
+                        anim_tags = "{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}"
+                    elif anim_preset == "slide":
+                        anim_tags = "{\\an2}{\\move(540,1000,540,960,0,200)}"
                 
                 full_text = f"{anim_tags}{segment_text}"
                 

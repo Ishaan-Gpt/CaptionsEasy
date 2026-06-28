@@ -108,6 +108,7 @@ async def test_quality_render_plan_computes_metrics_and_hooks():
     assert first_event["payload"]["animation"] == "bounce"
     
     # "subscribe now!" is a CTA event
-    last_event = motion_script["timeline"][-1]
+    caption_events = [e for e in motion_script["timeline"] if e["type"] == "caption"]
+    last_event = caption_events[-1]
     assert "SUBSCRIBE" in last_event["payload"]["text"]
     assert last_event["payload"]["color"] == "#00FF00"

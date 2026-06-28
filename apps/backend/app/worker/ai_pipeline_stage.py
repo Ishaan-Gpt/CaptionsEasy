@@ -44,15 +44,17 @@ def build_ai_pipeline_stages(
         if video is None:
             raise ValueError(f"No video found for project {project_id}; cannot run AI pipeline.")
 
-        # Query Project to get selected style
+        # Query Project to get selected style and caption template
         try:
             from app.db.models.project import Project as ProjectModel
             project_row = session.execute(
                 select(ProjectModel).where(ProjectModel.id == uuid.UUID(project_id))
             ).scalar_one_or_none()
             style_name = project_row.style if project_row else None
+            caption_template = project_row.caption_template if project_row else None
         except AttributeError:
             style_name = None
+            caption_template = None
 
         engine, _recorder = build_default_engine(
             speech_provider_name=settings.speech_provider_name,
@@ -71,6 +73,7 @@ def build_ai_pipeline_stages(
                 "caption_provider_name": settings.caption_provider_name,
                 "render_plan_provider_name": settings.render_plan_provider_name,
                 "style": style_name,
+                "caption_template": caption_template,
             },
         )
 

@@ -26,6 +26,7 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     style: Mapped[str | None] = mapped_column(String, nullable=True)
+    caption_template: Mapped[str | None] = mapped_column(String, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     owner: Mapped["Profile"] = relationship(back_populates="projects")  # noqa: F821

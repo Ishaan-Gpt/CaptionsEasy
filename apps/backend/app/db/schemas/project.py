@@ -20,6 +20,7 @@ class ProjectUpdate(BaseModel):
     status: str | None = None
     thumbnail_url: str | None = None
     style: str | None = None
+    caption_template: str | None = None
 
 
 class ProjectRead(ProjectBase):
@@ -30,6 +31,7 @@ class ProjectRead(ProjectBase):
     status: str | None = None
     thumbnail_url: str | None = None
     style: str | None = None
+    caption_template: str | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None

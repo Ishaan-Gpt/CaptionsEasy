@@ -75,6 +75,7 @@ class RenderPlanProvider(ABC):
         project_id: str,
         video_id: str,
         style: str | None = None,
+        caption_template: str | None = None,
     ) -> ProviderOutput:
         """`project_id`/`video_id` are plain strings (not ORM objects) so the
         provider stays free of database coupling — they're only needed to

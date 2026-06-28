@@ -201,10 +201,14 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         project_id: str,
         video_id: str,
         style: Optional[str] = None,
+        caption_template: Optional[str] = None,
     ) -> ProviderOutput:
         start = time.monotonic()
 
         preset = StylePresetManager.get_preset(style)
+
+        # Resolve caption template setting
+        template = caption_template or getattr(preset.timing, "caption_template", "word_by_word")
 
         # 1. Gather Emotion Overrides
         emotion = (creative_plan.emotion or "neutral").lower()
@@ -242,9 +246,15 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                 segment, transcript.words, last_tx_idx
             )
             
-            # Group words using our semantic rules
-            max_chars = 24 if preset.timing.reading_speed_limit_cps > 18 else 20
-            groups = group_words(word_timings, preset.timing.word_limit, max_chars)
+            # Group words using template rules
+            if template == "word_by_word":
+                word_limit_to_use = 1
+                max_chars = 20
+            else:  # sentence_highlight or sentence_clean
+                word_limit_to_use = 8
+                max_chars = 36
+
+            groups = group_words(word_timings, word_limit_to_use, max_chars)
 
             for g_idx, group in enumerate(groups):
                 group_words_text = [item[0] for item in group]
@@ -328,13 +338,42 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     },
                 })
                 event_counter += 1
+
+                # Generate highlight events for each word in the group
+                if template == "sentence_highlight":
+                    for w_idx, (w_text, w_start, w_end) in enumerate(group):
+                        # Ensure word highlights fit within the clamped caption boundaries
+                        h_start = max(w_start, g_start)
+                        h_end = min(w_end, g_end)
+                        # For the last word, align its highlight end with the end of the caption event
+                        if w_idx == len(group) - 1:
+                            h_end = g_end
+                        
+                        if h_start < h_end:
+                            timeline.append({
+                                "id": f"evt-{event_counter}",
+                                "start_ms": h_start,
+                                "end_ms": h_end,
+                                "layer": "highlights",
+                                "type": "highlight",
+                                "payload": {
+                                    "indices": [w_idx],
+                                    "color": highlight_color,
+                                    "animation": "pop",
+                                }
+                            })
+                            event_counter += 1
+
                 elapsed_time_ms = g_end
 
-        # Pause Handling timing engine rules
-        # If gap is present, we either bridge/hold or clear screen
-        for idx in range(len(timeline) - 1):
-            curr_evt = timeline[idx]
-            next_evt = timeline[idx+1]
+        # Separate captions and highlights
+        captions = [e for e in timeline if e["type"] == "caption"]
+        highlights = [e for e in timeline if e["type"] == "highlight"]
+
+        # Pause Handling timing engine rules (captions only)
+        for idx in range(len(captions) - 1):
+            curr_evt = captions[idx]
+            next_evt = captions[idx+1]
             gap = next_evt["start_ms"] - curr_evt["end_ms"]
             if gap > 0:
                 if preset.timing.pause_handling == "hold":
@@ -343,13 +382,26 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     if hold_extension > 0:
                         curr_evt["end_ms"] += hold_extension
 
-            # Word-alignment search (get_segment_word_timings) can match the
-            # wrong transcript word when segments share repeated phrasing,
-            # producing a group whose end_ms lands after the next group's
-            # start_ms. Clamp rather than let it through as an invalid,
-            # overlapping MotionScript.
+            # Clamp overlapping caption blocks
             if curr_evt["end_ms"] >= next_evt["start_ms"]:
                 curr_evt["end_ms"] = max(curr_evt["start_ms"] + 1, next_evt["start_ms"] - 1)
+
+        # For each caption, ensure its highlights fit within its (potentially adjusted) boundaries
+        for cap in captions:
+            # Find highlights associated with this caption's original time range
+            cap_highlights = [
+                h for h in highlights
+                if h["start_ms"] >= cap["start_ms"] and h["start_ms"] < cap["end_ms"]
+            ]
+            for h in cap_highlights:
+                h["start_ms"] = max(h["start_ms"], cap["start_ms"])
+                h["end_ms"] = min(h["end_ms"], cap["end_ms"])
+                if h["start_ms"] >= h["end_ms"]:
+                    h["end_ms"] = h["start_ms"] + 1
+
+        # Re-assemble and sort timeline by start_ms, and type (caption first) to preserve rendering order
+        timeline = captions + highlights
+        timeline.sort(key=lambda e: (e["start_ms"], 0 if e["type"] == "caption" else 1))
 
         # 2. Quality Evaluation Scoring
         readability_score = max(1.0, 10.0 - (single_word_lines_count * 1.5))

@@ -97,7 +97,7 @@ class FakeProjectRepository:
         matches.sort(key=lambda p: p.created_at, reverse=True)
         return matches[offset : offset + limit], len(matches)
 
-    async def update_fields(self, project, *, title=None, description=None, status=None, thumbnail_url=None, style=None):
+    async def update_fields(self, project, *, title=None, description=None, status=None, thumbnail_url=None, style=None, caption_template=None):
         if title is not None:
             project.title = title
         if description is not None:
@@ -108,6 +108,8 @@ class FakeProjectRepository:
             project.thumbnail_url = thumbnail_url
         if style is not None:
             project.style = style
+        if caption_template is not None:
+            project.caption_template = caption_template
         return project
 
     async def soft_delete(self, project):

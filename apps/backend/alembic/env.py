@@ -9,10 +9,10 @@ from app.db.models import *  # noqa: F401,F403  (register all models on Base.met
 
 config = context.config
 
-# DATABASE_URL is required; never hardcode credentials in alembic.ini.
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+    # configparser requires % to be escaped as %% to avoid interpolation errors
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
