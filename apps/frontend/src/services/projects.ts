@@ -141,6 +141,30 @@ export const projectsService = {
   },
 
   async getProjectVideo(id: string): Promise<{ download_url: string }> {
-    return apiClient.get<{ download_url: string }>(`/projects/${id}/video`);
+    return apiClient.get<{ download_url: string }>(`/projects/[id]/video`.replace("[id]", id));
+  },
+
+  async saveCustomStyle(
+    id: string,
+    styleData: {
+      font: string;
+      size: number;
+      weight: string;
+      color: string;
+      alignment: string;
+      shadow: number;
+      outline: number;
+      highlight_color: string;
+      background_style: string;
+      y_position_percent: number;
+    }
+  ): Promise<{ style: string }> {
+    return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {
+      json: styleData
+    });
+  },
+
+  async getCustomStyle(id: string): Promise<any> {
+    return apiClient.get<any>(`/projects/${id}/custom-style`);
   },
 };

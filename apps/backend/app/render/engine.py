@@ -229,8 +229,9 @@ class RenderEngine:
                     # Width estimation of Line 2
                     W2 = estimate_text_width(line2_text.upper(), size_large)
                     
-                    # Vertical position calculations: ensure they appear in 5/7 vh centered x axis
-                    base_y = int(height * 5 / 7)
+                    # Vertical position calculations: ensure they appear at the chosen y-axis height
+                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                    base_y = int(height * y_pct / 100.0)
                     line_gap = font_size * 1.45
                     
                     has_any_l1 = len(line1_words) > 0

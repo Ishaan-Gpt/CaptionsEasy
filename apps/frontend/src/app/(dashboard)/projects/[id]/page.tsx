@@ -261,11 +261,44 @@ export default function ProjectWorkspacePage() {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [scriptError, setScriptError] = useState<string | null>(null);
 
+  const [customFont, setCustomFont] = useState<string>("Outfit");
+  const [customSize, setCustomSize] = useState<number>(48);
+  const [customWeight, setCustomWeight] = useState<string>("800");
+  const [customColor, setCustomColor] = useState<string>("#FFFFFF");
+  const [customHighlightColor, setCustomHighlightColor] = useState<string>("#C5FF00");
+  const [customShadow, setCustomShadow] = useState<number>(0.0);
+  const [customOutline, setCustomOutline] = useState<number>(2.0);
+  const [customBackgroundStyle, setCustomBackgroundStyle] = useState<string>("none");
+  const [customYPositionPercent, setCustomYPositionPercent] = useState<number>(71.4);
+  const [isSavingStyle, setIsSavingStyle] = useState(false);
+  const [styleError, setStyleError] = useState<string | null>(null);
+
   useEffect(() => {
     if (project?.style) {
       setSelectedStyle(project.style);
     }
   }, [project?.style]);
+
+  // Fetch custom style when project loads or style changes
+  useEffect(() => {
+    if (project?.id) {
+      projectsService.getCustomStyle(project.id)
+        .then((res) => {
+          if (res) {
+            setCustomFont(res.font || "Outfit");
+            setCustomSize(res.size || 48);
+            setCustomWeight(res.weight || "800");
+            setCustomColor(res.color || "#FFFFFF");
+            setCustomHighlightColor(res.highlight_color || "#C5FF00");
+            setCustomShadow(res.shadow || 0.0);
+            setCustomOutline(res.outline || 2.0);
+            setCustomBackgroundStyle(res.background_style || "none");
+            setCustomYPositionPercent(res.y_position_percent || 71.4);
+          }
+        })
+        .catch((err) => console.error("Error loading custom style: ", err));
+    }
+  }, [project?.id, project?.style]);
 
   const handleStyleSelect = async (styleId: string) => {
     setSelectedStyle(styleId);
@@ -273,6 +306,30 @@ export default function ProjectWorkspacePage() {
     setIsGeneratingScript(true);
     try {
       await projectsService.updateProjectStyle(projectId, styleId);
+      
+      // If choosing a built-in template, initialize customized settings baseline
+      if (styleId === "kalakar") {
+        setCustomFont("Outfit");
+        setCustomSize(48);
+        setCustomWeight("800");
+        setCustomColor("#FFFFFF");
+        setCustomHighlightColor("#C5FF00");
+        setCustomShadow(0.0);
+        setCustomOutline(2.0);
+        setCustomBackgroundStyle("none");
+        setCustomYPositionPercent(71.4);
+      } else if (styleId === "kalakar_shadow") {
+        setCustomFont("Outfit");
+        setCustomSize(48);
+        setCustomWeight("800");
+        setCustomColor("#FFFFFF");
+        setCustomHighlightColor("#C5FF00");
+        setCustomShadow(2.5);
+        setCustomOutline(2.0);
+        setCustomBackgroundStyle("none");
+        setCustomYPositionPercent(71.4);
+      }
+
       await projectsService.generateMotionScript(projectId);
       await refetchMotionScript();
       await refetchProject();
@@ -280,6 +337,34 @@ export default function ProjectWorkspacePage() {
       setScriptError(describeError(err));
     } finally {
       setIsGeneratingScript(false);
+    }
+  };
+
+  const handleSaveCustomStyle = async () => {
+    setIsSavingStyle(true);
+    setStyleError(null);
+    try {
+      const res = await projectsService.saveCustomStyle(projectId, {
+        font: customFont,
+        size: customSize,
+        weight: customWeight,
+        color: customColor,
+        alignment: "center",
+        shadow: customShadow,
+        outline: customOutline,
+        highlight_color: customHighlightColor,
+        background_style: customBackgroundStyle,
+        y_position_percent: customYPositionPercent
+      });
+      setSelectedStyle(res.style);
+      
+      await projectsService.generateMotionScript(projectId);
+      await refetchMotionScript();
+      await refetchProject();
+    } catch (err) {
+      setStyleError(describeError(err));
+    } finally {
+      setIsSavingStyle(false);
     }
   };
 
@@ -806,100 +891,130 @@ export default function ProjectWorkspacePage() {
                 )}
 
                 {/* 2. Real-Time CSS Subtitle Overlay */}
-                {isPlaying && (
-                  (() => {
-                    const activeSegment = getActiveSegmentAndIndex();
-                    if (!activeSegment) return null;
+                {(() => {
+                  const activeSegment = getActiveSegmentAndIndex();
+                  if (!activeSegment) return null;
 
-                    const isStaggered = selectedStyle === "kalakar" || selectedStyle === "kalakar_shadow";
-                    if (isStaggered) {
-                      const words = activeSegment.words;
-                      const k = pickKeywordIndex(words);
-                      
-                      const line1Words = words.slice(0, k);
-                      const line2Word = words[k];
-                      const line3Words = words.slice(k + 1);
+                  const isStaggered = selectedStyle.startsWith("custom_") || selectedStyle === "kalakar" || selectedStyle === "kalakar_shadow";
+                  if (isStaggered) {
+                    const words = activeSegment.words;
+                    const k = pickKeywordIndex(words);
+                    
+                    const line1Words = words.slice(0, k);
+                    const line2Word = words[k];
+                    const line3Words = words.slice(k + 1);
 
-                      const revealedMax = activeSegment.relativeActiveIdx;
-                      const visibleL1 = line1Words.filter((w, i) => i <= revealedMax);
-                      const visibleL2 = k <= revealedMax ? line2Word : null;
-                      const visibleL3 = line3Words.filter((w, i) => (k + 1 + i) <= revealedMax);
+                    const revealedMax = activeSegment.relativeActiveIdx;
+                    const visibleL1 = line1Words.filter((w, i) => i <= revealedMax);
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+                    const visibleL3 = line3Words.filter((w, i) => (k + 1 + i) <= revealedMax);
 
-                      return (
+                    const outlineStyle = customOutline > 0 
+                      ? { 
+                          textShadow: `${customOutline}px ${customOutline}px 0px rgba(0,0,0,0.95)`,
+                          WebkitTextStroke: `${customOutline * 0.5}px rgba(0,0,0,0.8)` 
+                        } 
+                      : {};
+
+                    const highlightShadowStyle = customShadow > 0
+                      ? { 
+                          textShadow: `${customOutline}px ${customOutline}px 0px rgba(0,0,0,0.95), 0 0 ${customShadow * 3}px ${customHighlightColor}`,
+                          WebkitTextStroke: customOutline > 0 ? `${customOutline * 0.5}px rgba(0,0,0,0.8)` : 'none'
+                        }
+                      : outlineStyle;
+
+                    const containerPadding = customBackgroundStyle === "pill" ? "12px 24px" : customBackgroundStyle === "shadow-box" ? "16px 20px" : "0px";
+                    const containerBg = customBackgroundStyle === "pill" ? "rgba(0,0,0,0.45)" : customBackgroundStyle === "shadow-box" ? "rgba(0,0,0,0.7)" : "transparent";
+                    const containerBorderRadius = customBackgroundStyle === "pill" ? "9999px" : customBackgroundStyle === "shadow-box" ? "12px" : "0px";
+
+                    return (
+                      <div 
+                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-4 select-none animate-fade-in-up transition-all"
+                        style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
+                      >
                         <div 
-                          className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-4 select-none animate-fade-in-up"
-                          style={{ top: "71.4%", transform: "translateY(-50%)" }}
+                          className="flex flex-col items-center tracking-tight w-full max-w-[260px] transition-all animate-fade-in-up"
+                          style={{
+                            padding: containerPadding,
+                            backgroundColor: containerBg,
+                            borderRadius: containerBorderRadius,
+                          }}
                         >
-                          <div className="flex flex-col items-center font-sans tracking-tight w-full max-w-[260px]">
-                            {/* Line 1 */}
-                            {line1Words.length > 0 && (
-                              <div 
-                                className="text-white text-xs font-normal self-start tracking-wide text-left opacity-90 transition-all duration-100"
-                                style={{ 
-                                  fontFamily: "Outfit, Inter, sans-serif",
-                                  visibility: visibleL1.length > 0 ? "visible" : "hidden"
-                                }}
-                              >
-                                {visibleL1.map(w => w.text).join(" ")}
-                              </div>
-                            )}
-                            {/* Line 2 */}
-                            {line2Word && (
-                              <div 
-                                className="font-black uppercase tracking-tight leading-none select-none my-1.5 transition-all duration-100"
-                                style={{ 
-                                  fontFamily: "Outfit, Inter, sans-serif",
-                                  fontSize: "36px",
-                                  color: "#C5FF00",
-                                  textShadow: selectedStyle === "kalakar_shadow" 
-                                    ? "2px 2px 0px rgba(0,0,0,0.95), 0 0 8px rgba(197,255,0,0.6)" 
-                                    : "2px 2px 0px rgba(0,0,0,0.95)",
-                                  visibility: visibleL2 ? "visible" : "hidden"
-                                }}
-                              >
-                                {line2Word.text}
-                              </div>
-                            )}
-                            {/* Line 3 */}
-                            {line3Words.length > 0 && (
-                              <div 
-                                className="text-white text-xs font-normal self-end tracking-wide text-right opacity-90 transition-all duration-100"
-                                style={{ 
-                                  fontFamily: "Outfit, Inter, sans-serif",
-                                  visibility: visibleL3.length > 0 ? "visible" : "hidden"
-                                }}
-                              >
-                                {visibleL3.map(w => w.text).join(" ")}
-                              </div>
-                            )}
-                          </div>
+                          {/* Line 1 */}
+                          {line1Words.length > 0 && (
+                            <div 
+                              className="self-start tracking-wide text-left opacity-90 transition-all duration-100"
+                              style={{ 
+                                fontFamily: `${customFont}, Inter, sans-serif`,
+                                fontSize: `${customSize * 0.45}px`,
+                                color: customColor,
+                                fontWeight: "normal",
+                                visibility: visibleL1.length > 0 ? "visible" : "hidden",
+                                ...outlineStyle
+                              }}
+                            >
+                              {visibleL1.map(w => w.text).join(" ")}
+                            </div>
+                          )}
+                          {/* Line 2 */}
+                          {line2Word && (
+                            <div 
+                              className="tracking-tight leading-none select-none my-1.5 transition-all duration-100 uppercase"
+                              style={{ 
+                                fontFamily: `${customFont}, Inter, sans-serif`,
+                                fontSize: `${customSize}px`,
+                                color: customHighlightColor,
+                                fontWeight: customWeight,
+                                visibility: visibleL2 ? "visible" : "hidden",
+                                ...highlightShadowStyle
+                              }}
+                            >
+                              {line2Word.text}
+                            </div>
+                          )}
+                          {/* Line 3 */}
+                          {line3Words.length > 0 && (
+                            <div 
+                              className="self-end tracking-wide text-right opacity-90 transition-all duration-100"
+                              style={{ 
+                                fontFamily: `${customFont}, Inter, sans-serif`,
+                                fontSize: `${customSize * 0.45}px`,
+                                color: customColor,
+                                fontWeight: "normal",
+                                visibility: visibleL3.length > 0 ? "visible" : "hidden",
+                                ...outlineStyle
+                              }}
+                            >
+                              {visibleL3.map(w => w.text).join(" ")}
+                            </div>
+                          )}
                         </div>
-                      );
-                    } else {
-                      // Standard center caption preview fallback
-                      const words = activeSegment.words;
-                      const revealedWords = words.filter((w, i) => i <= activeSegment.relativeActiveIdx);
-                      const isModern = selectedStyle === "modern";
-                      const isPodcast = selectedStyle === "podcast";
-                      const activeColor = isModern ? "#FFFF00" : isPodcast ? "#00FF00" : "#FFFFFF";
+                      </div>
+                    );
+                  } else {
+                    // Standard center caption preview fallback
+                    const words = activeSegment.words;
+                    const revealedWords = words.filter((w, i) => i <= activeSegment.relativeActiveIdx);
+                    const isModern = selectedStyle === "modern";
+                    const isPodcast = selectedStyle === "podcast";
+                    const activeColor = isModern ? "#FFFF00" : isPodcast ? "#00FF00" : "#FFFFFF";
 
-                      return (
-                        <div className="absolute inset-x-0 bottom-24 text-center px-4 pointer-events-none select-none animate-fade-in-up">
-                          <div 
-                            className="text-sm font-extrabold tracking-wide uppercase"
-                            style={{
-                              fontFamily: "Inter, sans-serif",
-                              color: activeColor,
-                              textShadow: "1px 1px 1px rgba(0,0,0,0.9)"
-                            }}
-                          >
-                            {revealedWords.map(w => w.text).join(" ")}
-                          </div>
+                    return (
+                      <div className="absolute inset-x-0 bottom-24 text-center px-4 pointer-events-none select-none animate-fade-in-up">
+                        <div 
+                          className="text-sm font-extrabold tracking-wide uppercase"
+                          style={{
+                            fontFamily: "Inter, sans-serif",
+                            color: activeColor,
+                            textShadow: "1px 1px 1px rgba(0,0,0,0.9)"
+                          }}
+                        >
+                          {revealedWords.map(w => w.text).join(" ")}
                         </div>
-                      );
-                    }
-                  })()
-                )}
+                      </div>
+                    );
+                  }
+                })()}
 
                 {/* Playback Progress Scrubber bar */}
                 <div className="absolute bottom-0 inset-x-0 h-1 bg-zinc-900/60 overflow-hidden">
@@ -1087,7 +1202,7 @@ export default function ProjectWorkspacePage() {
             <div className="flex h-11 border-b border-zinc-900 bg-zinc-950 shrink-0">
               <button
                 onClick={() => setRightPanelTab("templates")}
-                className={`flex-1 text-[11px] font-bold uppercase tracking-wider cursor-pointer border-b-2 transition ${
+                className={`flex-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer border-b-2 transition ${
                   rightPanelTab === "templates"
                     ? "border-indigo-500 text-zinc-100 bg-indigo-500/5"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
@@ -1096,14 +1211,24 @@ export default function ProjectWorkspacePage() {
                 Templates
               </button>
               <button
+                onClick={() => setRightPanelTab("style")}
+                className={`flex-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer border-b-2 transition ${
+                  rightPanelTab === "style"
+                    ? "border-indigo-500 text-zinc-100 bg-indigo-500/5"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                Customize
+              </button>
+              <button
                 onClick={() => setRightPanelTab("settings")}
-                className={`flex-1 text-[11px] font-bold uppercase tracking-wider cursor-pointer border-b-2 transition ${
+                className={`flex-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer border-b-2 transition ${
                   rightPanelTab === "settings"
                     ? "border-indigo-500 text-zinc-100 bg-indigo-500/5"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                Export Settings
+                Export
               </button>
             </div>
 
@@ -1120,7 +1245,6 @@ export default function ProjectWorkspacePage() {
                   <div className="space-y-3">
                     {STYLE_PRESETS.map((preset) => {
                       const isActive = selectedStyle === preset.id;
-                      const isStaggered = preset.id === "kalakar" || preset.id === "kalakar_shadow";
 
                       return (
                         <button
@@ -1170,6 +1294,179 @@ export default function ProjectWorkspacePage() {
                       );
                     })}
                   </div>
+                </div>
+              ) : rightPanelTab === "style" ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-zinc-900">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Caption Styling</span>
+                    {isSavingStyle ? (
+                      <span className="text-[9px] text-zinc-500 italic animate-pulse">Saving...</span>
+                    ) : (
+                      <button 
+                        onClick={handleSaveCustomStyle}
+                        className="text-[10px] text-indigo-400 font-bold hover:text-indigo-300 cursor-pointer"
+                      >
+                        Apply Settings
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Font Family */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Font Family</label>
+                    <select
+                      value={customFont}
+                      onChange={(e) => setCustomFont(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="Outfit">Outfit</option>
+                      <option value="Inter">Inter</option>
+                      <option value="Montserrat">Montserrat</option>
+                      <option value="Arial">Arial</option>
+                      <option value="system-ui">System Default</option>
+                    </select>
+                  </div>
+
+                  {/* Font Weight */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Font Weight</label>
+                    <select
+                      value={customWeight}
+                      onChange={(e) => setCustomWeight(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="400">400 - Regular</option>
+                      <option value="600">600 - Semi Bold</option>
+                      <option value="700">700 - Bold</option>
+                      <option value="800">800 - Extra Bold</option>
+                      <option value="900">900 - Black</option>
+                    </select>
+                  </div>
+
+                  {/* Font Size */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <span>Base Font Size</span>
+                      <span className="font-mono text-zinc-300">{customSize}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="24"
+                      max="80"
+                      step="2"
+                      value={customSize}
+                      onChange={(e) => setCustomSize(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Colors Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Text Color</label>
+                      <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                        <input
+                          type="color"
+                          value={customColor}
+                          onChange={(e) => setCustomColor(e.target.value)}
+                          className="w-6 h-6 rounded border border-zinc-800 bg-transparent cursor-pointer shrink-0"
+                        />
+                        <span className="text-[9px] text-zinc-400 font-mono select-all uppercase truncate">{customColor}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Highlight</label>
+                      <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                        <input
+                          type="color"
+                          value={customHighlightColor}
+                          onChange={(e) => setCustomHighlightColor(e.target.value)}
+                          className="w-6 h-6 rounded border border-zinc-800 bg-transparent cursor-pointer shrink-0"
+                        />
+                        <span className="text-[9px] text-zinc-400 font-mono select-all uppercase truncate">{customHighlightColor}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stroke/Outline */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <span>Outline Size</span>
+                      <span className="font-mono text-zinc-300">{customOutline}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="6"
+                      step="0.5"
+                      value={customOutline}
+                      onChange={(e) => setCustomOutline(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-zinc-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Shadow Size */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <span>Shadow Glow</span>
+                      <span className="font-mono text-zinc-300">{customShadow}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="8"
+                      step="0.5"
+                      value={customShadow}
+                      onChange={(e) => setCustomShadow(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-zinc-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Y Position */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <span>Vertical Center</span>
+                      <span className="font-mono text-zinc-300">{customYPositionPercent.toFixed(1)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="90"
+                      step="1"
+                      value={customYPositionPercent}
+                      onChange={(e) => setCustomYPositionPercent(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-zinc-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Background Style */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Background Block</label>
+                    <select
+                      value={customBackgroundStyle}
+                      onChange={(e) => setCustomBackgroundStyle(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="none">None</option>
+                      <option value="pill">Pill Background</option>
+                      <option value="shadow-box">Shadow Box</option>
+                    </select>
+                  </div>
+
+                  {styleError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-2 text-[9px] font-medium leading-relaxed">
+                      {styleError}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleSaveCustomStyle}
+                    disabled={isSavingStyle}
+                    className="w-full gap-2 bg-indigo-650 hover:bg-indigo-700 text-white font-bold cursor-pointer transition py-2 text-xs mt-1"
+                  >
+                    Save Custom Preset
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1232,7 +1529,7 @@ export default function ProjectWorkspacePage() {
 
                     {devMode && (
                       <div className="space-y-2 animate-fade-in-up">
-                        <span className="text-[9px] text-zinc-600 font-mono block">MotionScript JSON</span>
+                        <span className="text-[9px] text-zinc-650 font-mono block">MotionScript JSON</span>
                         {isMotionScriptLoading ? (
                           <div className="text-zinc-650 text-[10px] italic">Loading script...</div>
                         ) : motionScript ? (
@@ -1249,8 +1546,8 @@ export default function ProjectWorkspacePage() {
               )}
             </div>
 
-            {/* Panel footer: Action button when in templates tab */}
-            {rightPanelTab === "templates" && (
+            {/* Panel footer: Action button when in templates/style tab */}
+            {(rightPanelTab === "templates" || rightPanelTab === "style") && (
               <div className="p-4 border-t border-zinc-900 bg-zinc-950/60 shrink-0">
                 {isRendering ? (
                   <div className="space-y-2">

@@ -11,6 +11,8 @@ class TypographyPreset(BaseModel):
     alignment: str
     shadow: float
     outline: float
+    background_style: Optional[str] = "none"
+    y_position_percent: Optional[float] = 71.4
 
 class AnimationPreset(BaseModel):
     caption_animation: str

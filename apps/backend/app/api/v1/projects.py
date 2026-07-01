@@ -115,6 +115,143 @@ async def update_project(
     return success_response(ProjectRead.model_validate(updated).model_dump(mode="json"))
 
 
+class CustomStyleRequest(BaseModel):
+    font: str
+    size: float
+    weight: str
+    color: str
+    alignment: str
+    shadow: float
+    outline: float
+    highlight_color: str
+    background_style: str = "none"
+    y_position_percent: float = 71.4
+
+
+@router.post("/projects/{project_id}/custom-style")
+async def save_custom_style(
+    project_id: uuid.UUID,
+    body: CustomStyleRequest,
+    project: Project = Depends(get_owned_project),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    import os
+    import json
+    preset_key = f"custom_{project_id}"
+    
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    presets_json_path = os.path.abspath(os.path.join(current_dir, "..", "..", "render", "presets.json"))
+    
+    if os.path.exists(presets_json_path):
+        with open(presets_json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+        
+    base_preset = data.get("kalakar", {})
+    
+    data[preset_key] = {
+        "name": f"Custom {project.title}",
+        "typography": {
+            "font": body.font,
+            "size": body.size,
+            "weight": body.weight,
+            "color": body.color,
+            "alignment": body.alignment,
+            "shadow": body.shadow,
+            "outline": body.outline,
+            "background_style": body.background_style,
+            "y_position_percent": body.y_position_percent
+        },
+        "animation": base_preset.get("animation", {
+            "caption_animation": "pop",
+            "motion_preset": "dynamic",
+            "intensity": "medium"
+        }),
+        "highlight": {
+            "colors": [body.highlight_color]
+        },
+        "safe_area": base_preset.get("safe_area", {
+            "top": 80.0,
+            "bottom": 120.0,
+            "left": 50.0,
+            "right": 50.0
+        }),
+        "emoji": base_preset.get("emoji", {
+            "behavior": "none"
+        }),
+        "timing": base_preset.get("timing", {
+            "word_limit": 5,
+            "caption_spacing_ms": 50,
+            "word_pacing": "dynamic",
+            "pause_handling": "hold",
+            "sentence_segmentation": "semantic",
+            "reading_speed_limit_cps": 22,
+            "caption_template": "staggered_3line"
+        }),
+        "transitions": base_preset.get("transitions", "fade")
+    }
+    
+    with open(presets_json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        
+    from app.render.presets import StylePresetManager
+    StylePresetManager._presets.clear()
+    
+    updated = await project_repository.update_fields(project, style=preset_key)
+    return success_response({"style": preset_key})
+
+
+@router.get("/projects/{project_id}/custom-style")
+async def get_custom_style(
+    project_id: uuid.UUID,
+    project: Project = Depends(get_owned_project),
+):
+    import os
+    import json
+    preset_key = f"custom_{project_id}"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    presets_json_path = os.path.abspath(os.path.join(current_dir, "..", "..", "render", "presets.json"))
+    
+    if os.path.exists(presets_json_path):
+        with open(presets_json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        data = {}
+        
+    preset = data.get(preset_key)
+    if preset:
+        topo = preset.get("typography", {})
+        highlight = preset.get("highlight", {})
+        colors = highlight.get("colors", ["#C5FF00"])
+        return success_response({
+            "font": topo.get("font", "Outfit"),
+            "size": topo.get("size", 48.0),
+            "weight": topo.get("weight", "800"),
+            "color": topo.get("color", "#FFFFFF"),
+            "alignment": topo.get("alignment", "center"),
+            "shadow": topo.get("shadow", 0.0),
+            "outline": topo.get("outline", 2.0),
+            "highlight_color": colors[0] if colors else "#C5FF00",
+            "background_style": topo.get("background_style", "none"),
+            "y_position_percent": topo.get("y_position_percent", 71.4)
+        })
+    else:
+        # Fall back to base Kalakar template values
+        return success_response({
+            "font": "Outfit",
+            "size": 48.0,
+            "weight": "800",
+            "color": "#FFFFFF",
+            "alignment": "center",
+            "shadow": 0.0,
+            "outline": 2.0,
+            "highlight_color": "#C5FF00",
+            "background_style": "none",
+            "y_position_percent": 71.4
+        })
+
+
 @router.delete("/projects/{project_id}", status_code=204)
 async def delete_project(
     project: Project = Depends(get_owned_project),
