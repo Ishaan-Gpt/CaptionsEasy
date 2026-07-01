@@ -109,6 +109,7 @@ class HighlightPayload(StrictModel):
     indices: list[int]
     color: str
     animation: Animation
+    is_keyword: bool = False
 
 
 class EmojiPosition(StrictModel):

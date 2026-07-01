@@ -192,6 +192,18 @@ async def get_creative_plan(
     if creative_plan is None:
         raise NotFoundError("No creative plan found for this project yet.")
     return success_response(creative_plan.creative_plan)
+@router.get("/projects/{project_id}/video")
+async def get_project_video_url(
+    project: Project = Depends(get_owned_project),
+    video_repository: VideoRepository = Depends(get_video_repository),
+    storage_client: StorageClient = Depends(get_storage_client),
+):
+    video = await video_repository.get_latest_for_project(project.id)
+    if video is None:
+        raise NotFoundError("No video uploaded for this project.")
+    download_url = await storage_client.get_signed_url(path=video.storage_path)
+    return success_response({"download_url": download_url})
+
 
 
 @router.get("/projects/{project_id}/caption-plan")

@@ -242,3 +242,61 @@ async def test_sentence_highlight_template():
     # Last line of second segment: starts at 7.50s, ends at 7.90s. Should have fade-out, no fade-in: \fad(0,150)
     seg2_last_line = [line for line in ass_content.splitlines() if "0:00:07.50,0:00:07.90" in line][0]
     assert "\\fad(0,150)" in seg2_last_line
+
+
+@pytest.mark.asyncio
+async def test_staggered_3line_template():
+    import uuid
+    from app.render.engine import RenderEngine
+    from packages.contracts.python import validate_motion_script
+    from app.ai.providers.dummy.render_plan import DummyRenderPlanProvider
+    from packages.contracts.python.pipeline import Transcript, TranscriptWord, CreativePlan, CaptionPlan, CaptionSegment, EnergyCurvePoint, KeyMoment, CaptionStyle
+    
+    provider = DummyRenderPlanProvider()
+    transcript = Transcript(
+        language="en",
+        duration_ms=3000,
+        words=[
+            TranscriptWord(text="This", start_ms=0, end_ms=500, confidence=1.0),
+            TranscriptWord(text="is", start_ms=500, end_ms=1000, confidence=1.0),
+            TranscriptWord(text="a", start_ms=1000, end_ms=1500, confidence=1.0),
+            TranscriptWord(text="quick", start_ms=1500, end_ms=2000, confidence=1.0),
+            TranscriptWord(text="test.", start_ms=2000, end_ms=2500, confidence=1.0),
+        ]
+    )
+    creative_plan = CreativePlan(
+        speaking_style="clear",
+        emotion="neutral",
+        pacing="medium",
+        energy_curve=[EnergyCurvePoint(t_ms=0, energy=0.5)],
+        audience="general",
+        key_moments=[KeyMoment(start_ms=0, end_ms=2500, label="intro")],
+        recommended_style=CaptionStyle.FORMAL,
+    )
+    caption_plan = CaptionPlan(
+        version="1.0",
+        caption_segments=[CaptionSegment(id="1", text="This is a quick test.", start_ms=0, end_ms=2500, emphasis=[], confidence=1.0)]
+    )
+
+    plan = await provider.plan(
+        transcript=transcript,
+        creative_plan=creative_plan,
+        caption_plan=caption_plan,
+        project_id=str(uuid.uuid4()),
+        video_id=str(uuid.uuid4()),
+        style="kalakar"
+    )
+    motion_script_data = plan.data
+    
+    motion_script = validate_motion_script(motion_script_data)
+    engine = RenderEngine(ffmpeg_binary="ffmpeg", ffprobe_binary="ffprobe")
+    
+    ass_content = engine.generate_ass(motion_script)
+    assert ass_content is not None
+    
+    # Check that staggered vertical position tags (\pos) and alignment codes (\an4, \an5, \an6) exist
+    assert "\\pos(" in ass_content
+    assert "\\an5" in ass_content
+    assert "\\an4" in ass_content
+
+

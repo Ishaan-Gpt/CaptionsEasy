@@ -139,4 +139,8 @@ export const projectsService = {
   async generateMotionScript(id: string): Promise<any> {
     return apiClient.post<any>(`/projects/${id}/motion-script`);
   },
+
+  async getProjectVideo(id: string): Promise<{ download_url: string }> {
+    return apiClient.get<{ download_url: string }>(`/projects/${id}/video`);
+  },
 };

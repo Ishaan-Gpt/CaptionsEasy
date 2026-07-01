@@ -6,5 +6,12 @@
     "dev": "pnpm --filter frontend dev",
     "build": "pnpm --filter frontend build",
     "start": "pnpm --filter frontend start"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.484",
+    "@remotion/player": "^4.0.484",
+    "@remotion/renderer": "^4.0.484",
+    "remotion": "^4.0.484",
+    "wavesurfer.js": "^7.12.8"
   }
 }

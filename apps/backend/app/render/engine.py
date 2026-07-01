@@ -2,9 +2,61 @@ import os
 import subprocess
 import json
 import time
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from packages.contracts.python import MotionScript, EventType, Layer
+
+STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "of", "to", "and", "in", "on", "at",
+    "it", "this", "that", "i", "you", "he", "she", "we", "they", "but", "or", "so",
+    "be", "as", "for", "with", "my", "your", "do", "does", "did"
+}
+
+def normalize_word(word: str) -> str:
+    return re.sub(r'[^\w]', '', word).lower()
+
+def is_capitalized(word: str) -> bool:
+    clean = re.sub(r'[^\w]', '', word)
+    return bool(clean and clean[0].isupper())
+
+def is_number(word: str) -> bool:
+    clean = re.sub(r'[^\w]', '', word)
+    return bool(clean and clean.isdigit())
+
+def pick_keyword_idx(words_text: list[str]) -> int:
+    best_idx = 0
+    best_score = -1.0
+    for i, w in enumerate(words_text):
+        clean = re.sub(r'[^\w]', '', w)
+        if not clean:
+            continue
+        score = float(len(clean))
+        if normalize_word(w) in STOPWORDS:
+            score -= 100.0
+        if is_capitalized(w):
+            score += 2.0
+        if is_number(w):
+            score += 1.0
+        if score > best_score:
+            best_score = score
+            best_idx = i
+    return best_idx
+
+def estimate_text_width(text: str, font_size: float) -> float:
+    width = 0.0
+    for c in text:
+        if c.isupper():
+            width += font_size * 0.65
+        elif c in "1ilI|!.,:;":
+            width += font_size * 0.25
+        elif c in "mwMW":
+            width += font_size * 0.85
+        elif c == " ":
+            width += font_size * 0.3
+        else:
+            width += font_size * 0.52
+    return width
 
 class RenderEngine:
     def __init__(self, ffmpeg_binary: str = "ffmpeg", ffprobe_binary: str = "ffprobe") -> None:
@@ -54,7 +106,7 @@ class RenderEngine:
 
         # Load style preset settings
         from app.render.presets import StylePresetManager
-        preset_name = motion_script.global_settings.motion_preset
+        preset_name = getattr(motion_script.global_settings, "theme", None) or motion_script.global_settings.motion_preset
         preset = StylePresetManager.get_preset(preset_name)
 
         font_family = preset.typography.font
@@ -133,73 +185,195 @@ class RenderEngine:
                 if t_start >= t_end:
                     continue
                 
-                # Identify which words should be highlighted in this sub-interval
-                active_color = None
-                highlighted_indices = set()
-                for h in cap_highlights:
-                    if h.start_ms <= t_start and h.end_ms >= t_end:
-                        highlight_payload = h.parsed_payload()
-                        highlighted_indices.update(highlight_payload.indices)
-                        active_color = self.hex_to_ass_abgr(highlight_payload.color)
+                # Identify which template is used
+                is_staggered = getattr(preset.timing, "caption_template", "word_by_word") == "staggered_3line"
 
-                # Format the text with ASS tags
-                formatted_words = []
-                for idx, w in enumerate(words):
-                    if idx in highlighted_indices and active_color:
-                        # Determine highlight color with rotating support
-                        if len(preset.highlight.colors) > 1:
-                            color_idx = idx % len(preset.highlight.colors)
-                            word_color = self.hex_to_ass_abgr(preset.highlight.colors[color_idx])
-                        else:
-                            word_color = active_color
-                        
-                        # Apply subtle scale-up for active word pop animation (e.g. Hormozi captions style)
-                        if preset.animation.motion_preset in {"dynamic", "smooth"}:
-                            formatted_words.append(f"{{\\1c{word_color}\\fscx115\\fscy115}}{w}{{\\1c{base_color}\\fscx100\\fscy100}}")
-                        else:
-                            formatted_words.append(f"{{\\1c{word_color}}}{w}{{\\1c{base_color}}}")
+                if is_staggered:
+                    # 1. Staggered 3-line template generation
+                    # We need to determine the keyword index k for the words in this caption segment.
+                    k = pick_keyword_idx(words)
+                    
+                    # Split words into 3 lines
+                    line1_words = words[:k]
+                    line2_text = words[k]
+                    line3_words = words[k+1:]
+                    
+                    # Identify active highlighted index and color for this sub-interval
+                    active_idx = None
+                    active_color = None
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            if highlight_payload.indices:
+                                active_idx = highlight_payload.indices[0]
+                            color_hex = getattr(highlight_payload, "color", None)
+                            if color_hex:
+                                active_color = self.hex_to_ass_abgr(color_hex)
+
+                    # Map indices:
+                    # Words in Line 1 are from 0 to k-1
+                    # Word in Line 2 is k
+                    # Words in Line 3 are from k+1 onwards
+                    
+                    revealed_max = active_idx if active_idx is not None else 0
+                    
+                    # Construct lines showing words revealed up to revealed_max
+                    visible_l1 = [w for idx, w in enumerate(line1_words) if idx <= revealed_max]
+                    has_l2 = (k <= revealed_max)
+                    visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
+                    
+                    # Determine sizes and dimensions
+                    size_large = font_size * 1.9
+                    size_normal = font_size * 0.95
+                    
+                    # Width estimation of Line 2
+                    W2 = estimate_text_width(line2_text.upper(), size_large)
+                    
+                    # Vertical position calculations: ensure they appear in 5/7 vh centered x axis
+                    base_y = int(height * 5 / 7)
+                    line_gap = font_size * 1.45
+                    
+                    has_any_l1 = len(line1_words) > 0
+                    has_any_l3 = len(line3_words) > 0
+                    
+                    # Balance calculations
+                    if not has_any_l1:
+                        Y_l2 = base_y - line_gap / 2
+                        Y_l3 = base_y + line_gap / 2
+                        Y_l1 = Y_l2 - line_gap
+                    elif not has_any_l3:
+                        Y_l1 = base_y - line_gap / 2
+                        Y_l2 = base_y + line_gap / 2
+                        Y_l3 = Y_l2 + line_gap
                     else:
-                        formatted_words.append(w)
-                
-                segment_text = " ".join(formatted_words)
-                
-                # Apply Animation Preset tags
-                anim_preset = getattr(cap_payload, "animation", "fade")
-                if hasattr(anim_preset, "value"):
-                    anim_preset = anim_preset.value
+                        Y_l1 = base_y - line_gap
+                        Y_l2 = base_y
+                        Y_l3 = base_y + line_gap
+
+                    # Animation presets
+                    anim_preset = getattr(cap_payload, "animation", "fade")
+                    if hasattr(anim_preset, "value"):
+                        anim_preset = anim_preset.value
+                    else:
+                        anim_preset = str(anim_preset)
+
+                    anim_tags = ""
+                    is_first_seg = (t_start == cap.start_ms)
+                    is_last_seg = (t_end == cap.end_ms)
+
+                    if anim_preset == "fade":
+                        fade_in = 150 if is_first_seg else 0
+                        fade_out = 150 if is_last_seg else 0
+                        if fade_in > 0 or fade_out > 0:
+                            anim_tags = f"\\fad({fade_in},{fade_out})"
+                    elif is_first_seg:
+                        if anim_preset == "pop":
+                            anim_tags = "\\fscx110\\fscy110\\t(0,100,\\fscx100\\fscy100)"
+                        elif anim_preset == "scale":
+                            anim_tags = "\\fscx0\\fscy0\\t(0,150,\\fscx100\\fscy100)"
+                        elif anim_preset == "bounce":
+                            anim_tags = "\\t(0,100,\\fscy115\\fscx105)\\t(100,200,\\fscy100\\fscx100)"
+                        elif anim_preset == "rotate":
+                            anim_tags = "\\frz-5\\t(0,150,\\frz0)"
+                        elif anim_preset == "elastic":
+                            anim_tags = "\\fscx0\\fscy0\\t(0,100,\\fscx120\\fscy120)\\t(100,180,\\fscx95\\fscy95)\\t(180,250,\\fscx100\\fscy100)"
+
+                    if anim_tags:
+                        anim_tags = "{" + anim_tags + "}"
+
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+                    base_outline_tag = f"\\bord{outline}\\shad{shadow}"
+
+                    # Output Line 1 Dialogue event
+                    if has_any_l1 and visible_l1:
+                        l1_str = " ".join(visible_l1)
+                        X_l1 = int(540 - W2 / 2)
+                        l1_tags = f"{{\\pos({X_l1},{int(Y_l1)})\\an4\\fn{font_family}\\fs{int(size_normal)}\\c&HFFFFFFFF&{base_outline_tag}\\b0}}{anim_tags}"
+                        ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{l1_str}")
+
+                    # Output Line 2 Dialogue event (centered, capitalized, highlighted lime-green, ultra bold)
+                    if has_l2:
+                        highlight_color_abgr = active_color or self.hex_to_ass_abgr(preset.highlight.colors[0] if preset.highlight.colors else "#C5FF00")
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{font_family}\\fs{int(size_large)}\\c{highlight_color_abgr}{base_outline_tag}\\b900}}{anim_tags}"
+                        ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{line2_text.upper()}")
+
+                    # Output Line 3 Dialogue event
+                    if has_any_l3 and visible_l3:
+                        l3_str = " ".join(visible_l3)
+                        X_l3 = int(540 + W2 / 2)
+                        l3_tags = f"{{\\pos({X_l3},{int(Y_l3)})\\an6\\fn{font_family}\\fs{int(size_normal)}\\c&HFFFFFFFF&{base_outline_tag}\\b0}}{anim_tags}"
+                        ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
+
                 else:
-                    anim_preset = str(anim_preset)
+                    # 2. Standard baseline subtitle generation (karaoke highlighting)
+                    # Identify which words should be highlighted in this sub-interval
+                    active_color = None
+                    highlighted_indices = set()
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            highlighted_indices.update(highlight_payload.indices)
+                            active_color = self.hex_to_ass_abgr(highlight_payload.color)
 
-                anim_tags = ""
-                is_first_seg = (t_start == cap.start_ms)
-                is_last_seg = (t_end == cap.end_ms)
+                    # Format the text with ASS tags
+                    formatted_words = []
+                    for idx, w in enumerate(words):
+                        if idx in highlighted_indices and active_color:
+                            # Determine highlight color with rotating support
+                            if len(preset.highlight.colors) > 1:
+                                color_idx = idx % len(preset.highlight.colors)
+                                word_color = self.hex_to_ass_abgr(preset.highlight.colors[color_idx])
+                            else:
+                                word_color = active_color
+                            
+                            # Apply subtle scale-up for active word pop animation (e.g. Hormozi captions style)
+                            if preset.animation.motion_preset in {"dynamic", "smooth"}:
+                                formatted_words.append(f"{{\\1c{word_color}\\fscx115\\fscy115}}{w}{{\\1c{base_color}\\fscx100\\fscy100}}")
+                            else:
+                                formatted_words.append(f"{{\\1c{word_color}}}{w}{{\\1c{base_color}}}")
+                        else:
+                            formatted_words.append(w)
+                    
+                    segment_text = " ".join(formatted_words)
+                    
+                    # Apply Animation Preset tags
+                    anim_preset = getattr(cap_payload, "animation", "fade")
+                    if hasattr(anim_preset, "value"):
+                        anim_preset = anim_preset.value
+                    else:
+                        anim_preset = str(anim_preset)
 
-                if anim_preset == "fade":
-                    fade_in = 150 if is_first_seg else 0
-                    fade_out = 150 if is_last_seg else 0
-                    if fade_in > 0 or fade_out > 0:
-                        anim_tags = f"{{\\fad({fade_in},{fade_out})}}"
-                elif is_first_seg:
-                    if anim_preset == "pop":
-                        anim_tags = "{\\fscx110\\fscy110}{\\t(0,100,\\fscx100\\fscy100)}"
-                    elif anim_preset == "scale":
-                        anim_tags = "{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}"
-                    elif anim_preset == "slide":
-                        anim_tags = "{\\an2}{\\move(540,1000,540,960,0,200)}"
-                    elif anim_preset == "bounce":
-                        anim_tags = "{\\t(0,100,\\fscy115\\fscx105)}{\\t(100,200,\\fscy100\\fscx100)}"
-                    elif anim_preset == "rotate":
-                        anim_tags = "{\\frz-5}{\\t(0,150,\\frz0)}"
-                    elif anim_preset == "elastic":
-                        anim_tags = "{\\fscx0\\fscy0}{\\t(0,100,\\fscx120\\fscy120)}{\\t(100,180,\\fscx95\\fscy95)}{\\t(180,250,\\fscx100\\fscy100)}"
-                
-                full_text = f"{anim_tags}{segment_text}"
-                
-                start_str = self.ms_to_ass_time(t_start)
-                end_str = self.ms_to_ass_time(t_end)
-                ass_lines.append(
-                    f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{full_text}"
-                )
+                    anim_tags = ""
+                    is_first_seg = (t_start == cap.start_ms)
+                    is_last_seg = (t_end == cap.end_ms)
+
+                    if anim_preset == "fade":
+                        fade_in = 150 if is_first_seg else 0
+                        fade_out = 150 if is_last_seg else 0
+                        if fade_in > 0 or fade_out > 0:
+                            anim_tags = f"{{\\fad({fade_in},{fade_out})}}"
+                    elif is_first_seg:
+                        if anim_preset == "pop":
+                            anim_tags = "{\\fscx110\\fscy110}{\\t(0,100,\\fscx100\\fscy100)}"
+                        elif anim_preset == "scale":
+                            anim_tags = "{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}"
+                        elif anim_preset == "slide":
+                            anim_tags = "{\\an2}{\\move(540,1000,540,960,0,200)}"
+                        elif anim_preset == "bounce":
+                            anim_tags = "{\\t(0,100,\\fscy115\\fscx105)}{\\t(100,200,\\fscy100\\fscx100)}"
+                        elif anim_preset == "rotate":
+                            anim_tags = "{\\frz-5}{\\t(0,150,\\frz0)}"
+                        elif anim_preset == "elastic":
+                            anim_tags = "{\\fscx0\\fscy0}{\\t(0,100,\\fscx120\\fscy120)}{\\t(100,180,\\fscx95\\fscy95)}{\\t(180,250,\\fscx100\\fscy100)}"
+                    
+                    full_text = f"{anim_tags}{segment_text}"
+                    
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+                    ass_lines.append(
+                        f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{full_text}"
+                    )
 
         return "\n".join(ass_lines)
 

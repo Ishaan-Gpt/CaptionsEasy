@@ -41,6 +41,38 @@ def is_month(word: str) -> bool:
     return normalize_word(word) in MONTHS
 
 
+STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "of", "to", "and", "in", "on",
+    "at", "it", "this", "that", "i", "you", "he", "she", "we", "they", "but",
+    "or", "so", "be", "as", "for", "with", "my", "your", "do", "does", "did",
+}
+
+
+def pick_keyword_idx(words_text: list[str]) -> int:
+    """Picks the single most salient word in a caption group for emphasis styling.
+
+    Longer, non-stopword, capitalized words score higher — approximates how
+    cinematic caption tools (CapCut/Opus) auto-pick the "hero" word per line.
+    """
+    best_idx = 0
+    best_score = -1.0
+    for i, w in enumerate(words_text):
+        clean = re.sub(r'[^\w]', '', w)
+        if not clean:
+            continue
+        score = float(len(clean))
+        if normalize_word(w) in STOPWORDS:
+            score -= 100.0
+        if is_capitalized(w):
+            score += 2.0
+        if is_number(w):
+            score += 1.0
+        if score > best_score:
+            best_score = score
+            best_idx = i
+    return best_idx
+
+
 def is_abbreviation(word: str) -> bool:
     clean = re.sub(r'[^\w]', '', word)
     if len(clean) <= 1:
@@ -250,6 +282,9 @@ class DummyRenderPlanProvider(RenderPlanProvider):
             if template == "word_by_word":
                 word_limit_to_use = 1
                 max_chars = 20
+            elif template == "staggered_3line":
+                word_limit_to_use = 5
+                max_chars = 30
             else:  # sentence_highlight or sentence_clean
                 word_limit_to_use = 8
                 max_chars = 36
@@ -341,8 +376,11 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                 })
                 event_counter += 1
 
-                # Generate highlight events for each word in the group
-                if template == "sentence_highlight":
+                # Generate highlight events for each word in the group. These double as
+                # both the "most important word" emphasis marker and the reveal-timing
+                # split points the render engine uses to build up the line word by word.
+                if template in {"sentence_highlight", "staggered_3line"}:
+                    keyword_idx = pick_keyword_idx(group_words_text)
                     for w_idx, (w_text, w_start, w_end) in enumerate(group):
                         # Ensure word highlights fit within the clamped caption boundaries
                         h_start = max(w_start, g_start)
@@ -350,7 +388,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                         # For the last word, align its highlight end with the end of the caption event
                         if w_idx == len(group) - 1:
                             h_end = g_end
-                        
+
                         if h_start < h_end:
                             timeline.append({
                                 "id": f"evt-{event_counter}",
@@ -362,6 +400,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                                     "indices": [w_idx],
                                     "color": highlight_color,
                                     "animation": "pop",
+                                    "is_keyword": w_idx == keyword_idx,
                                 }
                             })
                             event_counter += 1

@@ -83,6 +83,7 @@ export interface HighlightPayload {
   indices: number[];
   color: string;
   animation: Animation;
+  is_keyword?: boolean;
 }
 
 export interface EmojiPayload {
