@@ -10,6 +10,10 @@
       "headers": {
         "Authorization": "Bearer rnd_Qadg6S8R0nAxBr2NPdSFlHJIJ8tI"
       }
+    },
+    "remotion-documentation": {
+      "command": "npx",
+      "args": ["@remotion/mcp@latest"]
     }
   }
 }

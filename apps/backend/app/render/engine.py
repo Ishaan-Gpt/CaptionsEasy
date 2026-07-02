@@ -914,8 +914,128 @@ class RenderEngine:
         progress_callback=None
     ) -> dict:
         """Executes the pipeline stages to render a video with subtitles."""
+        from app.core.config import get_settings
+        settings = get_settings()
+
+        if settings.use_remotion_render:
+            return self.render_remotion(motion_script, video_path, output_path, progress_callback)
+        else:
+            return self.render_ass(motion_script, video_path, output_path, progress_callback)
+
+    def render_remotion(
+        self,
+        motion_script: MotionScript,
+        video_path: str,
+        output_path: str,
+        progress_callback=None
+    ) -> dict:
         if progress_callback:
-            progress_callback("Preparing", 5)
+            progress_callback("Preparing Remotion Render", 5)
+
+        if not os.path.exists(video_path):
+            raise FileNotFoundError(f"Input video not found: {video_path}")
+
+        meta = self.probe_metadata(video_path)
+        duration_s = meta.get("duration_s", 10.0)
+        # Default to 30 fps
+        fps = 30
+        duration_frames = max(1, int(duration_s * fps))
+
+        # Write temp input props JSON
+        temp_json = Path(output_path).with_suffix(".json")
+        motion_script_dict = motion_script.model_dump(mode="json")
+        with open(temp_json, "w", encoding="utf-8") as f:
+            json.dump(motion_script_dict, f)
+
+        # Generate transparent overlay WebM
+        if progress_callback:
+            progress_callback("Rendering transparent WebM in Remotion", 20)
+
+        temp_overlay = Path(output_path).with_name(f"temp_overlay_{int(time.time())}.webm")
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        remotion_dir = repo_root / "apps" / "remotion-pipeline"
+
+        remotion_cmd = [
+            "npx", "remotion", "render",
+            "Subtitles",
+            str(temp_overlay.resolve()),
+            f"--props={str(temp_json.resolve())}",
+            "--codec=vp9",
+            f"--width={meta.get('width', 1080)}",
+            f"--height={meta.get('height', 1920)}",
+            f"--frames=0-{duration_frames}"
+        ]
+
+        start_time = time.monotonic()
+        try:
+            # Run remotion CLI
+            subprocess.run(
+                remotion_cmd,
+                cwd=str(remotion_dir.resolve()),
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True
+            )
+        except subprocess.CalledProcessError as err:
+            if temp_json.exists():
+                temp_json.unlink()
+            if temp_overlay.exists():
+                temp_overlay.unlink()
+            raise RuntimeError(f"Remotion render failure: {err.stderr.decode(errors='replace')}") from err
+
+        # Merge original video and transparent overlay using FFmpeg
+        if progress_callback:
+            progress_callback("Merging layers with FFmpeg", 65)
+
+        ffmpeg_cmd = [
+            self.ffmpeg_binary,
+            "-y",
+            "-i", video_path,
+            "-i", str(temp_overlay.resolve()),
+            "-filter_complex", "[0:v][1:v]overlay[outv]",
+            "-map", "[outv]",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "22",
+            "-c:a", "aac",
+            output_path
+        ]
+
+        try:
+            subprocess.run(
+                ffmpeg_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True
+            )
+        except subprocess.CalledProcessError as err:
+            raise RuntimeError(f"FFmpeg layer merge failure: {err.stderr.decode(errors='replace')}") from err
+        finally:
+            # Clean up temp files
+            if temp_json.exists():
+                temp_json.unlink()
+            if temp_overlay.exists():
+                temp_overlay.unlink()
+
+        render_duration_ms = int((time.monotonic() - start_time) * 1000)
+
+        # Probe final output details
+        out_meta = self.probe_metadata(output_path)
+        out_meta["render_duration_ms"] = render_duration_ms
+
+        return out_meta
+
+    def render_ass(
+        self,
+        motion_script: MotionScript,
+        video_path: str,
+        output_path: str,
+        progress_callback=None
+    ) -> dict:
+        if progress_callback:
+            progress_callback("Preparing ASS Render", 5)
 
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Input video not found: {video_path}")

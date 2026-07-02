@@ -5,7 +5,7 @@ No prompt text, no provider-specific code, no rendering logic.
 
 import enum
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Optional, Dict, Union
 
 
 class PipelineStage(str, enum.Enum):
@@ -43,10 +43,10 @@ class ProviderUsage:
     provider: str
     model: str
     latency_ms: float
-    tokens: int | None = None
-    estimated_cost_usd: float | None = None
-    input_tokens: int | None = None
-    output_tokens: int | None = None
+    tokens: Optional[int] = None
+    estimated_cost_usd: Optional[float] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
     retries: int = 0
 
 
@@ -64,7 +64,7 @@ class StageResult(Generic[T]):
 class StageFailure(Exception):
     """Raised when a stage exhausts retries/repair and the job must be marked failed."""
 
-    def __init__(self, stage: PipelineStage, reason: str, *, cause: Exception | None = None):
+    def __init__(self, stage: PipelineStage, reason: str, *, cause: Optional[Exception] = None):
         self.stage = stage
         self.reason = reason
         self.cause = cause
@@ -93,10 +93,10 @@ class PipelineContext:
     project_id: str
     video_id: str
     job_id: str
-    job: Any | None = None
-    project: Any | None = None
-    video: Any | None = None
-    config: dict[str, Any] = field(default_factory=dict)
-    previous_output: Any | None = None
-    stage_outputs: dict[PipelineStage, Any] = field(default_factory=dict)
-    extra: dict[str, Any] = field(default_factory=dict)
+    job: Optional[Any] = None
+    project: Optional[Any] = None
+    video: Optional[Any] = None
+    config: Dict[str, Any] = field(default_factory=dict)
+    previous_output: Optional[Any] = None
+    stage_outputs: Dict[PipelineStage, Any] = field(default_factory=dict)
+    extra: Dict[str, Any] = field(default_factory=dict)

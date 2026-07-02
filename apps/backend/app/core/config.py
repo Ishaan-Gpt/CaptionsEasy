@@ -3,6 +3,7 @@
 Every setting is read from the environment. Nothing is hardcoded.
 """
 
+from typing import List, Tuple, Optional
 from functools import lru_cache
 
 from pydantic import Field
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", alias="ENVIRONMENT")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
-    cors_allow_origins: list[str] = Field(default_factory=list, alias="CORS_ALLOW_ORIGINS")
+    cors_allow_origins: List[str] = Field(default_factory=list, alias="CORS_ALLOW_ORIGINS")
 
     # --- Database (SQLAlchemy async engine; Alembic uses its own DATABASE_URL — see alembic/env.py) ---
     database_url: str = Field(..., alias="DATABASE_URL_ASYNC")
@@ -36,7 +37,7 @@ class Settings(BaseSettings):
 
     # --- Upload limits (docs/PRD.md > Upload) ---
     max_upload_size_bytes: int = Field(default=500 * 1024 * 1024, alias="MAX_UPLOAD_SIZE_BYTES")
-    allowed_upload_content_types: tuple[str, ...] = (
+    allowed_upload_content_types: Tuple[str, ...] = (
         "video/mp4",
         "video/quicktime",  # .mov
         "video/webm",
@@ -68,13 +69,14 @@ class Settings(BaseSettings):
     creative_provider_name: str = Field(default="dummy", alias="CREATIVE_PROVIDER_NAME")
     caption_provider_name: str = Field(default="dummy", alias="CAPTION_PROVIDER_NAME")
     render_plan_provider_name: str = Field(default="dummy", alias="RENDER_PLAN_PROVIDER_NAME")
+    use_remotion_render: bool = Field(default=True, alias="USE_REMOTION_RENDER")
 
     # --- Groq AI (speech provider). Sprint 1.5/1.6. ---
     # Groq exposes an OpenAI-Whisper-compatible transcription endpoint.
     # Never hardcoded outside app.ai.providers.speech — these are the only
     # vendor-specific knobs, and SPEECH_PROVIDER_NAME stays the single
     # switch that decides whether this vendor is even used.
-    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
     groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_speech_model: str = Field(default="whisper-large-v3", alias="GROQ_SPEECH_MODEL")
     groq_timeout_seconds: float = Field(default=120.0, alias="GROQ_TIMEOUT_SECONDS")
