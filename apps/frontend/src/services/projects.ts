@@ -163,6 +163,11 @@ export const projectsService = {
       y_position_percent: number;
       caption_template: string;
       staggered_layout?: string;
+      accent_period_enabled?: boolean;
+      word_limit?: number;
+      caption_spacing_ms?: number;
+      word_pacing?: string;
+      pause_handling?: string;
     }
   ): Promise<{ style: string }> {
     return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {

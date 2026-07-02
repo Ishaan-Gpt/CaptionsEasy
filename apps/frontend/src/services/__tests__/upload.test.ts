@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../auth", () => ({
-  authService: { getToken: () => "test-token" },
+  authService: { getToken: async () => "test-token" },
 }));
 
 import { uploadService, UploadValidationError } from "../upload";

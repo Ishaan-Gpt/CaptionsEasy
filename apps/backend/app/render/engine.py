@@ -13,6 +13,85 @@ STOPWORDS = {
     "be", "as", "for", "with", "my", "your", "do", "does", "did"
 }
 
+def map_font_family(name: str) -> str:
+    # Google Webfonts Helper renames certain static TTF family tags in metadata:
+    # - Fredoka -> Fredoka Light
+    # - Outfit -> Outfit Thin
+    mapping = {
+        "Fredoka": "Fredoka Light",
+        "Outfit": "Outfit Thin",
+    }
+    return mapping.get(name, name)
+
+def ensure_font_downloaded_backend(font_name: str) -> None:
+    # Dynamically download Google Font TTF files if they do not exist locally.
+    if not font_name:
+        return
+    import urllib.request
+    import urllib.error
+    
+    clean_name = font_name.replace(" Light", "").replace(" Thin", "")
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+    fonts_dir = repo_root / "fonts"
+    
+    # Check if there is already a TTF file for this font name
+    has_font = False
+    if fonts_dir.exists():
+        for file in os.listdir(fonts_dir):
+            if file.lower().startswith(clean_name.lower().replace(" ", "")) and file.lower().endswith(".ttf"):
+                has_font = True
+                break
+                
+    if not has_font:
+        print(f"Font {font_name} not found locally. Downloading dynamically from Google Fonts API...")
+        font_id = clean_name.lower().replace(" ", "-")
+        url = f"https://gwfh.mranftl.com/api/fonts/{font_id}"
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        try:
+            with urllib.request.urlopen(req) as response:
+                metadata = json.loads(response.read().decode('utf-8'))
+            
+            # Download standard variants
+            variants_to_download = ["regular", "italic", "700", "700italic", "900", "900italic"]
+            for variant_info in metadata.get("variants", []):
+                vid = variant_info.get("id")
+                if vid in variants_to_download:
+                    ttf_url = variant_info.get("ttf")
+                    if ttf_url:
+                        # Determine file name
+                        style_suffix = "Regular"
+                        if vid == "italic":
+                            style_suffix = "Italic"
+                        elif vid == "700":
+                            style_suffix = "Bold"
+                        elif vid == "700italic":
+                            style_suffix = "BoldItalic"
+                        elif vid == "900":
+                            style_suffix = "Black"
+                        elif vid == "900italic":
+                            style_suffix = "BlackItalic"
+                        
+                        clean_family = clean_name.replace(" ", "")
+                        filename = f"{clean_family}-{style_suffix}.ttf"
+                        
+                        dest = fonts_dir / filename
+                        ttf_req = urllib.request.Request(
+                            ttf_url,
+                            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+                        )
+                        with urllib.request.urlopen(ttf_req) as ttf_res:
+                            font_bytes = ttf_res.read()
+                        
+                        fonts_dir.mkdir(parents=True, exist_ok=True)
+                        dest.write_bytes(font_bytes)
+                        print(f"  Dynamically downloaded on-demand: {filename}")
+        except Exception as e:
+            print(f"  Failed to download font {font_name} on-demand: {e}")
+
+
 def normalize_word(word: str) -> str:
     return re.sub(r'[^\w]', '', word).lower()
 
@@ -92,6 +171,26 @@ class RenderEngine:
         
         return f"&H{a}{b}{g}{r}"
 
+    @staticmethod
+    def _lighten(hex_color: str, amount: float) -> str:
+        """Blends a hex color toward white by `amount` (0..1)."""
+        clean = hex_color.lstrip("#")
+        if len(clean) == 3:
+            clean = "".join(c * 2 for c in clean)
+        r, g, b = (int(clean[i:i+2], 16) for i in (0, 2, 4))
+        r, g, b = (int(c + (255 - c) * amount) for c in (r, g, b))
+        return f"#{r:02X}{g:02X}{b:02X}"
+
+    @staticmethod
+    def _darken(hex_color: str, amount: float) -> str:
+        """Blends a hex color toward black by `amount` (0..1)."""
+        clean = hex_color.lstrip("#")
+        if len(clean) == 3:
+            clean = "".join(c * 2 for c in clean)
+        r, g, b = (int(clean[i:i+2], 16) for i in (0, 2, 4))
+        r, g, b = (int(c * (1.0 - amount)) for c in (r, g, b))
+        return f"#{r:02X}{g:02X}{b:02X}"
+
     def generate_ass(self, motion_script: MotionScript) -> str:
         """Generates ASS subtitles from MotionScript."""
         width = motion_script.global_settings.canvas.width
@@ -115,7 +214,7 @@ class RenderEngine:
         preset_name = getattr(motion_script.global_settings, "theme", None) or motion_script.global_settings.motion_preset
         preset = StylePresetManager.get_preset(preset_name)
 
-        font_family = preset.typography.font
+        font_family = map_font_family(preset.typography.font)
         font_size = preset.typography.size
         base_color = self.hex_to_ass_abgr(preset.typography.color)
         outline = preset.typography.outline
@@ -143,7 +242,7 @@ class RenderEngine:
         caption_events = [e for e in motion_script.timeline if e.type == EventType.CAPTION]
         if caption_events:
             first_payload = caption_events[0].parsed_payload()
-            font_family = getattr(first_payload, "font", font_family)
+            font_family = map_font_family(getattr(first_payload, "font", font_family))
             font_size = getattr(first_payload, "size", font_size)
             
             color_hex = getattr(first_payload, "color", None)
@@ -201,11 +300,301 @@ class RenderEngine:
                     preset.timing, "caption_template", "word_by_word"
                 )
                 is_staggered = used_template == "staggered_3line"
+                is_glow_stack = used_template == "glow_stack"
+                is_cartoon_stack = used_template == "cartoon_stack"
+                is_serif_pop = used_template == "serif_pop"
                 staggered_layout = getattr(motion_script.global_settings, "staggered_layout", None) or getattr(
                     preset.timing, "staggered_layout", "splash"
                 )
 
-                if is_staggered:
+                if is_glow_stack:
+                    # "3D glow stack" template — centered 3-line block:
+                    # body lines in a rounded heavy sans, natural case,
+                    # pure white with dark navy 3D extrusion; hero word in
+                    # a condensed display font, ALL CAPS, gradient-blue
+                    # fill approximated in ASS (no native gradients) as a
+                    # light fill + deep border + a separate blurred glow
+                    # layer beneath; plus a soft dark blurred backdrop
+                    # blob (an ASS \p1 rectangle drawing) behind the whole
+                    # block for readability over any footage.
+                    k = None
+                    keyword_payload = None
+                    for h in cap_highlights:
+                        h_payload = h.parsed_payload()
+                        if getattr(h_payload, "is_keyword", False) and h_payload.indices:
+                            k = h_payload.indices[0]
+                            keyword_payload = h_payload
+                            break
+                    if k is None:
+                        k = pick_keyword_idx(words)
+
+                    line1_words = words[:k]
+                    line2_text = words[k]
+                    line3_words = words[k+1:]
+
+                    active_idx = None
+                    active_color_hex = None
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            if highlight_payload.indices:
+                                active_idx = highlight_payload.indices[0]
+                            color_hex = getattr(highlight_payload, "color", None)
+                            if color_hex:
+                                active_color_hex = color_hex
+
+                    revealed_max = active_idx if active_idx is not None else 0
+                    visible_l1 = [w for idx, w in enumerate(line1_words) if idx <= revealed_max]
+                    has_l2 = (k <= revealed_max)
+                    visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
+
+                    size_normal = getattr(cap_payload, "size", font_size)
+                    body_font = getattr(cap_payload, "font", None) or "Baloo 2"
+                    keyword_size_scale = getattr(keyword_payload, "size_scale", None) or 1.7
+                    size_large = size_normal * keyword_size_scale
+                    keyword_font = getattr(keyword_payload, "font", None) or "Anton"
+
+                    box_left = margin_l
+                    box_right = width - margin_r
+                    box_width = box_right - box_left
+
+                    # Bounding box: shrink (never overflow) each line to fit.
+                    def fit(sz: float, text: str) -> float:
+                        if not text:
+                            return sz
+                        w_est = estimate_text_width(text, sz)
+                        return sz * (box_width / w_est) if w_est > box_width else sz
+
+                    size_l1 = fit(size_normal, " ".join(line1_words))
+                    size_l3 = fit(size_normal, " ".join(line3_words))
+                    size_large = fit(size_large, line2_text.upper())
+
+                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                    base_y = int(height * y_pct / 100.0)
+                    # Gap scales off the resolved (template-scaled) body
+                    # size, not the raw preset size, so the rhythm stays
+                    # proportional when the template bumps the base text up.
+                    line_gap = size_normal * 1.15
+                    Y_l1 = base_y - line_gap
+                    Y_l2 = base_y
+                    Y_l3 = base_y + line_gap
+
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+
+                    # The hero word's gradient is derived from the project's
+                    # highlight color: light fill (the gradient's bright top
+                    # reads as the overall tone in motion), deep border for
+                    # the gradient's dark bottom edge, same hue glow.
+                    hl_hex = active_color_hex or (preset.highlight.colors[0] if preset.highlight.colors else "#4FA8FF")
+                    fill_abgr = self.hex_to_ass_abgr(self._lighten(hl_hex, 0.35))
+                    border_abgr = self.hex_to_ass_abgr(self._darken(hl_hex, 0.45))
+                    glow_abgr = self.hex_to_ass_abgr(hl_hex)
+
+                    # Backdrop blob (layer 0): soft dark blurred rectangle
+                    # behind the whole block. Drawn once per sub-interval so
+                    # it fades with the same anim timing as the text.
+                    blob_half_w = int(min(box_width, max(
+                        estimate_text_width(" ".join(line1_words), size_l1),
+                        estimate_text_width(line2_text.upper(), size_large),
+                        estimate_text_width(" ".join(line3_words), size_l3),
+                    ) * 0.75 + 60) / 2)
+                    blob_half_h = int(line_gap * 1.9)
+                    # Drawn with \an7 (top-left) and all-positive coordinates
+                    # — libass places drawings with negative coordinates
+                    # inconsistently across alignment modes, which shifted a
+                    # center-anchored (-w..+w) rectangle visibly off-center.
+                    blob_x = 540 - blob_half_w
+                    blob_y = Y_l2 - blob_half_h
+                    blob_tags = f"{{\\pos({blob_x},{int(blob_y)})\\an7\\1c&H201408&\\1a&H8C&\\bord0\\shad0\\blur30\\p1}}"
+                    blob_draw = f"m 0 0 l {blob_half_w * 2} 0 {blob_half_w * 2} {blob_half_h * 2} 0 {blob_half_h * 2}{{\\p0}}"
+                    ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{blob_tags}{blob_draw}")
+
+                    # Body lines: white fill, dark navy border (the 3D
+                    # extrusion tone), offset shadow for depth.
+                    body_style = f"\\1c&HFFFFFF&\\3c&H4E2216&\\bord2\\shad4\\4c&H2E1A10&\\4a&H40&\\blur0.6"
+                    if visible_l1:
+                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}{body_style}\\b1}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{' '.join(visible_l1)}")
+
+                    if has_l2:
+                        # Glow halo (layer 1): same glyphs, transparent fill,
+                        # thick blurred border in the highlight hue.
+                        glow_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\1a&HFF&\\3c{glow_abgr}\\bord9\\blur14\\shad0}}"
+                        ass_lines.append(f"Dialogue: 1,{start_str},{end_str},Default,,0,0,0,,{glow_tags}{line2_text.upper()}")
+                        # Main hero word (layer 2).
+                        hero_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\1c{fill_abgr}\\3c{border_abgr}\\bord3\\shad4\\4c&H101020&\\4a&H50&\\b1}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{hero_tags}{line2_text.upper()}")
+
+                elif is_cartoon_stack:
+                    k = None
+                    keyword_payload = None
+                    for h in cap_highlights:
+                        h_payload = h.parsed_payload()
+                        if getattr(h_payload, "is_keyword", False) and h_payload.indices:
+                            k = h_payload.indices[0]
+                            keyword_payload = h_payload
+                            break
+                    if k is None:
+                        k = pick_keyword_idx(words)
+
+                    line1_words = words[:k]
+                    line2_text = words[k]
+                    line3_words = words[k+1:]
+
+                    active_idx = None
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            if highlight_payload.indices:
+                                active_idx = highlight_payload.indices[0]
+
+                    revealed_max = active_idx if active_idx is not None else 0
+                    visible_l1 = [w for idx, w in enumerate(line1_words) if idx <= revealed_max]
+                    has_l2 = (k <= revealed_max)
+                    visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
+
+                    size_normal = getattr(cap_payload, "size", font_size)
+                    body_font = map_font_family("Caveat")
+                    keyword_font = map_font_family("Fredoka")
+
+                    size_normal = size_normal * 0.8
+                    size_large = getattr(cap_payload, "size", font_size) * 1.6
+
+                    box_left = margin_l
+                    box_right = width - margin_r
+                    box_width = box_right - box_left
+
+                    def fit(sz: float, text: str) -> float:
+                        if not text:
+                            return sz
+                        w_est = estimate_text_width(text, sz)
+                        return sz * (box_width / w_est) if w_est > box_width else sz
+
+                    size_l1 = fit(size_normal, " ".join(line1_words))
+                    size_l3 = fit(size_normal, " ".join(line3_words))
+                    size_large = fit(size_large, line2_text)
+
+                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                    base_y = int(height * y_pct / 100.0)
+                    line_gap = getattr(cap_payload, "size", font_size) * 0.8
+                    Y_l1 = base_y - line_gap
+                    Y_l2 = base_y
+                    Y_l3 = base_y + line_gap
+
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+
+                    if visible_l1:
+                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&H1C1C1C&\\bord0\\shad0\\b400}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{' '.join(visible_l1)}")
+
+                    if has_l2:
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c&H00A6E0ED&\\3c&H001F2D4E&\\bord8\\shad5\\4c&H000000&\\4a&H70&\\blur0.8\\b700}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{line2_text}")
+
+                    if visible_l3:
+                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&H1C1C1C&\\bord0\\shad0\\b400}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{' '.join(visible_l3)}")
+
+                elif is_serif_pop:
+                    k = None
+                    keyword_payload = None
+                    for h in cap_highlights:
+                        h_payload = h.parsed_payload()
+                        if getattr(h_payload, "is_keyword", False) and h_payload.indices:
+                            k = h_payload.indices[0]
+                            keyword_payload = h_payload
+                            break
+                    if k is None:
+                        k = pick_keyword_idx(words)
+
+                    line1_words = words[:k]
+                    line2_text = words[k]
+                    line3_words = words[k+1:]
+
+                    active_idx = None
+                    active_color_abgr = None
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            if highlight_payload.indices:
+                                active_idx = highlight_payload.indices[0]
+                            color_hex = getattr(highlight_payload, "color", None)
+                            if color_hex:
+                                active_color_abgr = self.hex_to_ass_abgr(color_hex)
+
+                    revealed_max = active_idx if active_idx is not None else 0
+                    visible_l1 = [w for idx, w in enumerate(line1_words) if idx <= revealed_max]
+                    has_l2 = (k <= revealed_max)
+                    visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
+
+                    size_normal = getattr(cap_payload, "size", font_size)
+                    body_font = font_family
+                    keyword_font = "Playfair Display"
+
+                    size_l1 = size_normal
+                    size_l3 = size_normal
+                    size_large = size_normal * 1.8
+
+                    box_left = margin_l
+                    box_right = width - margin_r
+                    box_width = box_right - box_left
+
+                    def fit(sz: float, text: str) -> float:
+                        if not text:
+                            return sz
+                        w_est = estimate_text_width(text, sz)
+                        return sz * (box_width / w_est) if w_est > box_width else sz
+
+                    size_l1 = fit(size_l1, " ".join(line1_words))
+                    size_l3 = fit(size_l3, " ".join(line3_words))
+                    size_large = fit(size_large, line2_text)
+
+                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                    base_y = int(height * y_pct / 100.0)
+                    line_gap = size_normal * 1.15
+                    Y_l1 = base_y - line_gap
+                    Y_l2 = base_y
+                    Y_l3 = base_y + line_gap
+
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+
+                    hl_color = active_color_abgr or self.hex_to_ass_abgr("#FFEE00")
+                    drop_shadow_tag = "\\bord0\\shad5\\4c&H000000&\\4a&H50&\\blur0.8"
+
+                    if visible_l1:
+                        l1_parts = []
+                        for idx, w in enumerate(line1_words):
+                            if idx <= revealed_max:
+                                if idx == active_idx:
+                                    l1_parts.append(f"{{\\c{hl_color}}}{w}{{\\c&HFFFFFF&}}")
+                                else:
+                                    l1_parts.append(w)
+                        l1_str = " ".join(l1_parts)
+                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&HFFFFFF&{drop_shadow_tag}\\b900}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{l1_str}")
+
+                    if has_l2:
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c&HFFFFFF&{drop_shadow_tag}\\b900\\i1}}"
+                        l2_str = f"{line2_text}{{\\c{hl_color}}}."
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{l2_str}")
+
+                    if visible_l3:
+                        l3_parts = []
+                        for idx, w in enumerate(line3_words):
+                            abs_idx = k + 1 + idx
+                            if abs_idx <= revealed_max:
+                                if abs_idx == active_idx:
+                                    l3_parts.append(f"{{\\c{hl_color}}}{w}{{\\c&HFFFFFF&}}")
+                                else:
+                                    l3_parts.append(w)
+                        l3_str = " ".join(l3_parts)
+                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&HFFFFFF&{drop_shadow_tag}\\b900}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
+
+                elif is_staggered:
                     # 1. Staggered 3-line template generation
                     # Determine the keyword index k for the words in this caption segment.
                     # Prefer the render plan's own choice (recorded per-word on the
@@ -549,10 +938,13 @@ class RenderEngine:
         
         # Escape path for FFmpeg subtitles filter
         ass_filter_path = str(temp_ass.resolve()).replace("\\", "/").replace(":", "\\:")
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        fonts_dir = str(repo_root / "fonts").replace("\\", "/")
+        fonts_dir_escaped = fonts_dir.replace(":", "\\:")
         filter_graph = (
             f"scale=w={width}:h={height}:force_original_aspect_ratio=decrease,"
             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
-            f"subtitles='{ass_filter_path}'"
+            f"subtitles='{ass_filter_path}':fontsdir='{fonts_dir_escaped}'"
         )
 
         # Stage 7-12: Execute rendering and encoding

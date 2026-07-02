@@ -5,7 +5,7 @@ function mockFetch(): Mock {
 }
 
 vi.mock("../auth", () => ({
-  authService: { getToken: () => "test-token" },
+  authService: { getToken: async () => "test-token" },
 }));
 
 import { projectsService } from "../projects";

@@ -12,7 +12,12 @@ import { uploadService, UploadValidationError } from "@/services/upload";
 import { transcriptService, TranscriptResponse } from "@/services/transcript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
-import { TEMPLATE_PRESETS_LIST, getTemplateStyle } from "@/config/captionTemplates";
+import { TEMPLATE_PRESETS_LIST, getTemplateStyle, fitFontSizePx, estimateTextWidthPx, lightenHex, darkenHex } from "@/config/captionTemplates";
+
+// Safe-area box every caption template's text must stay inside — matches
+// the max-w-[...] wrappers already used per template, minus a little
+// interior breathing room so a shrunk line doesn't touch the edge.
+const CAPTION_BOX_WIDTH_PX = 300;
 
 function describeError(err: unknown): string {
   if (err instanceof NetworkUnavailableError) return err.message;
@@ -22,16 +27,16 @@ function describeError(err: unknown): string {
 }
 
 const POPULAR_FONTS = [
-  "Outfit",            // Modern Sans-serif
-  "Anton",             // Clean Heavy Display
-  "Playfair Display",  // Elegant Serif
-  "Permanent Marker",  // Bold Brush Handwriting
-  "Pacifico",          // Classic Flowing Script
-  "JetBrains Mono",    // Modern Monospace
-  "Bungee",            // Heavy Blocky Display
-  "Cinzel",            // Decorative Roman
-  "Dela Gothic One",   // Chunky Gothic Display
-  "Courier Prime"      // Classic Typewriter
+  // Modern Sans-serifs
+  "Outfit", "Inter", "Montserrat", "Poppins", "Roboto", "Lato", "Open Sans", "Nunito", "Rubik", "Kanit", "Heebo", "Work Sans", "Quicksand", "Josefin Sans", "Fira Sans", "Barlow", "Cabin", "Manrope", "Albert Sans", "Plus Jakarta Sans", "Urbanist", "Lexend", "DM Sans", "Hanken Grotesk", "Hind", "Arimo", "Assistant", "Bitter", "Dosis", "Ubuntu", "PT Sans", "Karla",
+  // Heavy Display & Comic
+  "Anton", "Bungee", "Dela Gothic One", "Lilita One", "Titan One", "Paytone One", "Carter One", "Black Ops One", "Sigmar", "Rammetto One", "Bowlby One SC", "Passion One", "Alfa Slab One", "Bungee Spice", "Rowdy", "Archivo Black", "Concert One", "Righteous", "Russo One", "Squada One", "Chivo", "Luckiest Guy", "Fredoka One", "Fredoka", "Chewy", "Bangers", "Patua One", "Shrikhand", "Ultra", "Fascinate Inline", "Creepster",
+  // Handwritings & Scripts
+  "Caveat", "Permanent Marker", "Pacifico", "Kalam", "Gochi Hand", "Patrick Hand", "Shadows Into Light", "Amatic SC", "Gloria Hallelujah", "Just Another Hand", "Indie Flower", "Architects Daughter", "Sacramento", "Great Vibes", "Kaushan Script", "Allura", "Courgette", "Alex Brush", "Dancing Script", "Satisfy", "Yellowtail", "Cookie", "Parisienne", "Pinyon Script", "Lobster", "Playball",
+  // Serif & Elegant
+  "Playfair Display", "Lora", "Merriweather", "Georgia", "PT Serif", "Cinzel", "Cormorant Garamond", "EB Garamond", "Libre Baskerville", "Cardo", "Noto Serif", "DM Serif Display", "Prata", "Domine", "Alice", "Castoro", "Unna", "Bodoni Moda", "Newsreader", "Vollkorn", "Cinzel Decorative", "Arapey",
+  // Monospace & Typewriters
+  "JetBrains Mono", "Fira Code", "Source Code Pro", "Space Mono", "Inconsolata", "Share Tech Mono", "VT323", "Cutive Mono", "IBM Plex Mono", "Roboto Mono", "Courier Prime", "Special Elite", "Major Mono Display"
 ];
 
 // Picks the heavier of two CSS-style font weights ("400"/"700"/"900" or
@@ -58,6 +63,40 @@ export default function ProjectWorkspacePage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [playerWidth, setPlayerWidth] = useState<number>(360);
+  const playerContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const element = playerContainerRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      if (element.clientWidth > 0) {
+        setPlayerWidth(element.clientWidth);
+      }
+    };
+
+    updateSize();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+    resizeObserver.observe(element);
+
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, [mounted]);
 
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -95,6 +134,11 @@ export default function ProjectWorkspacePage() {
   // offset around the keyword — the original look) or "centre" (all three
   // lines center-aligned).
   const [customStaggeredLayout, setCustomStaggeredLayout] = useState<"splash" | "centre">("splash");
+  const [customWordLimit, setCustomWordLimit] = useState<number>(5);
+  const [customCaptionSpacingMs, setCustomCaptionSpacingMs] = useState<number>(50);
+  const [customWordPacing, setCustomWordPacing] = useState<string>("dynamic");
+  const [customPauseHandling, setCustomPauseHandling] = useState<string>("hold");
+  const [customAccentPeriodEnabled, setCustomAccentPeriodEnabled] = useState<boolean>(true);
   const [isSavingStyle, setIsSavingStyle] = useState(false);
   const [styleError, setStyleError] = useState<string | null>(null);
 
@@ -198,9 +242,12 @@ export default function ProjectWorkspacePage() {
   }, [customFont]);
 
   useEffect(() => {
-    const keywordFont = getTemplateStyle(customCaptionTemplate).keywordFont;
-    if (keywordFont) {
-      ensureFontLoaded(keywordFont);
+    const templateStyle = getTemplateStyle(customCaptionTemplate);
+    if (templateStyle.keywordFont) {
+      ensureFontLoaded(templateStyle.keywordFont);
+    }
+    if (templateStyle.baseFont) {
+      ensureFontLoaded(templateStyle.baseFont);
     }
   }, [customCaptionTemplate]);
 
@@ -253,6 +300,11 @@ export default function ProjectWorkspacePage() {
             setCustomCaptionTemplate(res.caption_template || "staggered_3line");
             setExpandedTemplateId(res.caption_template || "staggered_3line");
             setCustomStaggeredLayout((res.staggered_layout as "splash" | "centre") || "splash");
+            setCustomWordLimit(res.word_limit || 5);
+            setCustomCaptionSpacingMs(res.caption_spacing_ms || 50);
+            setCustomWordPacing(res.word_pacing || "dynamic");
+            setCustomPauseHandling(res.pause_handling || "hold");
+            setCustomAccentPeriodEnabled(res.accent_period_enabled !== undefined ? res.accent_period_enabled : true);
 
             setCustomAlignment((res.alignment || "center") as any);
             setShadowEnabled(res.shadow > 0);
@@ -449,6 +501,11 @@ export default function ProjectWorkspacePage() {
       y_position_percent: customYPositionPercent,
       caption_template: customCaptionTemplate,
       staggered_layout: customStaggeredLayout,
+      accent_period_enabled: customAccentPeriodEnabled,
+      word_limit: customWordLimit,
+      caption_spacing_ms: customCaptionSpacingMs,
+      word_pacing: customWordPacing,
+      pause_handling: customPauseHandling,
       ...styleOverrides
     };
 
@@ -496,6 +553,11 @@ export default function ProjectWorkspacePage() {
         y_position_percent: customYPositionPercent,
         caption_template: customCaptionTemplate,
         staggered_layout: customStaggeredLayout,
+        accent_period_enabled: customAccentPeriodEnabled,
+        word_limit: customWordLimit,
+        caption_spacing_ms: customCaptionSpacingMs,
+        word_pacing: customWordPacing,
+        pause_handling: customPauseHandling,
         ...styleOverrides
       };
 
@@ -529,10 +591,68 @@ export default function ProjectWorkspacePage() {
     }, 1200);
   };
 
-  const handleTemplateClick = (templateId: string) => {
-    setExpandedTemplateId(templateId);
-    setCustomCaptionTemplate(templateId);
-    saveStyleImmediate({ caption_template: templateId });
+  const handleTemplateClick = (presetId: string) => {
+    setExpandedTemplateId(presetId);
+    
+    const preset = TEMPLATE_PRESETS_LIST.find((p) => p.id === presetId);
+    if (!preset) return;
+
+    setCustomFont(preset.font);
+    setCustomSize(preset.size);
+    setCustomColor(preset.color);
+    setCustomHighlightColor(preset.highlight_color);
+    setCustomShadow(preset.shadow);
+    setCustomOutline(preset.outline);
+    setCustomBackgroundStyle(preset.background_style);
+    setCustomYPositionPercent(preset.y_position_percent);
+    setCustomCaptionTemplate(preset.caption_template);
+    setCustomStaggeredLayout(preset.staggered_layout || "splash");
+    setCustomAccentPeriodEnabled(preset.accent_period_enabled !== undefined ? preset.accent_period_enabled : true);
+    setCustomWordLimit(preset.word_limit || 5);
+    setCustomCaptionSpacingMs(preset.caption_spacing_ms || 50);
+    setCustomWordPacing(preset.word_pacing || "dynamic");
+    setCustomPauseHandling(preset.pause_handling || "hold");
+
+    setShadowEnabled(preset.shadow > 0);
+    setStrokeEnabled(preset.outline > 0);
+    setBackgroundEnabled(preset.background_style !== "none");
+    if (preset.background_style !== "none") {
+      setSelectedBackgroundStyle(preset.background_style as any);
+    }
+
+    const wMap: Record<string, string> = {
+      "100": "Thin", "200": "Extra Light", "300": "Light", "400": "Regular",
+      "500": "Medium", "600": "Semi Bold", "700": "Bold", "800": "Extra Bold", "900": "Black"
+    };
+    setCustomFontFace(wMap[preset.weight] || "Bold");
+
+    ensureFontLoaded(preset.font);
+    const templateStyle = getTemplateStyle(preset.caption_template);
+    if (templateStyle.keywordFont) {
+      ensureFontLoaded(templateStyle.keywordFont);
+    }
+    if (templateStyle.baseFont) {
+      ensureFontLoaded(templateStyle.baseFont);
+    }
+
+    saveStyleImmediate({
+      font: preset.font,
+      size: preset.size,
+      weight: preset.weight,
+      color: preset.color,
+      highlight_color: preset.highlight_color,
+      shadow: preset.shadow,
+      outline: preset.outline,
+      background_style: preset.background_style,
+      y_position_percent: preset.y_position_percent,
+      caption_template: preset.caption_template,
+      staggered_layout: preset.staggered_layout || "splash",
+      accent_period_enabled: preset.accent_period_enabled !== undefined ? preset.accent_period_enabled : true,
+      word_limit: preset.word_limit || 5,
+      caption_spacing_ms: preset.caption_spacing_ms || 50,
+      word_pacing: preset.word_pacing || "dynamic",
+      pause_handling: preset.pause_handling || "hold",
+    });
   };
 
   const getTextStyle = (isHighlighted: boolean) => {
@@ -781,6 +901,15 @@ export default function ProjectWorkspacePage() {
       }
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#0A0B0D]">
+        <div className="w-8 h-8 border-2 border-[#00F5C4] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[10px] uppercase font-bold tracking-widest text-white">Initializing client app...</p>
+      </div>
+    );
+  }
 
   if (isProjectLoading) {
     return (
@@ -1424,7 +1553,7 @@ export default function ProjectWorkspacePage() {
 
                 <div className="space-y-3">
                   {TEMPLATE_PRESETS_LIST.map((tpl) => {
-                    const isSelected = customCaptionTemplate === tpl.id;
+                    const isSelected = expandedTemplateId === tpl.id;
 
                     return (
                       <div
@@ -1450,95 +1579,386 @@ export default function ProjectWorkspacePage() {
                           </span>
                         </button>
 
-                        {/* Template specific Quick Customs */}
+                        {/* Template specific Customs Panel */}
                         {isSelected && (
-                          <div className="mt-3 pt-3 border-t border-[#23272F] space-y-3">
-                            <span className="text-[7px] font-black uppercase tracking-widest text-[#FFB800] block">
-                              ⚡ Quick Customs
+                          <div className="mt-4 pt-4 border-t border-[#23272F] space-y-4 text-left">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-[#FFB800] block">
+                              ⚡ Customize Preset Style
                             </span>
 
-                            {/* Template quick custom fields */}
-                            <div className="space-y-2">
+                            <div className="grid grid-cols-1 gap-3">
+                              {/* 1. Font Family Dropdown */}
                               <div className="space-y-1">
-                                <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Highlight Color</label>
-                                <div className="flex items-center gap-2 bg-[#111317] border border-[#23272F] p-1 rounded">
+                                <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Family</label>
+                                <select
+                                  value={customFont}
+                                  onChange={(e) => {
+                                    setCustomFont(e.target.value);
+                                    ensureFontLoaded(e.target.value);
+                                    saveStyleImmediate({ font: e.target.value });
+                                  }}
+                                  className="w-full bg-[#111317] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
+                                >
+                                  {POPULAR_FONTS.map((font) => (
+                                    <option key={font} value={font}>
+                                      {font}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* 2. Font Face (Weight) */}
+                              <div className="space-y-1">
+                                <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Face / Weight</label>
+                                <select
+                                  value={customFontFace}
+                                  onChange={(e) => {
+                                    setCustomFontFace(e.target.value);
+                                    saveStyleImmediate({ fontFace: e.target.value });
+                                  }}
+                                  className="w-full bg-[#111317] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
+                                >
+                                  <option value="Template default">Template default</option>
+                                  <option value="Thin">Thin</option>
+                                  <option value="Extra Light">Extra Light</option>
+                                  <option value="Light">Light</option>
+                                  <option value="Regular">Regular</option>
+                                  <option value="Medium">Medium</option>
+                                  <option value="Semi Bold">Semi Bold</option>
+                                  <option value="Bold">Bold</option>
+                                  <option value="Extra Bold">Extra Bold</option>
+                                  <option value="Black">Black</option>
+                                  <option value="Thin Italic">Thin Italic</option>
+                                  <option value="Light Italic">Light Italic</option>
+                                  <option value="Regular Italic">Regular Italic</option>
+                                  <option value="Medium Italic">Medium Italic</option>
+                                  <option value="Semi Bold Italic">Semi Bold Italic</option>
+                                  <option value="Bold Italic">Bold Italic</option>
+                                  <option value="Extra Bold Italic">Extra Bold Italic</option>
+                                  <option value="Black Italic">Black Italic</option>
+                                </select>
+                              </div>
+
+                              {/* 3. Font Size & Color */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                                    <span>Size</span>
+                                    <span className="font-mono text-[#FFB800]">{customSize}px</span>
+                                  </div>
                                   <input
-                                    type="color"
-                                    value={customHighlightColor}
+                                    type="range"
+                                    min="10"
+                                    max="100"
+                                    step="2"
+                                    value={customSize}
                                     onChange={(e) => {
-                                      setCustomHighlightColor(e.target.value);
-                                      saveStyleBackground({ highlight_color: e.target.value });
+                                      setCustomSize(parseInt(e.target.value));
+                                      saveStyleBackground({ size: parseInt(e.target.value) });
                                     }}
-                                    className="w-5 h-5 bg-transparent cursor-pointer shrink-0 rounded border-0"
+                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
                                   />
-                                  <span className="text-[9px] text-white font-mono uppercase truncate">{customHighlightColor}</span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Text Color</label>
+                                  <div className="flex items-center gap-1.5 bg-[#111317] border border-[#23272F] p-1 rounded h-[26px]">
+                                    <input
+                                      type="color"
+                                      value={customColor}
+                                      onChange={(e) => {
+                                        setCustomColor(e.target.value);
+                                        saveStyleBackground({ color: e.target.value });
+                                      }}
+                                      className="w-4 h-4 bg-transparent cursor-pointer shrink-0 rounded border-0"
+                                    />
+                                    <span className="text-[8px] text-white font-mono uppercase truncate">{customColor}</span>
+                                  </div>
                                 </div>
                               </div>
 
-                              {tpl.id === "staggered_3line" && (
-                                <>
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                                      <span>Offset Intensity</span>
-                                      <span className="font-mono text-[#FFB800]">{customShadow}</span>
-                                    </div>
+                              {/* 4. Highlight Color & Alignment */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Highlight Color</label>
+                                  <div className="flex items-center gap-1.5 bg-[#111317] border border-[#23272F] p-1 rounded h-[26px]">
                                     <input
-                                      type="range"
-                                      min="0"
-                                      max="8"
-                                      step="1"
-                                      value={customShadow}
+                                      type="color"
+                                      value={customHighlightColor}
                                       onChange={(e) => {
-                                        setCustomShadow(parseFloat(e.target.value));
-                                        saveStyleBackground({ shadow: parseFloat(e.target.value) });
+                                        setCustomHighlightColor(e.target.value);
+                                        saveStyleBackground({ highlight_color: e.target.value });
                                       }}
-                                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                      className="w-4 h-4 bg-transparent cursor-pointer shrink-0 rounded border-0"
                                     />
+                                    <span className="text-[8px] text-white font-mono uppercase truncate">{customHighlightColor}</span>
                                   </div>
+                                </div>
 
-                                  <div className="space-y-1">
-                                    <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Layout</label>
-                                    <div className="grid grid-cols-2 gap-1.5">
-                                      {(["splash", "centre"] as const).map((layout) => (
-                                        <button
-                                          key={layout}
-                                          onClick={() => {
-                                            setCustomStaggeredLayout(layout);
-                                            saveStyleImmediate({ staggered_layout: layout });
-                                          }}
-                                          className={`px-2 py-1.5 text-[8px] font-black uppercase tracking-wider border rounded transition-colors cursor-pointer ${
-                                            customStaggeredLayout === layout
-                                              ? "border-[#FFB800] bg-[#FFB800]/10 text-[#FFB800]"
-                                              : "border-[#23272F] bg-[#111317] text-white/60 hover:border-white/20"
-                                          }`}
-                                        >
-                                          {layout}
-                                        </button>
-                                      ))}
-                                    </div>
+                                <div className="space-y-1">
+                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
+                                  <div className="flex border border-[#23272F] rounded overflow-hidden h-[26px]">
+                                    {(["left", "center", "right"] as const).map((align) => (
+                                      <button
+                                        key={align}
+                                        onClick={() => {
+                                          setCustomAlignment(align);
+                                          saveStyleImmediate({ alignment: align });
+                                        }}
+                                        className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
+                                          customAlignment === align ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
+                                        }`}
+                                      >
+                                        {align}
+                                      </button>
+                                    ))}
                                   </div>
-                                </>
-                              )}
+                                </div>
+                              </div>
 
-                              {tpl.id === "word_by_word" && (
+                              {/* 5. Shadow Offset & Stroke Outline sliders */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                                    <span>Shadow Offset</span>
+                                    <span className="font-mono text-[#FFB800]">{customShadow}px</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="8"
+                                    step="0.5"
+                                    value={customShadow}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      setCustomShadow(val);
+                                      setShadowEnabled(val > 0);
+                                      saveStyleBackground({ shadow: val, shadowEnabled: val > 0 });
+                                    }}
+                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                                    <span>Stroke Outline</span>
+                                    <span className="font-mono text-[#FFB800]">{customOutline}px</span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="8"
+                                    step="0.5"
+                                    value={customOutline}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      setCustomOutline(val);
+                                      setStrokeEnabled(val > 0);
+                                      saveStyleBackground({ outline: val, strokeEnabled: val > 0 });
+                                    }}
+                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 6. Y Position Slider */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                                  <span>Vertical Position (Y%)</span>
+                                  <span className="font-mono text-[#FFB800]">{customYPositionPercent}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="10"
+                                  max="90"
+                                  step="0.5"
+                                  value={customYPositionPercent}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    setCustomYPositionPercent(val);
+                                    saveStyleBackground({ y_position_percent: val });
+                                  }}
+                                  className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                />
+                              </div>
+
+                              {/* 7. Background Box container settings */}
+                              <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[8px] font-bold uppercase tracking-wider text-white/60">Stroke Outline</span>
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] font-bold text-white uppercase">Background Box</span>
+                                    <span className="text-[6px] text-white/40 uppercase tracking-wider">Container backdrop behind text</span>
+                                  </div>
                                   <button
                                     onClick={() => {
-                                      const newVal = !strokeEnabled;
-                                      setStrokeEnabled(newVal);
-                                      saveStyleImmediate({ strokeEnabled: newVal });
+                                      const enabled = !backgroundEnabled;
+                                      setBackgroundEnabled(enabled);
+                                      saveStyleImmediate({ backgroundEnabled: enabled, backgroundStyle: enabled ? selectedBackgroundStyle : "none" });
                                     }}
                                     className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
-                                      strokeEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                                      backgroundEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
                                     }`}
                                   >
                                     <div
                                       className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                                        strokeEnabled ? "translate-x-4" : "translate-x-0"
+                                        backgroundEnabled ? "translate-x-4" : "translate-x-0"
                                       }`}
                                     />
                                   </button>
+                                </div>
+
+                                {backgroundEnabled && (
+                                  <div className="flex border border-[#23272F] rounded overflow-hidden h-[26px]">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBackgroundStyle("pill");
+                                        saveStyleImmediate({ backgroundStyle: "pill" });
+                                      }}
+                                      className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
+                                        selectedBackgroundStyle === "pill" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
+                                      }`}
+                                    >
+                                      Pill
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBackgroundStyle("shadow-box");
+                                        saveStyleImmediate({ backgroundStyle: "shadow-box" });
+                                      }}
+                                      className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
+                                        selectedBackgroundStyle === "shadow-box" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
+                                      }`}
+                                    >
+                                      Shadow Box
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 8. TEMPLATE-SPECIFIC UNIQUE CONTROLS */}
+                              
+                              {/* 8a. staggered_3line specifics (Kalakar presets) */}
+                              {tpl.caption_template === "staggered_3line" && (
+                                <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
+                                  <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Kalakar Staggered Layout Options</label>
+                                  
+                                  <div className="grid grid-cols-2 gap-2 h-[26px]">
+                                    {(["splash", "centre"] as const).map((layout) => (
+                                      <button
+                                        key={layout}
+                                        onClick={() => {
+                                          setCustomStaggeredLayout(layout);
+                                          saveStyleImmediate({ staggered_layout: layout });
+                                        }}
+                                        className={`text-[8px] font-bold uppercase transition-colors border border-[#23272F] rounded cursor-pointer ${
+                                          customStaggeredLayout === layout ? "bg-[#FFB800]/10 border-[#FFB800] text-[#FFB800]" : "bg-[#111317] text-white/60"
+                                        }`}
+                                      >
+                                        {layout} Layout
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[8px] text-white/60 uppercase">Accent Period Emphasis</span>
+                                    <button
+                                      onClick={() => {
+                                        const enabled = !customAccentPeriodEnabled;
+                                        setCustomAccentPeriodEnabled(enabled);
+                                        saveStyleImmediate({ accent_period_enabled: enabled });
+                                      }}
+                                      className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
+                                        customAccentPeriodEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                                          customAccentPeriodEnabled ? "translate-x-4" : "translate-x-0"
+                                        }`}
+                                      />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 8b. word_by_word / single_word specifics (Podcast, Viral Shorts) */}
+                              {tpl.caption_template === "word_by_word" && (
+                                <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
+                                  <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Word-by-Word Timing Settings</label>
+                                  
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
+                                        <span>Words per card</span>
+                                        <span className="font-mono text-[#FFB800]">{customWordLimit}</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="1"
+                                        max="5"
+                                        step="1"
+                                        value={customWordLimit}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value);
+                                          setCustomWordLimit(val);
+                                          saveStyleImmediate({ word_limit: val });
+                                        }}
+                                        className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
+                                        <span>Word Delay (ms)</span>
+                                        <span className="font-mono text-[#FFB800]">{customCaptionSpacingMs}ms</span>
+                                      </div>
+                                      <input
+                                        type="range"
+                                        min="10"
+                                        max="300"
+                                        step="10"
+                                        value={customCaptionSpacingMs}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value);
+                                          setCustomCaptionSpacingMs(val);
+                                          saveStyleBackground({ caption_spacing_ms: val });
+                                        }}
+                                        className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pacing</label>
+                                      <select
+                                        value={customWordPacing}
+                                        onChange={(e) => {
+                                          setCustomWordPacing(e.target.value);
+                                          saveStyleImmediate({ word_pacing: e.target.value });
+                                        }}
+                                        className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
+                                      >
+                                        <option value="dynamic">Dynamic</option>
+                                        <option value="even">Even</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pause Handling</label>
+                                      <select
+                                        value={customPauseHandling}
+                                        onChange={(e) => {
+                                          setCustomPauseHandling(e.target.value);
+                                          saveStyleImmediate({ pause_handling: e.target.value });
+                                        }}
+                                        className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
+                                      >
+                                        <option value="hold">Hold text</option>
+                                        <option value="clear">Clear text</option>
+                                      </select>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1666,6 +2086,7 @@ export default function ProjectWorkspacePage() {
           <div className="flex-1 flex items-center justify-center p-6 relative bg-[#0E1013] min-h-0 overflow-hidden">
             
             <div 
+              ref={playerContainerRef}
               className="relative h-full max-h-[calc(100vh-420px)] w-auto max-w-full bg-[#111317] border border-[#23272F] shadow-2xl flex flex-col justify-center items-center overflow-hidden transition-all duration-200"
               style={{
                 aspectRatio: selectedRatio === "original" ? naturalAspectRatio : selectedRatio === "9:16" ? 9/16 : selectedRatio === "16:9" ? 16/9 : selectedRatio === "1:1" ? 1 : 4/5,
@@ -1743,42 +2164,38 @@ export default function ProjectWorkspacePage() {
 
               {/* Subtitle Preview Overlay */}
               {(() => {
-                // If motionScript timeline exists, use it! Otherwise fallback to naive localWords segment.
+                // Normalize data to a consistent format
+                let wordsObj: { text: string }[] = [];
+                let revealedMax = 0;
+                let k = 0;
+
                 if (motionScript?.timeline) {
                   const activeCaption = motionScript.timeline.find(
                     (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
                   );
                   if (!activeCaption) return null;
 
-                  const activeHighlight = motionScript.timeline.find(
-                    (e: any) => e.type === "highlight" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                  );
-
-                  // All highlight events belonging to this caption — used to read
-                  // back the render plan's own keyword choice (which honors the
-                  // caption-planning LLM's `emphasis` field when available)
-                  // instead of re-deriving it from scratch client-side.
                   const capHighlights = motionScript.timeline.filter(
                     (e: any) => e.type === "highlight" && e.start_ms >= activeCaption.start_ms && e.start_ms < activeCaption.end_ms
                   );
                   const backendKeywordHighlight = capHighlights.find((h: any) => h.payload?.is_keyword);
 
                   const capText = activeCaption.payload.text || "";
-
-                  // Production-grade client-side timing mapping lookup
                   const segmentWords = localWords.filter(
                     (w: any) => w.start_ms >= activeCaption.start_ms && w.end_ms <= activeCaption.end_ms
                   );
 
-                  const words = segmentWords.length > 0
-                    ? segmentWords.map((w: any) => w.text)
-                    : capText.split(" ");
+                  wordsObj = segmentWords.length > 0
+                    ? segmentWords.map((w: any) => ({ text: w.text }))
+                    : capText.split(" ").map((t: string) => ({ text: t }));
 
-                  // Find revealed_max (index of highlighted word)
-                  let revealedMax = segmentWords.findIndex(
+                  revealedMax = segmentWords.findIndex(
                     (w: any) => currentTimeMs >= w.start_ms && currentTimeMs <= w.end_ms
                   );
                   if (revealedMax === -1) {
+                    const activeHighlight = motionScript.timeline.find(
+                      (e: any) => e.type === "highlight" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
+                    );
                     if (activeHighlight?.payload?.indices?.length > 0) {
                       revealedMax = activeHighlight.payload.indices[0];
                     } else {
@@ -1786,334 +2203,606 @@ export default function ProjectWorkspacePage() {
                     }
                   }
 
-                  if (customCaptionTemplate === "staggered_3line") {
-                    const templateStyle = getTemplateStyle(customCaptionTemplate);
-                    const k = backendKeywordHighlight?.payload?.indices?.[0] ??
-                      pickKeywordIndex(words.map((w: string) => ({ text: w })));
-                    const line1Words = words.slice(0, k);
-                    const line2Word = words[k];
-                    const line3Words = words.slice(k + 1);
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
+                  k = backendKeywordHighlight?.payload?.indices?.[0] ?? pickKeywordIndex(wordsObj);
+                } else {
+                  const activeSegment = getActiveSegmentAndIndex();
+                  if (!activeSegment) return null;
 
-                    return (
-                      <div
-                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                        style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                      >
-                        <div
-                          className="flex flex-col items-center tracking-tight w-full max-w-[300px] transition-all"
-                          style={{
-                            padding: containerPadding,
-                            backgroundColor: containerBg,
-                            borderRadius: containerBorderRadius,
-                            border: containerBorder,
-                          }}
-                        >
-                          {/* Line 1 — always render the FULL final word list
-                              (not just the revealed subset) and toggle
-                              per-word visibility instead. Filtering the
-                              array before joining used to change this div's
-                              actual text content (and therefore its
-                              intrinsic width) every time a new word
-                              appeared, which shifted the whole centered
-                              container — words visibly "jumped" to make
-                              room instead of simply appearing in place. */}
-                          {line1Words.length > 0 && (
-                            <div
-                              className={`tracking-wide transition-all duration-100 ${
-                                customStaggeredLayout === "centre" ? "self-center text-center" : "self-start text-left"
-                              }`}
-                              style={{
-                                ...getTextStyle(false),
-                                fontSize: `${customSize * templateStyle.baseSizeScale}px`,
-                                opacity: 0.96,
-                              }}
-                            >
-                              {line1Words.map((w: string, i: number) => (
-                                <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                  {w}{i < line1Words.length - 1 ? " " : ""}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {/* Line 2 */}
-                          {line2Word && (
-                            <div
-                              className="tracking-tight leading-none select-none my-0.5 transition-all duration-100 uppercase"
-                              style={{
-                                ...getTextStyle(true),
-                                fontSize: `${customSize * templateStyle.keywordSizeScale}px`,
-                                visibility: visibleL2 ? "visible" : "hidden",
-                              }}
-                            >
-                              {line2Word}
-                            </div>
-                          )}
-                          {/* Line 3 — same always-render-full-list fix as Line 1. */}
-                          {line3Words.length > 0 && (
-                            <div
-                              className={`tracking-wide transition-all duration-100 ${
-                                customStaggeredLayout === "centre" ? "self-center text-center" : "self-end text-right"
-                              }`}
-                              style={{
-                                ...getTextStyle(false),
-                                fontSize: `${customSize * templateStyle.baseSizeScale}px`,
-                                opacity: 0.96,
-                              }}
-                            >
-                              {line3Words.map((w: string, i: number) => (
-                                <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                  {i > 0 ? " " : ""}{w}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  } else if (customCaptionTemplate === "word_by_word") {
-                    const activeWord = words[revealedMax] || words[0];
-                    if (!activeWord) return null;
-
-                    return (
-                      <div 
-                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                        style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                      >
-                        <div 
-                          className="flex flex-col items-center tracking-wide w-full max-w-[240px] transition-all"
-                          style={{
-                            padding: containerPadding,
-                            backgroundColor: containerBg,
-                            borderRadius: containerBorderRadius,
-                            border: containerBorder,
-                          }}
-                        >
-                          <span
-                            className="uppercase transition-all duration-100 text-center"
-                            style={{
-                              ...getTextStyle(true),
-                              fontSize: `${customSize * getTemplateStyle(customCaptionTemplate).keywordSizeScale}px`,
-                            }}
-                          >
-                            {activeWord}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  } else if (customCaptionTemplate === "sentence_highlight") {
-                    const templateStyle = getTemplateStyle(customCaptionTemplate);
-                    return (
-                      <div
-                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                        style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                      >
-                        <div
-                          className="flex flex-wrap justify-center items-center gap-x-2.5 gap-y-1.5 tracking-wide w-full max-w-[320px] transition-all"
-                          style={{
-                            padding: containerPadding,
-                            backgroundColor: containerBg,
-                            borderRadius: containerBorderRadius,
-                            border: containerBorder,
-                          }}
-                        >
-                          {words.map((word: string, idx: number) => {
-                            const isActive = idx === revealedMax;
-                            return (
-                              <span
-                                key={idx}
-                                className="transition-all duration-100"
-                                style={{
-                                  ...getTextStyle(isActive),
-                                  fontSize: `${customSize * (isActive ? templateStyle.keywordSizeScale : templateStyle.baseSizeScale)}px`,
-                                  transform: isActive ? "scale(1.05)" : "scale(1)",
-                                }}
-                              >
-                                {word}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    const templateStyle = getTemplateStyle(customCaptionTemplate);
-                    return (
-                      <div
-                        className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                        style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                      >
-                        <div
-                          className="flex flex-wrap justify-center items-center gap-x-2.5 gap-y-1.5 tracking-wide w-full max-w-[320px] transition-all"
-                          style={{
-                            padding: containerPadding,
-                            backgroundColor: containerBg,
-                            borderRadius: containerBorderRadius,
-                            border: containerBorder,
-                          }}
-                        >
-                          {words.map((word: string, idx: number) => {
-                            return (
-                              <span
-                                key={idx}
-                                className="transition-all duration-105"
-                                style={{
-                                  ...getTextStyle(false),
-                                  fontSize: `${customSize * templateStyle.baseSizeScale}px`,
-                                }}
-                              >
-                                {word}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  }
+                  wordsObj = activeSegment.words.map((w: any) => ({ text: w.text }));
+                  revealedMax = activeSegment.relativeActiveIdx;
+                  k = pickKeywordIndex(wordsObj);
                 }
 
-                // Fallback to local words segment logic when motionScript is not yet generated
-                const activeSegment = getActiveSegmentAndIndex();
-                if (!activeSegment) return null;
+                const getCanvasDimensions = () => {
+                  if (motionScript?.global_settings?.canvas) {
+                    return {
+                      width: motionScript.global_settings.canvas.width,
+                      height: motionScript.global_settings.canvas.height,
+                    };
+                  }
+                  const width = 1080;
+                  const ratio = selectedRatio === "original"
+                    ? naturalAspectRatio
+                    : selectedRatio === "9:16"
+                    ? 9 / 16
+                    : selectedRatio === "16:9"
+                    ? 16 / 9
+                    : selectedRatio === "1:1"
+                    ? 1
+                    : 4 / 5;
+                  return {
+                    width,
+                    height: width / ratio,
+                  };
+                };
 
-                const words = activeSegment.words;
-                const relativeActiveIdx = activeSegment.relativeActiveIdx;
+                const { width: canvasWidth, height: canvasHeight } = getCanvasDimensions();
+                const S = playerWidth / canvasWidth;
 
-                if (customCaptionTemplate === "staggered_3line") {
+                const renderOverlayContent = () => {
                   const templateStyle = getTemplateStyle(customCaptionTemplate);
-                  const k = pickKeywordIndex(words);
-                  const line1Words = words.slice(0, k);
-                  const line2Word = words[k];
-                  const line3Words = words.slice(k + 1);
+                  const safeAreaLeft = 50;
+                  const safeAreaRight = 50;
+                  const boxWidth = canvasWidth - safeAreaLeft - safeAreaRight; // 980
 
-                  const revealedMax = relativeActiveIdx;
-                  const visibleL2 = k <= revealedMax ? line2Word : null;
+                  const getWordStyle = (isHighlighted: boolean) => {
+                    return getTextStyle(isHighlighted);
+                  };
 
-                  return (
-                    <div
-                      className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                      style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                    >
-                      <div
-                        className="flex flex-col items-center tracking-tight w-full max-w-[300px] transition-all"
-                        style={{
-                          padding: containerPadding,
-                          backgroundColor: containerBg,
-                          borderRadius: containerBorderRadius,
-                          border: containerBorder,
-                        }}
-                      >
-                        {/* Line 1 — full word list always rendered, per-word
-                            visibility toggled, so the div's width never
-                            changes as words reveal (see the loaded-motionScript
-                            branch above for the full explanation). */}
+                  if (customCaptionTemplate === "staggered_3line") {
+                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
+                    const line2Word = wordsObj[k]?.text || "";
+                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+
+                    let sizeL1 = customSize * templateStyle.baseSizeScale;
+                    let sizeL3 = customSize * templateStyle.baseSizeScale;
+                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
+
+                    let X_l1 = 540;
+                    let an_l1 = 5;
+                    let X_l3 = 540;
+                    let an_l3 = 5;
+
+                    const isCentre = customStaggeredLayout === "centre";
+
+                    if (!isCentre) {
+                      const W2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
+                      X_l1 = 540 - W2 / 2;
+                      an_l1 = 4; // left-aligned
+                      if (X_l1 < safeAreaLeft) {
+                        X_l1 = safeAreaLeft;
+                      }
+                      const fullL1Text = line1Words.join(" ");
+                      if (fullL1Text) {
+                        const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
+                        const availableL1 = (canvasWidth - safeAreaRight) - X_l1;
+                        if (availableL1 > 0 && availableL1 < fullL1Width) {
+                          sizeL1 = sizeL1 * (availableL1 / fullL1Width);
+                        }
+                      }
+
+                      X_l3 = 540 + W2 / 2;
+                      an_l3 = 6; // right-aligned
+                      if (X_l3 > (canvasWidth - safeAreaRight)) {
+                        X_l3 = canvasWidth - safeAreaRight;
+                      }
+                      const fullL3Text = line3Words.join(" ");
+                      if (fullL3Text) {
+                        const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
+                        const availableL3 = X_l3 - safeAreaLeft;
+                        if (availableL3 > 0 && availableL3 < fullL3Width) {
+                          sizeL3 = sizeL3 * (availableL3 / fullL3Width);
+                        }
+                      }
+                    } else {
+                      // Center-aligned: scale each line independently to fit boxWidth if it overflows
+                      const fullL1Text = line1Words.join(" ");
+                      if (fullL1Text) {
+                        const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
+                        if (fullL1Width > boxWidth) {
+                          sizeL1 = sizeL1 * (boxWidth / fullL1Width);
+                        }
+                      }
+                      const fullL3Text = line3Words.join(" ");
+                      if (fullL3Text) {
+                        const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
+                        if (fullL3Width > boxWidth) {
+                          sizeL3 = sizeL3 * (boxWidth / fullL3Width);
+                        }
+                      }
+                      if (line2Word) {
+                        const fullL2Width = estimateTextWidthPx(line2Word.toUpperCase(), sizeL2);
+                        if (fullL2Width > boxWidth) {
+                          sizeL2 = sizeL2 * (boxWidth / fullL2Width);
+                        }
+                      }
+                    }
+
+                    // Y positions
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    const lineGap = customSize * 1.1;
+
+                    let Y_l1 = baseY - lineGap;
+                    let Y_l2 = baseY;
+                    let Y_l3 = baseY + lineGap;
+
+                    if (line1Words.length === 0) {
+                      Y_l2 = baseY - lineGap / 2;
+                      Y_l3 = baseY + lineGap / 2;
+                      Y_l1 = Y_l2 - lineGap;
+                    } else if (line3Words.length === 0) {
+                      Y_l1 = baseY - lineGap / 2;
+                      Y_l2 = baseY + lineGap / 2;
+                      Y_l3 = Y_l2 + lineGap;
+                    }
+
+                    return (
+                      <>
                         {line1Words.length > 0 && (
                           <div
-                            className={`tracking-wide transition-all duration-100 ${
-                              customStaggeredLayout === "centre" ? "self-center text-center" : "self-start text-left"
-                            }`}
+                            className="absolute tracking-wide transition-all duration-100 uppercase"
                             style={{
-                              ...getTextStyle(false),
-                              fontSize: `${customSize * templateStyle.baseSizeScale}px`,
+                              ...getWordStyle(false),
+                              left: `${X_l1}px`,
+                              top: `${Y_l1}px`,
+                              transform: an_l1 === 4 ? "translateY(-50%)" : "translate(-50%, -50%)",
+                              fontSize: `${sizeL1}px`,
                               opacity: 0.96,
+                              whiteSpace: "nowrap",
                             }}
                           >
                             {line1Words.map((w, i) => (
                               <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                {w.text}{i < line1Words.length - 1 ? " " : ""}
+                                {w}{i < line1Words.length - 1 ? " " : ""}
                               </span>
                             ))}
                           </div>
                         )}
-                        {/* Line 2 */}
                         {line2Word && (
                           <div
-                            className="tracking-tight leading-none select-none my-0.5 transition-all duration-100 uppercase"
+                            className="absolute tracking-tight leading-none select-none transition-all duration-100 uppercase"
                             style={{
-                              ...getTextStyle(true),
-                              fontSize: `${customSize * templateStyle.keywordSizeScale}px`,
+                              ...getWordStyle(true),
+                              left: "540px",
+                              top: `${Y_l2}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL2}px`,
                               visibility: visibleL2 ? "visible" : "hidden",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {line2Word.text}
+                            {line2Word}
                           </div>
                         )}
-                        {/* Line 3 */}
                         {line3Words.length > 0 && (
                           <div
-                            className={`tracking-wide transition-all duration-100 ${
-                              customStaggeredLayout === "centre" ? "self-center text-center" : "self-end text-right"
-                            }`}
+                            className="absolute tracking-wide transition-all duration-100 uppercase"
                             style={{
-                              ...getTextStyle(false),
-                              fontSize: `${customSize * templateStyle.baseSizeScale}px`,
+                              ...getWordStyle(false),
+                              left: `${X_l3}px`,
+                              top: `${Y_l3}px`,
+                              transform: an_l3 === 6 ? "translate(-100%, -50%)" : "translate(-50%, -50%)",
+                              fontSize: `${sizeL3}px`,
                               opacity: 0.96,
+                              whiteSpace: "nowrap",
                             }}
                           >
                             {line3Words.map((w, i) => (
                               <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                {i > 0 ? " " : ""}{w.text}
+                                {i > 0 ? " " : ""}{w}
                               </span>
                             ))}
                           </div>
                         )}
-                      </div>
-                    </div>
-                  );
-                } else if (customCaptionTemplate === "word_by_word") {
-                  const activeWord = words[relativeActiveIdx];
-                  if (!activeWord) return null;
+                      </>
+                    );
+                  } else if (customCaptionTemplate === "word_by_word") {
+                    const activeWord = wordsObj[revealedMax]?.text || wordsObj[0]?.text || "";
+                    if (!activeWord) return null;
 
-                  return (
-                    <div
-                      className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                      style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                    >
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    let sizeLarge = customSize * templateStyle.keywordSizeScale;
+                    
+                    sizeLarge = fitFontSizePx(sizeLarge, activeWord.toUpperCase(), boxWidth);
+
+                    return (
                       <div
-                        className="flex flex-col items-center tracking-wide w-full max-w-[240px] transition-all"
+                        className="absolute uppercase tracking-wide transition-all duration-100 text-center whitespace-nowrap"
                         style={{
-                          padding: containerPadding,
-                          backgroundColor: containerBg,
-                          borderRadius: containerBorderRadius,
-                          border: containerBorder,
+                          ...getWordStyle(true),
+                          left: "540px",
+                          top: `${baseY}px`,
+                          transform: "translate(-50%, -50%)",
+                          fontSize: `${sizeLarge}px`,
                         }}
                       >
-                        <span
-                          className="uppercase transition-all duration-100 text-center"
-                          style={{
-                            ...getTextStyle(true),
-                            fontSize: `${customSize * getTemplateStyle(customCaptionTemplate).keywordSizeScale}px`,
-                          }}
-                        >
-                          {activeWord.text}
-                        </span>
+                        {activeWord}
                       </div>
-                    </div>
-                  );
-                } else if (customCaptionTemplate === "sentence_highlight") {
-                  return (
-                    <div 
-                      className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                      style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                    >
+                    );
+                  } else if (customCaptionTemplate === "glow_stack") {
+                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
+                    const line2Word = wordsObj[k]?.text || "";
+                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+
+                    const bodyFont = `"${templateStyle.baseFont}", ${customFont}, sans-serif`;
+                    const bodyShadow = "0 3px 0 rgba(22,34,78,0.9), 0 6px 16px rgba(0,0,0,0.55)";
+
+                    const baseSizePx = customSize * templateStyle.baseSizeScale;
+                    const keywordSizePx = customSize * templateStyle.keywordSizeScale;
+                    const sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
+                    const sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
+                    const sizeL2 = fitFontSizePx(keywordSizePx, (line2Word || "").toUpperCase(), boxWidth);
+
+                    const gradientTop = lightenHex(customHighlightColor, 0.4);
+                    const gradientBottom = darkenHex(customHighlightColor, 0.55);
+
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    const lineGap = baseSizePx * 1.15;
+
+                    let Y_l1 = baseY - lineGap;
+                    let Y_l2 = baseY;
+                    let Y_l3 = baseY + lineGap;
+
+                    if (line1Words.length === 0) {
+                      Y_l2 = baseY - lineGap / 2;
+                      Y_l3 = baseY + lineGap / 2;
+                      Y_l1 = Y_l2 - lineGap;
+                    } else if (line3Words.length === 0) {
+                      Y_l1 = baseY - lineGap / 2;
+                      Y_l2 = baseY + lineGap / 2;
+                      Y_l3 = Y_l2 + lineGap;
+                    }
+
+                    const widthL1 = estimateTextWidthPx(line1Words.join(" "), sizeL1);
+                    const widthL2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
+                    const widthL3 = estimateTextWidthPx(line3Words.join(" "), sizeL3);
+                    
+                    const maxLineW = Math.max(widthL1, widthL2, widthL3);
+                    const blobHalfW = Math.min(boxWidth, maxLineW * 0.75 + 60) / 2;
+                    const blobHalfH = lineGap * 1.9;
+
+                    const blobLeft = 540 - blobHalfW;
+                    const blobTop = Y_l2 - blobHalfH;
+
+                    return (
+                      <>
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${blobLeft}px`,
+                            top: `${blobTop}px`,
+                            width: `${blobHalfW * 2}px`,
+                            height: `${blobHalfH * 2}px`,
+                            borderRadius: "40px",
+                            filter: "blur(30px)",
+                            background: "radial-gradient(ellipse 62% 58% at 50% 50%, rgba(12,18,36,0.5), rgba(12,18,36,0.25) 55%, transparent 78%)",
+                          }}
+                        />
+
+                        {line1Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 800,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l1}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL1}px`,
+                              textShadow: bodyShadow,
+                            }}
+                          >
+                            {line1Words.map((w, i) => (
+                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
+                                {w}{i < line1Words.length - 1 ? " " : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {line2Word && (
+                          <div
+                            className="absolute uppercase leading-none whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: `"${templateStyle.keywordFont}", ${customFont}, sans-serif`,
+                              fontWeight: 900,
+                              left: "540px",
+                              top: `${Y_l2}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL2}px`,
+                              backgroundImage: `linear-gradient(180deg, ${gradientTop} 0%, ${customHighlightColor} 55%, ${gradientBottom} 100%)`,
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                              filter: `drop-shadow(0 0 14px ${customHighlightColor}) drop-shadow(0 4px 8px rgba(0,0,0,0.5))`,
+                              visibility: visibleL2 ? "visible" : "hidden",
+                            }}
+                          >
+                            {line2Word}
+                          </div>
+                        )}
+
+                        {line3Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 800,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l3}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL3}px`,
+                              textShadow: bodyShadow,
+                            }}
+                          >
+                            {line3Words.map((w, i) => (
+                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
+                                {i > 0 ? " " : ""}{w}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  } else if (customCaptionTemplate === "cartoon_stack") {
+                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
+                    const line2Word = wordsObj[k]?.text || "";
+                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+
+                    const bodyFont = `"${templateStyle.baseFont}", cursive`;
+                    const keywordFont = `"${templateStyle.keywordFont}", sans-serif`;
+
+                    let sizeL1 = customSize * templateStyle.baseSizeScale;
+                    let sizeL3 = customSize * templateStyle.baseSizeScale;
+                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
+
+                    sizeL1 = fitFontSizePx(sizeL1, line1Words.join(" "), boxWidth);
+                    sizeL3 = fitFontSizePx(sizeL3, line3Words.join(" "), boxWidth);
+                    sizeL2 = fitFontSizePx(sizeL2, line2Word || "", boxWidth);
+
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    const lineGap = customSize * 0.8;
+
+                    let Y_l1 = baseY - lineGap;
+                    let Y_l2 = baseY;
+                    let Y_l3 = baseY + lineGap;
+
+                    if (line1Words.length === 0) {
+                      Y_l2 = baseY - lineGap / 2;
+                      Y_l3 = baseY + lineGap / 2;
+                      Y_l1 = Y_l2 - lineGap;
+                    } else if (line3Words.length === 0) {
+                      Y_l1 = baseY - lineGap / 2;
+                      Y_l2 = baseY + lineGap / 2;
+                      Y_l3 = Y_l2 + lineGap;
+                    }
+
+                    return (
+                      <>
+                        {line1Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 400,
+                              color: "#2D2019",
+                              left: "540px",
+                              top: `${Y_l1}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL1}px`,
+                              textShadow: "none",
+                              textTransform: "none",
+                            }}
+                          >
+                            {line1Words.map((w, i) => (
+                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
+                                {w}{i < line1Words.length - 1 ? " " : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {line2Word && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100 lowercase"
+                            style={{
+                              fontFamily: keywordFont,
+                              fontWeight: 700,
+                              color: "#EDE0A6",
+                              left: "540px",
+                              top: `${Y_l2}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL2}px`,
+                              WebkitTextStroke: "8px #4E2D1F",
+                              paintOrder: "stroke fill",
+                              strokeLinejoin: "round",
+                              textShadow: "0 5px 0 rgba(0,0,0,0.44)",
+                              visibility: visibleL2 ? "visible" : "hidden",
+                            }}
+                          >
+                            {line2Word}
+                          </div>
+                        )}
+                        {line3Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 400,
+                              color: "#2D2019",
+                              left: "540px",
+                              top: `${Y_l3}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL3}px`,
+                              textShadow: "none",
+                              textTransform: "none",
+                            }}
+                          >
+                            {line3Words.map((w, i) => (
+                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
+                                {i > 0 ? " " : ""}{w}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  } else if (customCaptionTemplate === "serif_pop") {
+                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
+                    const line2Word = wordsObj[k]?.text || "";
+                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+
+                    const bodyFont = `${customFont}, sans-serif`;
+                    const keywordFont = `"${templateStyle.keywordFont}", Georgia, serif`;
+
+                    let sizeL1 = customSize * templateStyle.baseSizeScale;
+                    let sizeL3 = customSize * templateStyle.baseSizeScale;
+                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
+
+                    sizeL1 = fitFontSizePx(sizeL1, line1Words.join(" "), boxWidth);
+                    sizeL3 = fitFontSizePx(sizeL3, line3Words.join(" "), boxWidth);
+                    sizeL2 = fitFontSizePx(sizeL2, line2Word || "", boxWidth);
+
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    const lineGap = customSize * 1.15;
+
+                    let Y_l1 = baseY - lineGap;
+                    let Y_l2 = baseY;
+                    let Y_l3 = baseY + lineGap;
+
+                    if (line1Words.length === 0) {
+                      Y_l2 = baseY - lineGap / 2;
+                      Y_l3 = baseY + lineGap / 2;
+                      Y_l1 = Y_l2 - lineGap;
+                    } else if (line3Words.length === 0) {
+                      Y_l1 = baseY - lineGap / 2;
+                      Y_l2 = baseY + lineGap / 2;
+                      Y_l3 = Y_l2 + lineGap;
+                    }
+
+                    const dropShadowStyle = "0px 4px 8px rgba(0,0,0,0.5)";
+
+                    return (
+                      <>
+                        {line1Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 800,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l1}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL1}px`,
+                              textShadow: dropShadowStyle,
+                            }}
+                          >
+                            {line1Words.map((w, i) => {
+                              const isActive = i <= revealedMax;
+                              const isCurrent = i === revealedMax;
+                              return (
+                                <span 
+                                  key={i} 
+                                  style={{ 
+                                    visibility: isActive ? "visible" : "hidden",
+                                    color: isCurrent ? customHighlightColor : "#FFFFFF" 
+                                  }}
+                                >
+                                  {w}{i < line1Words.length - 1 ? " " : ""}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {line2Word && (
+                          <div
+                            className="absolute text-center whitespace-nowrap italic transition-all duration-100"
+                            style={{
+                              fontFamily: keywordFont,
+                              fontWeight: 900,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l2}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL2}px`,
+                              textShadow: dropShadowStyle,
+                              visibility: visibleL2 ? "visible" : "hidden",
+                            }}
+                          >
+                            <span>{line2Word}</span>
+                            <span style={{ color: customHighlightColor }}>.</span>
+                          </div>
+                        )}
+                        {line3Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 800,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l3}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL3}px`,
+                              textShadow: dropShadowStyle,
+                            }}
+                          >
+                            {line3Words.map((w, i) => {
+                              const absIdx = k + 1 + i;
+                              const isActive = absIdx <= revealedMax;
+                              const isCurrent = absIdx === revealedMax;
+                              return (
+                                <span 
+                                  key={i} 
+                                  style={{ 
+                                    visibility: isActive ? "visible" : "hidden",
+                                    color: isCurrent ? customHighlightColor : "#FFFFFF"
+                                  }}
+                                >
+                                  {i > 0 ? " " : ""}{w}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    );
+                  } else if (customCaptionTemplate === "sentence_highlight") {
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+
+                    return (
                       <div
-                        className="flex flex-wrap justify-center items-center gap-x-2.5 gap-y-1.5 tracking-wide w-full max-w-[320px] transition-all"
+                        className="absolute flex flex-wrap justify-center items-center gap-x-[15px] gap-y-[10px] tracking-wide text-center"
                         style={{
-                          padding: containerPadding,
+                          left: `${safeAreaLeft}px`,
+                          width: `${boxWidth}px`,
+                          top: `${baseY}px`,
+                          transform: "translateY(-50%)",
+                          padding: bgStyleVal === "pill" ? "20px 40px" : bgStyleVal === "shadow-box" ? "28px 36px" : "0px",
                           backgroundColor: containerBg,
-                          borderRadius: containerBorderRadius,
-                          border: containerBorder,
+                          borderRadius: bgStyleVal === "pill" ? "9999px" : bgStyleVal === "shadow-box" ? "16px" : "0px",
+                          border: containerBorder === "none" ? "none" : "4px solid rgba(255,255,255,0.1)",
                         }}
                       >
-                        {words.map((word, idx) => {
-                          const isActive = idx === relativeActiveIdx;
-                          const templateStyle = getTemplateStyle(customCaptionTemplate);
+                        {wordsObj.map((word, idx) => {
+                          const isActive = idx === revealedMax;
                           return (
                             <span
                               key={idx}
                               className="transition-all duration-100"
                               style={{
-                                ...getTextStyle(isActive),
+                                ...getWordStyle(isActive),
                                 fontSize: `${customSize * (isActive ? templateStyle.keywordSizeScale : templateStyle.baseSizeScale)}px`,
                                 transform: isActive ? "scale(1.05)" : "scale(1)",
                               }}
@@ -2123,31 +2812,32 @@ export default function ProjectWorkspacePage() {
                           );
                         })}
                       </div>
-                    </div>
-                  );
-                } else {
-                  const templateStyle = getTemplateStyle(customCaptionTemplate);
-                  return (
-                    <div
-                      className="absolute inset-x-0 flex flex-col items-center pointer-events-none px-3 select-none transition-all"
-                      style={{ top: `${customYPositionPercent}%`, transform: "translateY(-50%)" }}
-                    >
+                    );
+                  } else {
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+
+                    return (
                       <div
-                        className="flex flex-wrap justify-center items-center gap-x-2.5 gap-y-1.5 tracking-wide w-full max-w-[320px] transition-all"
+                        className="absolute flex flex-wrap justify-center items-center gap-x-[15px] gap-y-[10px] tracking-wide text-center"
                         style={{
-                          padding: containerPadding,
+                          left: `${safeAreaLeft}px`,
+                          width: `${boxWidth}px`,
+                          top: `${baseY}px`,
+                          transform: "translateY(-50%)",
+                          padding: bgStyleVal === "pill" ? "20px 40px" : bgStyleVal === "shadow-box" ? "28px 36px" : "0px",
                           backgroundColor: containerBg,
-                          borderRadius: containerBorderRadius,
-                          border: containerBorder,
+                          borderRadius: bgStyleVal === "pill" ? "9999px" : bgStyleVal === "shadow-box" ? "16px" : "0px",
+                          border: containerBorder === "none" ? "none" : "4px solid rgba(255,255,255,0.1)",
                         }}
                       >
-                        {words.map((word, idx) => {
+                        {wordsObj.map((word, idx) => {
                           return (
                             <span
                               key={idx}
                               className="transition-all duration-105"
                               style={{
-                                ...getTextStyle(false),
+                                ...getWordStyle(false),
                                 fontSize: `${customSize * templateStyle.baseSizeScale}px`,
                               }}
                             >
@@ -2156,9 +2846,23 @@ export default function ProjectWorkspacePage() {
                           );
                         })}
                       </div>
-                    </div>
-                  );
-                }
+                    );
+                  }
+                };
+
+                return (
+                  <div 
+                    className="absolute inset-0 pointer-events-none overflow-hidden select-none"
+                    style={{
+                      width: `${canvasWidth}px`,
+                      height: `${canvasHeight}px`,
+                      transform: `scale(${S})`,
+                      transformOrigin: "top left",
+                    }}
+                  >
+                    {renderOverlayContent()}
+                  </div>
+                );
               })()}
 
               {/* Scrubber progress indicator */}

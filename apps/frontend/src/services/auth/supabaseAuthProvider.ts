@@ -134,15 +134,15 @@ export const supabaseAuthProvider: AuthProvider = {
     return mapSupabaseUser(user);
   },
 
-  getToken() {
-    if (activeToken) return activeToken;
-    const token = getPersistedToken();
-    if (token) activeToken = token;
+  async getToken() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || null;
+    activeToken = token;
     return token;
   },
 
   isAuthenticated() {
-    return !!this.getToken();
+    return !!activeToken || !!getPersistedToken();
   },
 
   async requestPasswordReset(email: string) {

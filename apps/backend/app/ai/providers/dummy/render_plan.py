@@ -446,7 +446,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     "type": "caption",
                     "payload": {
                         "text": curr_text + emoji_suffix,
-                        "font": preset.typography.font,
+                        "font": template_style.base_font or preset.typography.font,
                         "size": curr_size,
                         "weight": curr_weight,
                         "color": curr_color,
@@ -460,7 +460,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                 # Generate highlight events for each word in the group. These double as
                 # both the "most important word" emphasis marker and the reveal-timing
                 # split points the render engine uses to build up the line word by word.
-                if template in {"sentence_highlight", "staggered_3line"}:
+                if template in {"sentence_highlight", "staggered_3line", "glow_stack", "cartoon_stack", "serif_pop"}:
                     keyword_idx = pick_keyword_idx(group_words_text)
                     for w_idx, (w_text, w_start, w_end, _seg_word_idx) in enumerate(group):
                         # Ensure word highlights fit within the clamped caption boundaries

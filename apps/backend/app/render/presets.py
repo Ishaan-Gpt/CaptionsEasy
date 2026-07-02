@@ -43,6 +43,7 @@ class TimingPreset(BaseModel):
     # left-aligned, line 3 right-aligned, offset around the keyword word —
     # the original look) or "centre" (all three lines center-aligned).
     staggered_layout: str = "splash"
+    accent_period_enabled: bool = True
 
 class StylePreset(BaseModel):
     name: str

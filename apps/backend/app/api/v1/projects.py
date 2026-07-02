@@ -131,6 +131,11 @@ class CustomStyleRequest(BaseModel):
     # Layout variant for staggered_3line only: "splash" (line 1 left, line 3
     # right, offset around the keyword) or "centre" (all lines centered).
     staggered_layout: str = "splash"
+    accent_period_enabled: bool = True
+    word_limit: int | None = None
+    caption_spacing_ms: int | None = None
+    word_pacing: str | None = None
+    pause_handling: str | None = None
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -154,6 +159,7 @@ async def save_custom_style(
         data = {}
         
     base_preset = data.get("kalakar", {})
+    base_timing = base_preset.get("timing", {})
     
     data[preset_key] = {
         "name": f"Custom {project.title}",
@@ -186,16 +192,15 @@ async def save_custom_style(
             "behavior": "none"
         }),
         "timing": {
-            **base_preset.get("timing", {
-                "word_limit": 5,
-                "caption_spacing_ms": 50,
-                "word_pacing": "dynamic",
-                "pause_handling": "hold",
-                "sentence_segmentation": "semantic",
-                "reading_speed_limit_cps": 22,
-            }),
+            "word_limit": body.word_limit if body.word_limit is not None else base_timing.get("word_limit", 5),
+            "caption_spacing_ms": body.caption_spacing_ms if body.caption_spacing_ms is not None else base_timing.get("caption_spacing_ms", 50),
+            "word_pacing": body.word_pacing if body.word_pacing is not None else base_timing.get("word_pacing", "dynamic"),
+            "pause_handling": body.pause_handling if body.pause_handling is not None else base_timing.get("pause_handling", "hold"),
+            "sentence_segmentation": base_timing.get("sentence_segmentation", "semantic"),
+            "reading_speed_limit_cps": base_timing.get("reading_speed_limit_cps", 22),
             "caption_template": body.caption_template,
             "staggered_layout": body.staggered_layout,
+            "accent_period_enabled": body.accent_period_enabled,
         },
         "transitions": base_preset.get("transitions", "fade")
     }
@@ -245,7 +250,12 @@ async def get_custom_style(
             "background_style": topo.get("background_style", "none"),
             "y_position_percent": topo.get("y_position_percent", 71.4),
             "caption_template": timing.get("caption_template", "staggered_3line"),
-            "staggered_layout": timing.get("staggered_layout", "splash")
+            "staggered_layout": timing.get("staggered_layout", "splash"),
+            "accent_period_enabled": timing.get("accent_period_enabled", True),
+            "word_limit": timing.get("word_limit", 5),
+            "caption_spacing_ms": timing.get("caption_spacing_ms", 50),
+            "word_pacing": timing.get("word_pacing", "dynamic"),
+            "pause_handling": timing.get("pause_handling", "hold")
         })
     else:
         # Fall back to base Kalakar template values
@@ -261,7 +271,12 @@ async def get_custom_style(
             "background_style": "none",
             "y_position_percent": 71.4,
             "caption_template": "staggered_3line",
-            "staggered_layout": "splash"
+            "staggered_layout": "splash",
+            "accent_period_enabled": True,
+            "word_limit": 5,
+            "caption_spacing_ms": 50,
+            "word_pacing": "dynamic",
+            "pause_handling": "hold"
         })
 
 

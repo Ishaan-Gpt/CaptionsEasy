@@ -52,7 +52,7 @@ export class NetworkUnavailableError extends Error {
   }
 }
 
-function getAuthToken(): string | null {
+async function getAuthToken(): Promise<string | null> {
   return authService.getToken();
 }
 
@@ -79,7 +79,7 @@ async function fetchWithNetworkErrorHandling(url: string, init: RequestInit): Pr
 
 export const apiClient = {
   async post<T>(path: string, init?: { json?: unknown; formData?: FormData; signal?: AbortSignal }): Promise<T> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
@@ -92,7 +92,7 @@ export const apiClient = {
   },
 
   async patch<T>(path: string, init?: { json?: unknown; signal?: AbortSignal }): Promise<T> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" };
 
     const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
@@ -105,7 +105,7 @@ export const apiClient = {
   },
 
   async put<T>(path: string, init?: { json?: unknown; signal?: AbortSignal }): Promise<T> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" };
 
     const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
@@ -118,7 +118,7 @@ export const apiClient = {
   },
 
   async delete<T = void>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
@@ -131,7 +131,7 @@ export const apiClient = {
   },
 
   async get<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     let lastError: unknown;
@@ -157,7 +157,7 @@ export const apiClient = {
   /** Like `get`, but returns `meta` alongside `data` — needed for paginated
    * list endpoints (contracts/api.md > Standard Response Format `meta`). */
   async getWithMeta<T>(path: string, init?: { signal?: AbortSignal }): Promise<{ data: T; meta: Record<string, unknown> }> {
-    const token = getAuthToken();
+    const token = await getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     let lastError: unknown;
@@ -191,39 +191,40 @@ export const apiClient = {
     onProgress: (percent: number) => void,
     onXhrReady?: (xhr: XMLHttpRequest) => void
   ): Promise<T> {
-    const token = getAuthToken();
+    return (async () => {
+      const token = await getAuthToken();
+      return new Promise<T>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API_BASE_URL}${path}`);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        onXhrReady?.(xhr);
 
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_BASE_URL}${path}`);
-      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      onXhrReady?.(xhr);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          onProgress(Math.round((event.loaded / event.total) * 100));
-        }
-      };
+        xhr.onload = () => {
+          let body: any;
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            reject(new Error("Backend returned a non-JSON response."));
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300 && body.success !== false) {
+            resolve(body.data as T);
+          } else {
+            reject(new ApiError(xhr.status, body.error ?? { code: "UNKNOWN_ERROR", message: "Upload failed." }));
+          }
+        };
 
-      xhr.onload = () => {
-        let body: any;
-        try {
-          body = JSON.parse(xhr.responseText);
-        } catch {
-          reject(new Error("Backend returned a non-JSON response."));
-          return;
-        }
-        if (xhr.status >= 200 && xhr.status < 300 && body.success !== false) {
-          resolve(body.data as T);
-        } else {
-          reject(new ApiError(xhr.status, body.error ?? { code: "UNKNOWN_ERROR", message: "Upload failed." }));
-        }
-      };
+        xhr.onerror = () => reject(new NetworkUnavailableError());
+        xhr.onabort = () => reject(new DOMException("Upload cancelled.", "AbortError"));
 
-      xhr.onerror = () => reject(new NetworkUnavailableError());
-      xhr.onabort = () => reject(new DOMException("Upload cancelled.", "AbortError"));
-
-      xhr.send(formData);
-    });
+        xhr.send(formData);
+      });
+    })();
   },
 };

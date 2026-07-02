@@ -12,7 +12,7 @@ export interface AuthProvider {
   register(name: string, email: string, password: string): Promise<{ user: User; token: string }>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
-  getToken(): string | null;
+  getToken(): Promise<string | null>;
   isAuthenticated(): boolean;
   /** Sends a real password-recovery email. Resolves on success; throws on
    * failure (e.g. provider error) — callers show the result as a graceful

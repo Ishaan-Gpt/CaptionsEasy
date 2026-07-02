@@ -55,6 +55,11 @@ class TemplateStyleConfig:
     # Only consumed by the 3-line staggered layout.
     line_gap_scale: float = 1.1
 
+    # None = inherit the project's base font. Templates whose signature
+    # look depends on a specific body typeface (e.g. glow_stack's rounded
+    # white text) set this to force it regardless of the project font.
+    base_font: str | None = None
+
 
 # "Anton" is a heavy, ultra-condensed display font — the standard choice
 # for hero/impact words in commercial short-form caption tools (CapCut,
@@ -118,6 +123,53 @@ TEMPLATE_STYLES: dict[str, TemplateStyleConfig] = {
         keyword_size_scale=1.1,
         keyword_weight="800",
         keyword_font=None,
+    ),
+    # "3D glow stack" — replicates the popular Hindi-creator style: three
+    # center-aligned lines; body text in a heavy ROUNDED sans (natural
+    # lowercase, pure white, dark navy 3D extrusion + soft ambient shadow);
+    # hero word in an ultra-condensed display font, ALL CAPS, ~1.7x size,
+    # vertical light-to-deep gradient fill with a strong outer glow; and a
+    # large soft dark blurred backdrop blob behind the whole block that
+    # keeps white text readable over any footage.
+    "glow_stack": TemplateStyleConfig(
+        name="glow_stack",
+        word_limit=5,
+        max_chars=50,
+        # Natural case for body lines is part of this style's signature —
+        # only the hero word is uppercased (the renderers do that per-word).
+        force_uppercase=False,
+        base_size_scale=1.2,
+        base_weight="800",
+        keyword_size_scale=1.7,
+        keyword_weight="900",
+        keyword_font=DEFAULT_KEYWORD_FONT,
+        line_gap_scale=1.15,
+        base_font="Baloo 2",
+    ),
+    "cartoon_stack": TemplateStyleConfig(
+        name="cartoon_stack",
+        word_limit=5,
+        max_chars=50,
+        force_uppercase=False,
+        base_size_scale=0.8,
+        base_weight="400",
+        keyword_size_scale=1.6,
+        keyword_weight="700",
+        keyword_font="Fredoka",
+        line_gap_scale=0.8,
+        base_font="Caveat",
+    ),
+    "serif_pop": TemplateStyleConfig(
+        name="serif_pop",
+        word_limit=5,
+        max_chars=50,
+        force_uppercase=False,
+        base_size_scale=1.0,
+        base_weight="800",
+        keyword_size_scale=1.8,
+        keyword_weight="900",
+        keyword_font="Playfair Display",
+        line_gap_scale=1.15,
     ),
 }
 
