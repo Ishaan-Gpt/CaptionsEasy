@@ -1,9 +1,5 @@
 /**
- * Real jobs service. Source: contracts/api.md > GET /jobs/{id}. Sprint 1.6
- * replaces the previous setInterval-based upload/processing simulation
- * with polling against the real backend job status endpoint — upload
- * progress itself comes from services/upload.ts's real XHR progress events,
- * not from here.
+ * Real jobs service. Source: contracts/api.md > GET /jobs/{id}.
  */
 
 import { apiClient } from "./api-client";
@@ -12,6 +8,7 @@ export interface JobStatusResponse {
   progress: number;
   stage: string;
   estimated_remaining_ms: number | null;
+  error_message?: string | null;
 }
 
 const TERMINAL_STAGES = new Set(["completed", "failed", "cancelled"]);

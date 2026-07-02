@@ -92,7 +92,9 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "motion_preset": { "type": "string" }
+        "motion_preset": { "type": "string" },
+        "caption_template": { "type": ["string", "null"] },
+        "staggered_layout": { "type": ["string", "null"] }
       }
     },
     "Layer": {
@@ -128,7 +130,11 @@
       "properties": {
         "indices": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
         "color": { "type": "string" },
-        "animation": { "$ref": "#/$defs/Animation" }
+        "animation": { "$ref": "#/$defs/Animation" },
+        "is_keyword": { "type": "boolean" },
+        "font": { "type": ["string", "null"] },
+        "weight": { "type": ["string", "null"] },
+        "size_scale": { "type": ["number", "null"] }
       }
     },
     "EmojiPayload": {

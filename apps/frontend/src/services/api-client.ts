@@ -104,6 +104,19 @@ export const apiClient = {
     return unwrap<T>(response);
   },
 
+  async put<T>(path: string, init?: { json?: unknown; signal?: AbortSignal }): Promise<T> {
+    const token = getAuthToken();
+    const headers: HeadersInit = { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" };
+
+    const response = await fetchWithNetworkErrorHandling(`${API_BASE_URL}${path}`, {
+      method: "PUT",
+      headers,
+      body: init?.json !== undefined ? JSON.stringify(init.json) : undefined,
+      signal: init?.signal,
+    });
+    return unwrap<T>(response);
+  },
+
   async delete<T = void>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
     const token = getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};

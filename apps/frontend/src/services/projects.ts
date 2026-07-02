@@ -140,6 +140,10 @@ export const projectsService = {
     return apiClient.post<any>(`/projects/${id}/motion-script`);
   },
 
+  async getMotionScript(id: string): Promise<any> {
+    return apiClient.get<any>(`/projects/${id}/motion-script`);
+  },
+
   async getProjectVideo(id: string): Promise<{ download_url: string }> {
     return apiClient.get<{ download_url: string }>(`/projects/[id]/video`.replace("[id]", id));
   },
@@ -157,6 +161,8 @@ export const projectsService = {
       highlight_color: string;
       background_style: string;
       y_position_percent: number;
+      caption_template: string;
+      staggered_layout?: string;
     }
   ): Promise<{ style: string }> {
     return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {

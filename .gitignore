@@ -12,3 +12,5 @@ __pycache__/
 celerybeat-schedule*
 /test/
 .pytest_cache/
+.venv/
+venv/

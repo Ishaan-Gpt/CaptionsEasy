@@ -44,6 +44,12 @@ celery_app.conf.update(
     broker_transport_options={
         "polling_interval": 10.0,  # poll Redis for jobs every 10 seconds (default is 2.0s or faster)
     },
+    # CELERY_TASK_ALWAYS_EAGER=true (local dev only): `.delay()` runs the task
+    # synchronously in-process, no broker connection or worker needed at all.
+    # task_eager_propagates re-raises the task's exception into the caller
+    # instead of swallowing it, so pipeline errors surface immediately.
+    task_always_eager=settings.celery_task_always_eager,
+    task_eager_propagates=settings.celery_task_always_eager,
 )
 
 if settings.redis_url.startswith("rediss://"):

@@ -23,7 +23,7 @@ from app.worker.stages import build_dummy_stages
 from app.worker.types import JobOutcome
 
 
-def _build_stages(session, job_id: str, settings):
+def _build_stages(session, job_id: str, settings, *, progress=None, repo=None):
     """Selects the stage list by the job's `job_type`."""
     job_row = session.execute(select(Job).where(Job.id == job_id)).scalar_one_or_none()
     if job_row is not None:
@@ -37,6 +37,8 @@ def _build_stages(session, job_id: str, settings):
                 video=video,
                 settings=settings,
                 session=session,
+                progress=progress,
+                repo=repo,
             )
         elif job_row.job_type == "render":
             from app.worker.render_stage import build_render_stages
@@ -51,16 +53,18 @@ def process_job(self, job_id: str) -> str:
     redis_client = get_redis_client(settings)
 
     with worker_session(settings) as session:
+        job_repo = WorkerJobRepository(session)
+        progress_reporter = RedisProgressReporter(
+            redis_client, ttl_seconds=settings.job_progress_ttl_seconds
+        )
         outcome = run_job_pipeline(
             job_id=job_id,
             retry_count=self.request.retries,
             max_retries=settings.job_max_retries,
-            stages=_build_stages(session, job_id, settings),
-            repo=WorkerJobRepository(session),
+            stages=_build_stages(session, job_id, settings, progress=progress_reporter, repo=job_repo),
+            repo=job_repo,
             lock=RedisJobLock(redis_client, ttl_seconds=settings.job_lock_ttl_seconds),
-            progress=RedisProgressReporter(
-                redis_client, ttl_seconds=settings.job_progress_ttl_seconds
-            ),
+            progress=progress_reporter,
             dead_letter=RedisDeadLetterSink(redis_client),
             logger=WorkerLogger(),
         )

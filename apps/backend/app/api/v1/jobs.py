@@ -32,6 +32,7 @@ async def get_job_status(
                 "progress": live_progress["percentage"],
                 "stage": live_progress["stage"],
                 "estimated_remaining_ms": live_progress["estimated_remaining_ms"],
+                "error_message": job.error_message,
             }
         )
 
@@ -40,5 +41,6 @@ async def get_job_status(
             "progress": job.progress or 0,
             "stage": job.status.value,
             "estimated_remaining_ms": None,
+            "error_message": job.error_message,
         }
     )

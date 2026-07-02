@@ -40,4 +40,18 @@ class RedisJobLock:
         token = self._tokens.pop(job_id, None)
         if token is None:
             return
-        self._redis.eval(_RELEASE_IF_OWNER_SCRIPT, 1, _LOCK_KEY_PREFIX + job_id, token)
+        key = _LOCK_KEY_PREFIX + job_id
+        try:
+            self._redis.eval(_RELEASE_IF_OWNER_SCRIPT, 1, key, token)
+        except redis.exceptions.ResponseError:
+            # fakeredis (used for REDIS_URL=memory:// local dev, see
+            # app.worker.redis_client) doesn't implement EVAL/Lua scripting —
+            # fall back to a non-atomic check-then-delete. This only
+            # matters for the single-process dev setup this fallback
+            # targets; a real Redis in production always takes the atomic
+            # path above. Uncaught here, this raised out of the pipeline's
+            # `finally: lock.release(...)` (app.worker.pipeline), which
+            # made Celery report every otherwise-successful job as failed
+            # and left its lock un-released for the full TTL.
+            if self._redis.get(key) == token:
+                self._redis.delete(key)

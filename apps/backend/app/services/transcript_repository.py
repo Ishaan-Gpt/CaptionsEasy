@@ -49,3 +49,14 @@ class TranscriptRepository:
         await self._db.commit()
         await self._db.refresh(transcript)
         return transcript
+
+    async def update_transcript_json(
+        self,
+        transcript: Transcript,
+        updated_json: dict,
+    ) -> Transcript:
+        transcript.transcript_json = updated_json
+        self._db.add(transcript)
+        await self._db.commit()
+        await self._db.refresh(transcript)
+        return transcript

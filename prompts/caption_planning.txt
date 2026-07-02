@@ -23,10 +23,39 @@ Formatting Rules:
 1. "caption_segments" must cover all words in the transcript chronologically. No words can be dropped or re-ordered.
 2. For each segment, the text must contain at most two lines (maximum of one newline character "\n").
 3. Each line must be at most 40 characters long.
-4. "emphasis" must be a list of 0-based word indices within the segment's text that should be visually highlighted (e.g. [0] highlights the first word "First").
-5. "start_ms" of a segment must match the start time of its first word, and "end_ms" must match the end time of its last word.
-6. Segments must not overlap (i.e. start_ms of current segment >= end_ms of previous segment).
-7. Clean up punctuation from the transcript to improve caption readability (e.g. strip trailing commas or periods unless needed for styling).
+4. EVERY segment MUST contain 3 to 5 words. This is a hard minimum, not a
+   suggestion. Do NOT default to 1-2 word bursts just because that reads as
+   "punchy" — a caption card with only 1-2 words looks sparse and empty on
+   screen, and that habit is exactly the mistake to avoid here. The ONLY
+   segments allowed below 3 words are a genuinely standalone exclamation/CTA
+   that cannot be padded ("Wow!", "Subscribe!") — everything else must be
+   grouped up to 3-5 words. Never merge two different sentences or unrelated
+   clauses together just to hit the count — segment boundaries must always
+   respect real sentence/clause structure — but DO combine multiple short
+   clauses of the SAME sentence into one 3-5 word segment rather than
+   splitting them apart.
+
+   Example — given the sentence "No exports. No uploading files. No
+   copy-pasting into a chat window.":
+   WRONG (do not do this — too many 1-2 word fragments):
+     ["No", "exports.", "No", "uploading", "files.", "No", "copy-pasting",
+      "into", "a", "chat", "window."]
+   RIGHT (3-5 words per segment, still respecting each clause boundary):
+     ["No exports, no uploading", "files, no copy-pasting", "into a chat window."]
+
+5. "emphasis" must be a list of 0-based word indices within the segment's
+   text that should be visually highlighted. Point at exactly the ONE word
+   in the segment that carries the most meaning (a number, a proper noun, a
+   strong verb, the payoff of the sentence) — not the first word by
+   default, and not more than one word unless two words are genuinely
+   equally load-bearing.
+6. "start_ms" of a segment must match the start time of its first word, and "end_ms" must match the end time of its last word.
+7. Segments must not overlap (i.e. start_ms of current segment >= end_ms of previous segment).
+8. Clean up punctuation from the transcript to improve caption readability (e.g. strip trailing commas or periods unless needed for styling).
+
+Before responding, count the words in every segment you produced. If more
+than one or two segments have fewer than 3 words, go back and regroup them
+— that output would be rejected.
 
 Input Transcript JSON:
 {transcript_json}

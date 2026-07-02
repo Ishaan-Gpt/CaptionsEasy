@@ -16,7 +16,9 @@
       "intensity": "low"
     },
     "highlight": {
-      "colors": ["#E0E0E0"]
+      "colors": [
+        "#E0E0E0"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -55,7 +57,9 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#FFFF00"]
+      "colors": [
+        "#FFFF00"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -94,7 +98,10 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#00FF00", "#FFFF00"]
+      "colors": [
+        "#00FF00",
+        "#FFFF00"
+      ]
     },
     "safe_area": {
       "top": 100.0,
@@ -133,7 +140,9 @@
       "intensity": "low"
     },
     "highlight": {
-      "colors": ["#FFFFFF"]
+      "colors": [
+        "#FFFFFF"
+      ]
     },
     "safe_area": {
       "top": 120.0,
@@ -172,7 +181,9 @@
       "intensity": "high"
     },
     "highlight": {
-      "colors": ["#FFEA00"]
+      "colors": [
+        "#FFEA00"
+      ]
     },
     "safe_area": {
       "top": 60.0,
@@ -211,7 +222,9 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#FF4081"]
+      "colors": [
+        "#FF4081"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -250,7 +263,9 @@
       "intensity": "low"
     },
     "highlight": {
-      "colors": ["#D4AF37"]
+      "colors": [
+        "#D4AF37"
+      ]
     },
     "safe_area": {
       "top": 100.0,
@@ -289,7 +304,9 @@
       "intensity": "low"
     },
     "highlight": {
-      "colors": ["#D4B96A"]
+      "colors": [
+        "#D4B96A"
+      ]
     },
     "safe_area": {
       "top": 100.0,
@@ -328,7 +345,9 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#FF5E3A"]
+      "colors": [
+        "#FF5E3A"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -367,7 +386,9 @@
       "intensity": "high"
     },
     "highlight": {
-      "colors": ["#39FF8C"]
+      "colors": [
+        "#39FF8C"
+      ]
     },
     "safe_area": {
       "top": 60.0,
@@ -406,7 +427,9 @@
       "intensity": "high"
     },
     "highlight": {
-      "colors": ["#FFB200"]
+      "colors": [
+        "#FFB200"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -445,7 +468,9 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#C5FF00"]
+      "colors": [
+        "#C5FF00"
+      ]
     },
     "safe_area": {
       "top": 80.0,
@@ -484,7 +509,95 @@
       "intensity": "medium"
     },
     "highlight": {
-      "colors": ["#C5FF00"]
+      "colors": [
+        "#C5FF00"
+      ]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 5,
+      "caption_spacing_ms": 50,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22,
+      "caption_template": "staggered_3line"
+    },
+    "transitions": "fade"
+  },
+  "custom_62638bf9-85d2-4291-9ab7-cf5c265ccbe0": {
+    "name": "Custom Real Account Demo Render",
+    "typography": {
+      "font": "Inter",
+      "size": 26.0,
+      "weight": "900",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 0.0,
+      "outline": 0.5,
+      "background_style": "none",
+      "y_position_percent": 75.0
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": [
+        "#C5FF00"
+      ]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 5,
+      "caption_spacing_ms": 50,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22,
+      "caption_template": "staggered_3line"
+    },
+    "transitions": "fade"
+  },
+  "custom_853a9c19-a7fa-484d-8cf7-47d489147a36": {
+    "name": "Custom Test2",
+    "typography": {
+      "font": "Outfit",
+      "size": 24.0,
+      "weight": "800",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 0.0,
+      "outline": 2.0,
+      "background_style": "none",
+      "y_position_percent": 71.4
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": [
+        "#C5FF00"
+      ]
     },
     "safe_area": {
       "top": 80.0,

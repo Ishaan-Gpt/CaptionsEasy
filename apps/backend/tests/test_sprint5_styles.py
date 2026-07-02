@@ -213,7 +213,7 @@ async def test_sentence_highlight_template():
     
     assert len(caption_events) == 2
     assert caption_events[0]["payload"]["text"] == "THIS IS A QUICK TEST."
-    assert caption_events[1]["payload"]["text"] == "Another second test line."
+    assert caption_events[1]["payload"]["text"] == "ANOTHER SECOND TEST LINE."
     
     assert len(highlight_events) == 9
     

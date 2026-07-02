@@ -1,6 +1,5 @@
 /**
- * Real upload service. Replaces the mocked progress-timer upload in
- * services/jobs.ts (`startUpload`). Source: contracts/api.md > Upload.
+ * Real upload service. Replaces the mocked progress-timer upload.
  */
 
 import { apiClient } from "./api-client";

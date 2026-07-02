@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Montserrat, Cormorant_Garamond } from "next/font/google";
 import QueryProvider from "@/providers/QueryProvider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const montserrat = Montserrat({
   subsets: ["latin"],
+  variable: "--font-montserrat",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
+  variable: "--font-cormorant-garamond",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "MotionAI — Cinematic Captions & AI Editor",
-  description: "Convert your talking-head videos into high-quality social-ready clips with cinematic motion typography.",
+  title: "CaptionsEasy — AI Video Editor",
+  description: "Create premium social clips with automated caption template layouts.",
 };
 
 export default function RootLayout({
@@ -26,9 +29,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full dark antialiased`}
+      className={`${montserrat.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
-      <body className="h-full bg-zinc-950 text-zinc-50 font-sans flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+      <body className="h-full bg-[#0A0B0D] text-[#F1F3F5] font-sans selection:bg-[#00F5C4]/20 selection:text-[#00F5C4]">
         <QueryProvider>
           {children}
         </QueryProvider>

@@ -26,10 +26,14 @@ from app.db.models.caption_plan import CaptionPlan as CaptionPlanRow
 from app.db.models.motion_script import MotionScript as MotionScriptRow
 from app.db.models.video import Video
 from app.worker.stages import Stage
+from app.worker.types import JobRepositoryProtocol, ProgressReporterProtocol
 
 AI_PIPELINE_JOB_TYPE = "ai_pipeline"
 
 TRANSCRIPT_SCHEMA_VERSION = 1
+
+
+AI_SUBSTAGE_ESTIMATE_MS = 15_000  # rough per-substage estimate; no real AI timing history yet.
 
 
 def build_ai_pipeline_stages(
@@ -39,21 +43,47 @@ def build_ai_pipeline_stages(
     video: Video | None,
     settings: Settings,
     session: Session,
+    progress: ProgressReporterProtocol | None = None,
+    repo: JobRepositoryProtocol | None = None,
 ) -> list[Stage]:
+    def _on_stage_complete(stage: PipelineStage, completed: int, total: int) -> None:
+        # Scaled to leave headroom below 100% — the outer worker pipeline
+        # (app.worker.pipeline._run_stages) reports the final 100% itself
+        # once this whole macro-stage (incl. DB persistence) finishes.
+        percentage = min(95, round(completed / total * 95))
+        remaining_ms = (total - completed) * AI_SUBSTAGE_ESTIMATE_MS
+        if progress is not None:
+            progress.set_progress(
+                job_id,
+                stage=stage.value,
+                percentage=percentage,
+                estimated_remaining_ms=remaining_ms,
+            )
+        if repo is not None:
+            repo.update_progress(job_id, percentage)
+
     def _run_ai_pipeline() -> None:
         if video is None:
             raise ValueError(f"No video found for project {project_id}; cannot run AI pipeline.")
 
-        # Query Project to get selected style and caption template
+        # Query Project to get selected style and caption template. Falls
+        # back to "kalakar" — not StylePresetManager's own "minimal" default
+        # — because that's the base preset the frontend's own custom-style
+        # editor builds from (see save_custom_style's `base_preset =
+        # data.get("kalakar", {})` in app.api.v1.projects) and what
+        # test/generate_kalakar_video.py renders with; leaving an
+        # unstyled project on "minimal" produced a visibly plainer render
+        # (thin font, low-contrast highlight, single-word captions) than
+        # what users see previewed/expect by default.
         try:
             from app.db.models.project import Project as ProjectModel
             project_row = session.execute(
                 select(ProjectModel).where(ProjectModel.id == uuid.UUID(project_id))
             ).scalar_one_or_none()
-            style_name = project_row.style if project_row else None
+            style_name = (project_row.style if project_row else None) or "kalakar"
             caption_template = project_row.caption_template if project_row else None
         except AttributeError:
-            style_name = None
+            style_name = "kalakar"
             caption_template = None
 
         engine, _recorder = build_default_engine(
@@ -75,6 +105,7 @@ def build_ai_pipeline_stages(
                 "style": style_name,
                 "caption_template": caption_template,
             },
+            extra={"on_stage_complete": _on_stage_complete},
         )
 
         outcome = asyncio.run(engine.run(ctx))

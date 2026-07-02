@@ -1,539 +1,321 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  FolderPlus,
-  Film,
-  Calendar,
-  Trash2,
-  ArrowRight,
-  Video,
-  AlertCircle,
-  RefreshCw,
-  MoreVertical,
-  Pencil,
-  Copy,
-  Archive,
-  ArchiveRestore,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { projectsService, ProjectPage } from "@/services/projects";
+import { useQuery } from "@tanstack/react-query";
+import { projectsService } from "@/services/projects";
 import { authService } from "@/services/auth";
 import { Project } from "@/services/types";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Spinner from "@/components/ui/Spinner";
 
-const PAGE_SIZE = 9;
-const SEARCH_PAGE_SIZE = 100;
+type HealthChecks = { database: boolean; redis: boolean };
+
+// /health/ready is mounted at the API root, not under /api/v1 — strip the
+// versioned prefix from the configured API base URL to reach it.
+const HEALTH_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1").replace(
+  /\/api\/v1\/?$/,
+  ""
+) + "/health/ready";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const [page, setPage] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
-  const isSearching = searchQuery.trim().length > 0;
-
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
+  // Check auth and load user
   useEffect(() => {
-    if (!openMenuId) return;
-    const closeMenu = () => setOpenMenuId(null);
-    window.addEventListener("click", closeMenu);
-    return () => window.removeEventListener("click", closeMenu);
-  }, [openMenuId]);
-  const [renameTarget, setRenameTarget] = useState<Project | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameError, setRenameError] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+    if (!authService.isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+    authService.getCurrentUser().then((user) => {
+      setCurrentUser(user);
+    });
+  }, []);
 
+  // Fetch projects list
   const {
-    data: projectPage,
+    data: projects = [],
     isLoading,
-    isError,
-    error,
     refetch,
-  } = useQuery<ProjectPage>({
-    queryKey: ["projects", { page, isSearching, showArchived }],
-    queryFn: () =>
-      projectsService.getProjectsPage({
-        limit: isSearching ? SEARCH_PAGE_SIZE : PAGE_SIZE,
-        offset: isSearching ? 0 : page * PAGE_SIZE,
-        includeArchived: showArchived,
-      }),
-    // DashboardLayout redirects unauthenticated visitors to /login, but that
-    // redirect runs in an effect after first render — without this gate,
-    // this query fires immediately on mount regardless, hitting the backend
-    // with no token and logging a 401 every time someone lands here signed out.
-    enabled: authService.isAuthenticated(),
+  } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: () => projectsService.getProjects(),
+    enabled: !!currentUser,
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["projects"] });
-
-  const createMutation = useMutation({
-    mutationFn: projectsService.createProject,
-    onSuccess: (newProj) => {
-      invalidate();
-      setIsModalOpen(false);
-      setNewTitle("");
-      router.push(`/projects/${newProj.id}`);
+  // Live backend health — GET /health/ready checks Postgres + Redis for real.
+  const { data: health } = useQuery<HealthChecks | null>({
+    queryKey: ["health"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(HEALTH_URL);
+        const body = await res.json();
+        return body.checks as HealthChecks;
+      } catch {
+        return null;
+      }
     },
-    onError: (err: any) => {
-      setCreateError(err.message || "Failed to create project");
-    },
+    enabled: !!currentUser,
+    refetchInterval: 30000,
+    retry: false,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: projectsService.deleteProject,
-    onSuccess: () => {
-      setDeleteTarget(null);
-      invalidate();
-    },
-  });
+  const handleSignOut = async () => {
+    try {
+      await authService.logout();
+      router.push("/login");
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  const renameMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => projectsService.renameProject(id, title),
-    onSuccess: () => {
-      setRenameTarget(null);
-      invalidate();
-    },
-    onError: (err: any) => {
-      setRenameError(err.message || "Failed to rename project");
-    },
-  });
-
-  const duplicateMutation = useMutation({
-    mutationFn: projectsService.duplicateProject,
-    onSuccess: invalidate,
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: projectsService.archiveProject,
-    onSuccess: invalidate,
-  });
-
-  const unarchiveMutation = useMutation({
-    mutationFn: projectsService.unarchiveProject,
-    onSuccess: invalidate,
-  });
-
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newProjectTitle.trim()) return;
+    setIsCreating(true);
     setCreateError(null);
-    if (!newTitle.trim()) {
-      setCreateError("Project title cannot be empty");
-      return;
+    try {
+      const created = await projectsService.createProject(newProjectTitle.trim());
+      setNewProjectModalOpen(false);
+      setNewProjectTitle("");
+      router.push(`/projects/${created.id}`);
+    } catch (err: any) {
+      setCreateError(err.message || "Failed to create project.");
+    } finally {
+      setIsCreating(false);
     }
-    createMutation.mutate(newTitle.trim());
   };
 
-  const openRename = (project: Project) => {
-    setOpenMenuId(null);
-    setRenameTarget(project);
-    setRenameValue(project.title);
-    setRenameError(null);
-  };
-
-  const submitRename = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renameTarget) return;
-    if (!renameValue.trim()) {
-      setRenameError("Project title cannot be empty");
-      return;
+  const handleDeleteProject = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Avoid navigating into project
+    if (!confirm("Are you sure you want to delete this project workspace?")) return;
+    try {
+      await projectsService.deleteProject(id);
+      refetch();
+    } catch (err) {
+      console.error(err);
     }
-    renameMutation.mutate({ id: renameTarget.id, title: renameValue.trim() });
   };
-
-  // 1. LOADING STATE
-  if (isLoading) {
-    return (
-      <div className="h-[60vh] w-full flex flex-col items-center justify-center gap-3 animate-fade-in-up">
-        <Spinner className="w-8 h-8 text-indigo-500" />
-        <p className="text-sm text-zinc-400 font-medium">Retrieving workspace projects...</p>
-      </div>
-    );
-  }
-
-  // 2. ERROR STATE
-  if (isError) {
-    return (
-      <div className="h-[60vh] w-full flex flex-col items-center justify-center text-center max-w-md mx-auto gap-4 animate-fade-in-up">
-        <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-          <AlertCircle size={24} />
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-zinc-200">Failed to load projects</h3>
-          <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-            {error instanceof Error ? error.message : "An error occurred while connecting to local database."}
-          </p>
-        </div>
-        <Button variant="secondary" onClick={() => refetch()} className="gap-2">
-          <RefreshCw size={14} />
-          Retry Connection
-        </Button>
-      </div>
-    );
-  }
-
-  const allProjects = projectPage?.projects ?? [];
-  const visibleProjects = isSearching
-    ? allProjects.filter((p) => p.title.toLowerCase().includes(searchQuery.trim().toLowerCase()))
-    : allProjects;
-  const hasProjects = visibleProjects.length > 0;
-  const totalPages = projectPage ? Math.max(1, Math.ceil(projectPage.total / PAGE_SIZE)) : 1;
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
-      {/* Upper stats row & header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-150">My Projects</h1>
-          <p className="text-xs text-zinc-400 mt-1">Manage and export your captioned social video assets</p>
-        </div>
-
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2 shrink-0 shadow-lg shadow-indigo-600/10">
-          <FolderPlus size={16} />
-          New Project
-        </Button>
-      </div>
-
-      {/* Search + archive toggle */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects by title..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-          />
-        </div>
-        <button
-          onClick={() => {
-            setShowArchived((v) => !v);
-            setPage(0);
-          }}
-          className={`text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
-            showArchived
-              ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
-              : "bg-zinc-900/40 border-zinc-800 text-zinc-400 hover:text-zinc-200"
-          }`}
-        >
-          {showArchived ? "Showing archived" : "Show archived"}
-        </button>
-      </div>
-
-      {/* Grid displays */}
-      {!hasProjects ? (
-        // 3. EMPTY STATE
-        <div className="border border-dashed border-zinc-800 rounded-2xl p-12 text-center max-w-xl mx-auto flex flex-col items-center gap-4 bg-zinc-900/10 mt-12 animate-fade-in-up">
-          <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500">
-            <Film size={22} />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-zinc-300">
-              {isSearching ? "No projects match your search" : "No projects found"}
-            </h3>
-            <p className="text-xs text-zinc-500 mt-1 leading-relaxed max-w-xs">
-              {isSearching
-                ? "Try a different title, or clear the search."
-                : "Upload a talking head video to auto-generate cinematic caption styles."}
-            </p>
-          </div>
-          {!isSearching && (
-            <Button onClick={() => setIsModalOpen(true)} variant="secondary" className="gap-2">
-              <FolderPlus size={14} />
-              Create First Project
-            </Button>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* 4. PROJECTS LIST */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleProjects.map((project) => {
-              const isProcessing = project.status === "PROCESSING";
-              const isArchived = !!project.archived_at;
-
-              return (
-                <Card
-                  key={project.id}
-                  hoverable
-                  onClick={() => router.push(`/projects/${project.id}`)}
-                  className={`cursor-pointer flex flex-col h-64 border-zinc-900 relative group overflow-hidden ${
-                    isArchived ? "opacity-60" : ""
-                  }`}
-                >
-                  {/* Project status glow */}
-                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-zinc-800 group-hover:bg-indigo-500 transition-colors" />
-
-                  {/* Card thumbnail or placeholder */}
-                  <div className="h-32 -mx-6 -mt-6 bg-zinc-950 border-b border-zinc-900/60 relative overflow-hidden flex items-center justify-center">
-                    {project.thumbnail_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={project.thumbnail_url}
-                        alt={project.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
-                      />
-                    ) : (
-                      <Video size={28} className="text-zinc-700 group-hover:text-zinc-500 transition-colors" />
-                    )}
-
-                    {/* Status label overlay */}
-                    <span
-                      className={`absolute top-3 right-3 text-[10px] uppercase font-bold tracking-wider rounded-md px-2 py-0.5 border ${
-                        project.status === "COMPLETED"
-                          ? "bg-green-500/10 border-green-500/20 text-green-400"
-                          : isProcessing
-                          ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 animate-pulse"
-                          : "bg-zinc-900 border-zinc-800 text-zinc-400"
-                      }`}
-                    >
-                      {isArchived ? "archived" : project.status.toLowerCase()}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 flex flex-col justify-between pt-4">
-                    <div>
-                      <h3 className="font-semibold text-zinc-200 group-hover:text-indigo-400 transition-colors truncate">
-                        {project.title}
-                      </h3>
-                      <p className="text-xs text-zinc-400 truncate mt-1">
-                        {project.description || "No description provided."}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-zinc-550 border-t border-zinc-900 pt-3">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={11} />
-                        {new Date(project.created_at).toLocaleDateString()}
-                      </span>
-
-                      <div className="flex items-center gap-1 relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === project.id ? null : project.id);
-                          }}
-                          className="p-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors cursor-pointer"
-                        >
-                          <MoreVertical size={13} />
-                        </button>
-                        <span className="p-1 text-zinc-650 group-hover:text-indigo-400 transition-colors">
-                          <ArrowRight size={13} />
-                        </span>
-
-                        {openMenuId === project.id && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute bottom-full right-0 mb-2 w-40 rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl py-1 z-20 animate-fade-in"
-                          >
-                            <button
-                              onClick={() => openRename(project)}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900 transition-colors"
-                            >
-                              <Pencil size={12} /> Rename
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                duplicateMutation.mutate(project.id);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900 transition-colors"
-                            >
-                              <Copy size={12} /> Duplicate
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                if (isArchived) {
-                                  unarchiveMutation.mutate(project.id);
-                                } else {
-                                  archiveMutation.mutate(project.id);
-                                }
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-900 transition-colors"
-                            >
-                              {isArchived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
-                              {isArchived ? "Unarchive" : "Archive"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setDeleteTarget(project);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/5 transition-colors"
-                            >
-                              <Trash2 size={12} /> Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+    <div className="min-h-screen flex selection:bg-[#00F5C4]/20 selection:text-[#00F5C4]">
+      
+      {/* LEFT SIDEBAR MENU */}
+      <aside className="w-64 bg-[#111317] border-r border-[#23272F] flex flex-col justify-between shrink-0">
+        <div className="p-6 space-y-8">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#00F5C4]" />
+            <span className="font-primary font-black uppercase text-xs tracking-widest text-white">
+              CAPITIONS<span className="text-[#00F5C4] font-accent italic lowercase text-xs font-light">easy</span>
+            </span>
           </div>
 
-          {/* PAGINATION (hidden while searching, since search spans a wider fetched window) */}
-          {!isSearching && projectPage && projectPage.total > PAGE_SIZE && (
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="p-1.5 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span className="text-xs text-zinc-500">
-                Page {page + 1} of {totalPages}
+          {/* Navigation Links */}
+          <div className="space-y-2">
+            <button className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#181B21] border border-[#23272F] text-[10px] font-bold uppercase tracking-wider text-[#00F5C4] text-left">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+              </svg>
+              Projects
+            </button>
+            
+            <button 
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#181B21] text-[10px] font-bold uppercase tracking-wider text-white hover:text-[#00F5C4] text-left transition-colors cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        {/* System Health Indicators — live from GET /health/ready */}
+        <div className="p-6 border-t border-[#23272F] space-y-4">
+          <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-white">
+            <span>System Health</span>
+            <span className="flex items-center gap-1">
+              <span
+                className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  health === undefined ? "bg-white/30" : health ? "bg-[#00F5C4]" : "bg-red-500"
+                }`}
+              />
+              {health === undefined ? "Checking..." : health ? "Online" : "Unreachable"}
+            </span>
+          </div>
+          <div className="space-y-1.5 text-[8px] font-mono text-white uppercase">
+            <div className="flex justify-between">
+              <span>Database (PSQL):</span>
+              <span className={health?.database ? "text-[#00F5C4]" : "text-red-450"}>
+                {health === undefined ? "..." : health?.database ? "CONNECTED" : "DOWN"}
               </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page + 1 >= totalPages}
-                className="p-1.5 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={14} />
-              </button>
             </div>
-          )}
-        </>
-      )}
-
-      {/* CREATE DIALOG MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setIsModalOpen(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <div className="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl z-10 space-y-4 animate-fade-in-up relative">
-            <div className="absolute -top-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-
-            <div>
-              <h3 className="text-base font-bold text-zinc-100">Create new workspace</h3>
-              <p className="text-xs text-zinc-400 mt-1">Provide a project title to start uploading your media</p>
+            <div className="flex justify-between">
+              <span>Job Queue (Redis):</span>
+              <span className={health?.redis ? "text-[#00F5C4]" : "text-red-450"}>
+                {health === undefined ? "..." : health?.redis ? "CONNECTED" : "DOWN"}
+              </span>
             </div>
-
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <Input
-                id="title"
-                label="Project Title"
-                placeholder="Marketing Shorts, Podcast Highlight..."
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                error={createError || undefined}
-                disabled={createMutation.isPending}
-                autoFocus
-              />
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={createMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" isLoading={createMutation.isPending}>
-                  Initialize
-                </Button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+      </aside>
 
-      {/* RENAME DIALOG MODAL */}
-      {renameTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setRenameTarget(null)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <div className="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl z-10 space-y-4 animate-fade-in-up relative">
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 p-12 overflow-y-auto">
+        <div className="max-w-5xl mx-auto space-y-8 animate-fade-in-up">
+          
+          {/* Header */}
+          <div className="flex justify-between items-center pb-6 border-b border-[#23272F]">
             <div>
-              <h3 className="text-base font-bold text-zinc-100">Rename project</h3>
+              <h1 className="text-2xl font-primary font-black uppercase tracking-tight text-white">
+                Creator <span className="text-[#00F5C4] font-accent italic lowercase font-light text-3xl">studio</span> dashboard
+              </h1>
+              <p className="text-[10px] text-white uppercase tracking-wider mt-1">
+                Welcome back, {currentUser?.name || "Creator"}. Manage your active video workspaces.
+              </p>
             </div>
-
-            <form onSubmit={submitRename} className="space-y-4">
-              <Input
-                id="rename"
-                label="Project Title"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                error={renameError || undefined}
-                disabled={renameMutation.isPending}
-                autoFocus
-              />
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setRenameTarget(null)}
-                  disabled={renameMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" isLoading={renameMutation.isPending}>
-                  Save
-                </Button>
-              </div>
-            </form>
+            
+            <button
+              onClick={() => setNewProjectModalOpen(true)}
+              className="bg-[#00F5C4] text-[#0A0B0D] font-primary font-black uppercase text-[10px] tracking-wider px-5 py-2.5 rounded-none hover:bg-[#00C2A0] transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              New Project
+            </button>
           </div>
-        </div>
-      )}
 
-      {/* DELETE CONFIRMATION MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setDeleteTarget(null)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <div className="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl z-10 space-y-4 animate-fade-in-up relative">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
-                <Trash2 size={18} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-zinc-100">Delete &ldquo;{deleteTarget.title}&rdquo;?</h3>
-                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                  This permanently removes the project, its uploads, and exports. This cannot be undone.
+          {/* Projects display */}
+          {isLoading ? (
+            <div className="py-20 text-center space-y-3">
+              <div className="w-6 h-6 border-2 border-[#00F5C4] border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-[10px] uppercase font-bold tracking-wider text-white">Querying databases...</p>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="border border-dashed border-[#23272F] p-16 text-center space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-primary font-black uppercase text-white">No workspace projects found</h3>
+                <p className="text-[10px] text-white uppercase tracking-wider max-w-sm mx-auto leading-relaxed">
+                  Start by creating a new video editing project workspace. You will be able to upload MP4 clips and customize template layouts.
                 </p>
               </div>
+              <button
+                onClick={() => setNewProjectModalOpen(true)}
+                className="border border-[#00F5C4] text-[#00F5C4] bg-[#111317]/50 font-primary font-black uppercase text-[10px] tracking-wider px-6 py-2.5 rounded-none hover:bg-[#00F5C4] hover:text-[#0A0B0D] transition-all cursor-pointer"
+              >
+                Create Project
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                  className="dense-panel p-5 border-[#23272F] hover:border-[#00F5C4] transition-all cursor-pointer flex flex-col justify-between h-40 group relative"
+                >
+                  <div className="space-y-1">
+                    <span className="text-[8px] font-mono text-white uppercase block tracking-wider">PROJECT ID: {project.id.slice(0, 8)}</span>
+                    <h3 className="text-sm font-primary font-black uppercase text-white tracking-tight truncate pr-6">
+                      {project.title}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-auto">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00F5C4]" />
+                      <span className="text-[8px] font-bold uppercase tracking-wider text-white">{project.status}</span>
+                    </div>
+                    <span className="text-[8px] font-mono text-white">{new Date(project.created_at).toLocaleDateString()}</span>
+                  </div>
+
+                  {/* Absolute Delete Button */}
+                  <button
+                    onClick={(e) => handleDeleteProject(e, project.id)}
+                    className="absolute top-4 right-4 text-white hover:text-red-450 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer"
+                    title="Delete workspace"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* NEW PROJECT MODAL */}
+      {newProjectModalOpen && (
+        <div className="fixed inset-0 bg-[#0A0B0D]/80 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md dense-panel p-8 border-[#23272F] space-y-6 animate-fade-in-up">
+            
+            <div className="flex justify-between items-center pb-3 border-b border-[#23272F]">
+              <h3 className="text-sm font-primary font-black uppercase text-white">New Studio Project</h3>
+              <button 
+                onClick={() => setNewProjectModalOpen(false)}
+                className="text-white hover:text-[#00F5C4] cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                isLoading={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate(deleteTarget.id)}
-              >
-                Delete
-              </Button>
-            </div>
+            {createError && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] uppercase font-bold tracking-wider p-3">
+                {createError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[8px] font-bold uppercase tracking-wider text-white">
+                  Project Title
+                </label>
+                <input
+                  type="text"
+                  value={newProjectTitle}
+                  onChange={(e) => setNewProjectTitle(e.target.value)}
+                  placeholder="e.g. My Cinematic Short"
+                  className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white px-3 py-2.5 focus:outline-none focus:border-[#00F5C4]"
+                  required
+                  disabled={isCreating}
+                  autoFocus
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewProjectModalOpen(false)}
+                  className="border border-[#23272F] bg-[#111317] text-white font-primary font-black uppercase text-[9px] tracking-wider px-4 py-2 hover:border-[#00F5C4] hover:text-white transition-colors cursor-pointer"
+                  disabled={isCreating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#00F5C4] text-[#0A0B0D] font-primary font-black uppercase text-[9px] tracking-wider px-6 py-2 hover:bg-[#00C2A0] transition-colors cursor-pointer"
+                  disabled={isCreating}
+                >
+                  {isCreating ? "Initializing..." : "Create Workspace"}
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}
+
     </div>
   );
 }

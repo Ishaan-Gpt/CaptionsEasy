@@ -67,6 +67,12 @@ export interface GlobalSettings {
   default_font: string;
   default_colors: string[];
   motion_preset: string;
+  /** The caption template actually used to build this timeline (e.g.
+   * "staggered_3line") — renderers must read this rather than re-deriving
+   * a template from the style preset's own default. */
+  caption_template?: string | null;
+  /** Layout variant for staggered_3line only: "splash" or "centre". */
+  staggered_layout?: string | null;
 }
 
 export interface CaptionPayload {
@@ -84,6 +90,11 @@ export interface HighlightPayload {
   color: string;
   animation: Animation;
   is_keyword?: boolean;
+  /** Optional per-template hero-word styling — None/absent means "inherit
+   * the caption's own font/weight/size". */
+  font?: string | null;
+  weight?: string | null;
+  size_scale?: number | null;
 }
 
 export interface EmojiPayload {

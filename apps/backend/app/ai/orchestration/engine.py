@@ -46,8 +46,9 @@ class AIPipelineOrchestrationEngine:
 
     async def run(self, ctx: PipelineContext) -> PipelineOutcome:
         stages = self._stage_registry.ordered_stages()
+        on_stage_complete = ctx.extra.get("on_stage_complete")
 
-        for definition in stages:
+        for index, definition in enumerate(stages):
             try:
                 output = await self._stage_executor.execute(definition, ctx)
             except StageFailure as exc:
@@ -55,5 +56,13 @@ class AIPipelineOrchestrationEngine:
 
             ctx.previous_output = output
             ctx.stage_outputs[definition.stage] = output
+
+            if on_stage_complete is not None:
+                # Best-effort progress reporting — a broken callback (e.g. a
+                # transient Redis blip) must not fail the pipeline itself.
+                try:
+                    on_stage_complete(definition.stage, index + 1, len(stages))
+                except Exception:  # noqa: BLE001
+                    pass
 
         return PipelineOutcome.completed(ctx.previous_output)

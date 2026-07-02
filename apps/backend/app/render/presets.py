@@ -39,6 +39,10 @@ class TimingPreset(BaseModel):
     sentence_segmentation: str
     reading_speed_limit_cps: int
     caption_template: str = "word_by_word"
+    # Layout variant for the staggered_3line template only: "splash" (line 1
+    # left-aligned, line 3 right-aligned, offset around the keyword word —
+    # the original look) or "centre" (all three lines center-aligned).
+    staggered_layout: str = "splash"
 
 class StylePreset(BaseModel):
     name: str

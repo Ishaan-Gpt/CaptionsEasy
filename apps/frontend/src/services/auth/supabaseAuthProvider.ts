@@ -107,6 +107,19 @@ export const supabaseAuthProvider: AuthProvider = {
     return { user, token };
   },
 
+  async loginWithGoogle() {
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+  },
+
   async logout() {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -146,5 +159,18 @@ export const supabaseAuthProvider: AuthProvider = {
     if (error) {
       throw new Error(error.message);
     }
+  },
+
+  async updateProfile(fields: { name?: string }) {
+    const { data, error } = await supabase.auth.updateUser({
+      data: { ...(fields.name !== undefined ? { name: fields.name } : {}) },
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (!data.user) {
+      throw new Error("Profile update failed. No user returned.");
+    }
+    return mapSupabaseUser(data.user);
   },
 };

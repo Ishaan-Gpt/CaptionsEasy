@@ -93,6 +93,16 @@ class GlobalSettings(StrictModel):
     default_font: str
     default_colors: list[str]
     motion_preset: str
+    # The caption template actually used to build this timeline (e.g.
+    # "staggered_3line"). Renderers must read this instead of re-deriving a
+    # template from the style preset's own default — a project can override
+    # its caption_template away from the preset default, and re-deriving
+    # from the preset alone would silently render the wrong layout.
+    caption_template: str | None = None
+    # Layout variant for staggered_3line only: "splash" (line 1 left-aligned,
+    # line 3 right-aligned, offset around the keyword) or "centre" (all
+    # three lines center-aligned).
+    staggered_layout: str | None = None
 
 
 class CaptionPayload(StrictModel):
@@ -110,6 +120,14 @@ class HighlightPayload(StrictModel):
     color: str
     animation: Animation
     is_keyword: bool = False
+    # Optional per-template hero-word styling (contracts/renderplan.md >
+    # Templates): lets the highlighted word render in a visibly different
+    # font/weight/size than the rest of the caption, not just a color swap.
+    # None means "inherit the caption's own font/weight/size" — old motion
+    # scripts without these fields keep working unchanged.
+    font: str | None = None
+    weight: str | None = None
+    size_scale: float | None = None
 
 
 class EmojiPosition(StrictModel):

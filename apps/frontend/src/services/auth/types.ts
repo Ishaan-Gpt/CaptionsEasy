@@ -8,6 +8,7 @@ import { User } from "../types";
  */
 export interface AuthProvider {
   login(email: string, password: string): Promise<{ user: User; token: string }>;
+  loginWithGoogle(): Promise<void>;
   register(name: string, email: string, password: string): Promise<{ user: User; token: string }>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;
@@ -20,4 +21,7 @@ export interface AuthProvider {
   /** Completes a password reset from the recovery link's session
    * (established client-side by Supabase's redirect before this is called). */
   updatePassword(newPassword: string): Promise<void>;
+  /** Updates the current user's profile (display name today). Returns the
+   * updated user so callers can refresh local state without a refetch. */
+  updateProfile(fields: { name?: string }): Promise<User>;
 }

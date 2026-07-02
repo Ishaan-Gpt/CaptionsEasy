@@ -223,6 +223,11 @@ class FakeTranscriptRepository:
         self.transcripts.append(transcript)
         return transcript
 
+    async def update_transcript_json(self, transcript, updated_json):
+        transcript.transcript_json = updated_json
+        transcript.updated_at = _now()
+        return transcript
+
 
 @pytest.fixture
 def fake_profile() -> Profile:

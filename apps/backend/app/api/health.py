@@ -41,8 +41,11 @@ async def readiness(
         logger.warning("readiness_check_failed dependency=database reason=%s", exc)
 
     try:
-        get_redis_client(settings).ping()
-        checks["redis"] = True
+        if settings.redis_url.startswith("memory://"):
+            checks["redis"] = True
+        else:
+            get_redis_client(settings).ping()
+            checks["redis"] = True
     except Exception as exc:  # noqa: BLE001
         logger.warning("readiness_check_failed dependency=redis reason=%s", exc)
 

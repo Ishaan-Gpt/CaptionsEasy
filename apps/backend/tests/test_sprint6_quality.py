@@ -37,11 +37,11 @@ def test_word_grouping_mitigates_single_word_lines():
     # 5 words: if limit is 2, standard split is [2, 2, 1]
     # Our algorithm must merge the last dangling word to prevent single-word lines!
     word_timings = [
-        ("this", 0, 100),
-        ("is", 100, 200),
-        ("a", 200, 300),
-        ("great", 300, 400),
-        ("clip", 400, 500)
+        ("this", 0, 100, 0),
+        ("is", 100, 200, 1),
+        ("a", 200, 300, 2),
+        ("great", 300, 400, 3),
+        ("clip", 400, 500, 4)
     ]
     groups = group_words(word_timings, word_limit=2)
     # Expected: [["this", "is"], ["a", "great", "clip"]] (merged last word)

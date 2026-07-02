@@ -25,6 +25,12 @@ def is_number(word: str) -> bool:
     return bool(clean and clean.isdigit())
 
 def pick_keyword_idx(words_text: list[str]) -> int:
+    """Fallback only — the render-plan stage already picked the keyword word
+    (honoring the caption-planning LLM's `emphasis` field when available) and
+    recorded it as `is_keyword` on the caption's highlight events. This
+    mechanical re-scoring only runs if that data is missing, so it can never
+    disagree with what the render plan (and therefore the live preview)
+    already decided."""
     best_idx = 0
     best_score = -1.0
     for i, w in enumerate(words_text):
@@ -184,14 +190,42 @@ class RenderEngine:
             for t_start, t_end in zip(sorted_splits, sorted_splits[1:]):
                 if t_start >= t_end:
                     continue
-                
-                # Identify which template is used
-                is_staggered = getattr(preset.timing, "caption_template", "word_by_word") == "staggered_3line"
+
+                # Which template built this timeline — read from the motion
+                # script itself (set by the render-plan stage), not
+                # re-derived from the style preset's own default. A project
+                # can override its caption_template away from the preset
+                # default, and re-deriving from the preset alone used to
+                # silently render the wrong layout for those projects.
+                used_template = getattr(motion_script.global_settings, "caption_template", None) or getattr(
+                    preset.timing, "caption_template", "word_by_word"
+                )
+                is_staggered = used_template == "staggered_3line"
+                staggered_layout = getattr(motion_script.global_settings, "staggered_layout", None) or getattr(
+                    preset.timing, "staggered_layout", "splash"
+                )
 
                 if is_staggered:
                     # 1. Staggered 3-line template generation
-                    # We need to determine the keyword index k for the words in this caption segment.
-                    k = pick_keyword_idx(words)
+                    # Determine the keyword index k for the words in this caption segment.
+                    # Prefer the render plan's own choice (recorded per-word on the
+                    # highlight events via `is_keyword`, which itself honors the
+                    # caption-planning LLM's `emphasis` field) so export never
+                    # picks a different hero word than the live preview did.
+                    # Also carry forward the render plan's resolved
+                    # keyword font/weight/size — the template's opinion on
+                    # how the hero word should look, baked in once upstream
+                    # rather than re-guessed here.
+                    k = None
+                    keyword_payload = None
+                    for h in cap_highlights:
+                        h_payload = h.parsed_payload()
+                        if getattr(h_payload, "is_keyword", False) and h_payload.indices:
+                            k = h_payload.indices[0]
+                            keyword_payload = h_payload
+                            break
+                    if k is None:
+                        k = pick_keyword_idx(words)
                     
                     # Split words into 3 lines
                     line1_words = words[:k]
@@ -222,17 +256,49 @@ class RenderEngine:
                     has_l2 = (k <= revealed_max)
                     visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
                     
-                    # Determine sizes and dimensions
-                    size_large = font_size * 1.9
-                    size_normal = font_size * 0.95
-                    
+                    # Determine sizes, weights, colors and dimensions.
+                    # Line 1/3 ("non-highlighted") are ALWAYS plain white at a
+                    # moderate weight, regardless of the project's chosen
+                    # base color/weight — the highlighted word gets a
+                    # distinct "shiny" color and much heavier weight, and the
+                    # contrast between the two is the whole point. Letting
+                    # line 1/3 inherit an arbitrary preset color risked it
+                    # matching (or clashing with) the highlight color with no
+                    # contrast at all.
+                    size_normal = getattr(cap_payload, "size", font_size)
+                    line13_color = self.hex_to_ass_abgr("#FFFFFF")
+                    line13_weight = "700"
+
+                    # Keyword ("hero word") is 1.5x the base size — see
+                    # app.render.templates for the canonical ratio — heavier
+                    # weight, and its own distinct font.
+                    keyword_size_scale = getattr(keyword_payload, "size_scale", None) or 1.5
+                    size_large = size_normal * keyword_size_scale
+                    keyword_font = getattr(keyword_payload, "font", None) or font_family
+                    keyword_weight_str = str(getattr(keyword_payload, "weight", None) or "900")
+                    bold_large = keyword_weight_str if keyword_weight_str.isdigit() else "900"
+
                     # Width estimation of Line 2
                     W2 = estimate_text_width(line2_text.upper(), size_large)
-                    
+
+                    # Bounding box: captions must never render past a decent
+                    # margin from the screen edges. margin_l/margin_r come
+                    # from the style's safe_area, same as the rest of the
+                    # export. Line 1/3 sizes are shrunk (never repositioned
+                    # off their keyword-synced anchor — see below) just
+                    # enough to keep their full (not just currently-revealed)
+                    # text inside this box.
+                    box_left = margin_l
+                    box_right = width - margin_r
+
                     # Vertical position calculations: ensure they appear at the chosen y-axis height
                     y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
                     base_y = int(height * y_pct / 100.0)
-                    line_gap = font_size * 1.45
+                    # Tighter vertical rhythm — 1.45x line height left more
+                    # empty space between lines than text on screen,
+                    # especially once cards regularly hold their full
+                    # word_limit instead of 1-2 stray words.
+                    line_gap = font_size * 1.1
                     
                     has_any_l1 = len(line1_words) > 0
                     has_any_l3 = len(line3_words) > 0
@@ -286,24 +352,64 @@ class RenderEngine:
                     end_str = self.ms_to_ass_time(t_end)
                     base_outline_tag = f"\\bord{outline}\\shad{shadow}"
 
+                    is_centre = staggered_layout == "centre"
+
+                    # Line 1/3 sizes start at size_normal and only ever
+                    # shrink (never reposition off their keyword-synced
+                    # anchor) just enough to keep the FULL final text inside
+                    # the bounding box.
+                    size_l1 = size_normal
+                    size_l3 = size_normal
+
+                    if is_centre:
+                        X_l1, an_l1 = 540, 5
+                        X_l3, an_l3 = 540, 5
+                    else:
+                        # "splash": line 1's FIRST letter syncs with the
+                        # keyword's FIRST letter — anchor at the LEFT edge
+                        # (an4) positioned at the keyword's own left edge.
+                        X_l1, an_l1 = int(540 - W2 / 2), 4
+                        if X_l1 < box_left:
+                            X_l1 = box_left
+                        full_l1_text = " ".join(line1_words)
+                        if full_l1_text:
+                            full_l1_width = estimate_text_width(full_l1_text, size_l1)
+                            available_l1 = box_right - X_l1
+                            if 0 < available_l1 < full_l1_width:
+                                size_l1 = size_normal * (available_l1 / full_l1_width)
+
+                        # Line 3's LAST letter syncs with the keyword's LAST
+                        # letter — anchor at the RIGHT edge (an6) positioned
+                        # at the keyword's own right edge. As more of line 3
+                        # reveals, it grows backward (leftward) from this
+                        # fixed point, which is exactly what keeps its last
+                        # word permanently aligned with the keyword's edge.
+                        X_l3, an_l3 = int(540 + W2 / 2), 6
+                        if X_l3 > box_right:
+                            X_l3 = box_right
+                        full_l3_text = " ".join(line3_words)
+                        if full_l3_text:
+                            full_l3_width = estimate_text_width(full_l3_text, size_l3)
+                            available_l3 = X_l3 - box_left
+                            if 0 < available_l3 < full_l3_width:
+                                size_l3 = size_normal * (available_l3 / full_l3_width)
+
                     # Output Line 1 Dialogue event
                     if has_any_l1 and visible_l1:
                         l1_str = " ".join(visible_l1)
-                        X_l1 = int(540 - W2 / 2)
-                        l1_tags = f"{{\\pos({X_l1},{int(Y_l1)})\\an4\\fn{font_family}\\fs{int(size_normal)}\\c&HFFFFFFFF&{base_outline_tag}\\b0}}{anim_tags}"
+                        l1_tags = f"{{\\pos({X_l1},{int(Y_l1)})\\an{an_l1}\\fn{font_family}\\fs{int(size_l1)}\\c{line13_color}{base_outline_tag}\\b{line13_weight}}}{anim_tags}"
                         ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{l1_str}")
 
-                    # Output Line 2 Dialogue event (centered, capitalized, highlighted lime-green, ultra bold)
+                    # Output Line 2 Dialogue event (centered, capitalized, highlighted, hero-styled)
                     if has_l2:
                         highlight_color_abgr = active_color or self.hex_to_ass_abgr(preset.highlight.colors[0] if preset.highlight.colors else "#C5FF00")
-                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{font_family}\\fs{int(size_large)}\\c{highlight_color_abgr}{base_outline_tag}\\b900}}{anim_tags}"
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c{highlight_color_abgr}{base_outline_tag}\\b{bold_large}}}{anim_tags}"
                         ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{line2_text.upper()}")
 
                     # Output Line 3 Dialogue event
                     if has_any_l3 and visible_l3:
                         l3_str = " ".join(visible_l3)
-                        X_l3 = int(540 + W2 / 2)
-                        l3_tags = f"{{\\pos({X_l3},{int(Y_l3)})\\an6\\fn{font_family}\\fs{int(size_normal)}\\c&HFFFFFFFF&{base_outline_tag}\\b0}}{anim_tags}"
+                        l3_tags = f"{{\\pos({X_l3},{int(Y_l3)})\\an{an_l3}\\fn{font_family}\\fs{int(size_l3)}\\c{line13_color}{base_outline_tag}\\b{line13_weight}}}{anim_tags}"
                         ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
 
                 else:

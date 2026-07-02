@@ -135,6 +135,21 @@ def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]
             }
         )
 
+    # Robust overlap resolver
+    if words:
+        for w in words:
+            w["start_ms"] = max(0, w["start_ms"])
+            if w["end_ms"] <= w["start_ms"]:
+                w["end_ms"] = w["start_ms"] + 100
+
+        for i in range(1, len(words)):
+            prev = words[i - 1]
+            curr = words[i]
+            if curr["start_ms"] < prev["end_ms"]:
+                curr["start_ms"] = prev["end_ms"]
+                if curr["end_ms"] <= curr["start_ms"]:
+                    curr["end_ms"] = curr["start_ms"] + 100
+
     return {
         "version": TRANSCRIPT_VERSION,
         "language": language,

@@ -26,4 +26,10 @@ export const transcriptService = {
       throw err;
     }
   },
+
+  async updateTranscript(projectId: string, words: TranscriptWord[]): Promise<TranscriptResponse> {
+    return await apiClient.put<TranscriptResponse>(`/projects/${projectId}/transcript`, {
+      json: { words }
+    });
+  },
 };

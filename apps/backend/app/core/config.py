@@ -44,6 +44,11 @@ class Settings(BaseSettings):
 
     # --- Background processing (Celery + Redis). Sprint 1.3. ---
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    # When true, Celery executes tasks synchronously in the calling process
+    # instead of publishing to a broker — lets local dev skip running Redis
+    # and a separate worker process entirely (job_dispatcher.dispatch()
+    # blocks until the whole pipeline finishes, in the same request).
+    celery_task_always_eager: bool = Field(default=False, alias="CELERY_TASK_ALWAYS_EAGER")
     # When true, the web process also runs the Celery worker loop in a
     # background thread instead of relying on a separate worker service.
     # Render's free tier has no Background Worker service type at all, so

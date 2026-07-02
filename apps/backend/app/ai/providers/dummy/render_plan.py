@@ -12,9 +12,22 @@ from typing import Optional
 from app.ai.providers.stage_providers import ProviderOutput, RenderPlanProvider
 from app.ai.types import ProviderUsage
 from app.render.presets import StylePresetManager
+from app.render.templates import get_template_style
 from packages.contracts.python import CaptionPlan, CreativePlan, Transcript  # type: ignore[import-not-found]
 
 DUMMY_MODEL_NAME = "dummy-render-plan-v2"
+
+
+def _max_weight(a: str, b: str) -> str:
+    """Picks the heavier of two CSS-style font weights (numeric strings
+    like "400"/"700"/"900", or keywords "bold"/"normal"). Used so a
+    template's minimum weight (e.g. staggered_3line wants base text at
+    least 800) never makes an already-heavier style preset *lighter*."""
+    def to_int(w: str) -> int:
+        if w.isdigit():
+            return int(w)
+        return 700 if w.lower() == "bold" else 400
+    return a if to_int(a) >= to_int(b) else b
 
 
 def normalize_word(w: str) -> str:
@@ -48,25 +61,35 @@ STOPWORDS = {
 }
 
 
-def pick_keyword_idx(words_text: list[str]) -> int:
-    """Picks the single most salient word in a caption group for emphasis styling.
+def _score_word(w: str) -> float:
+    clean = re.sub(r'[^\w]', '', w)
+    if not clean:
+        return -1.0
+    score = float(len(clean))
+    if normalize_word(w) in STOPWORDS:
+        score -= 100.0
+    if is_capitalized(w):
+        score += 2.0
+    if is_number(w):
+        score += 1.0
+    return score
 
-    Longer, non-stopword, capitalized words score higher — approximates how
-    cinematic caption tools (CapCut/Opus) auto-pick the "hero" word per line.
+
+def pick_keyword_idx(words_text: list[str]) -> int:
+    """Picks the single most salient word in a caption group for emphasis
+    styling: purely mechanical length/capitalization/digit scoring
+    (approximating how cinematic caption tools like CapCut/Opus auto-pick a
+    "hero" word). The caption-planning LLM's own `emphasis` field used to
+    take priority here, but its picks were consistently worse than this
+    plain heuristic — a weak, often-arbitrary "flag word 0" habit rather
+    than genuine judgment — so this function no longer looks at it at all.
     """
     best_idx = 0
     best_score = -1.0
     for i, w in enumerate(words_text):
-        clean = re.sub(r'[^\w]', '', w)
-        if not clean:
+        if not re.sub(r'[^\w]', '', w):
             continue
-        score = float(len(clean))
-        if normalize_word(w) in STOPWORDS:
-            score -= 100.0
-        if is_capitalized(w):
-            score += 2.0
-        if is_number(w):
-            score += 1.0
+        score = _score_word(w)
         if score > best_score:
             best_score = score
             best_idx = i
@@ -98,6 +121,10 @@ def should_prevent_split(w1: str, w2: str) -> bool:
 
 
 def get_segment_word_timings(segment, tx_words, last_tx_idx):
+    """Returns [(word, start_ms, end_ms, seg_word_idx), ...] — `seg_word_idx` is
+    the word's position in `segment.text.split()`, preserved through grouping so
+    `segment.emphasis` (LLM-flagged word indices) can still be located after
+    words get regrouped into on-screen lines."""
     seg_words = segment.text.split()
     n_seg = len(seg_words)
     if n_seg == 0:
@@ -119,10 +146,10 @@ def get_segment_word_timings(segment, tx_words, last_tx_idx):
             tx_word_idx = best_match_idx + i
             if tx_word_idx < len(tx_words):
                 tw = tx_words[tx_word_idx]
-                word_timings.append((seg_words[i], tw.start_ms, tw.end_ms))
+                word_timings.append((seg_words[i], tw.start_ms, tw.end_ms, i))
             else:
                 prev_end = word_timings[-1][2] if word_timings else segment.start_ms
-                word_timings.append((seg_words[i], prev_end, prev_end + 300))
+                word_timings.append((seg_words[i], prev_end, prev_end + 300, i))
         last_tx_idx = best_match_idx + n_seg
     else:
         duration = segment.end_ms - segment.start_ms
@@ -130,22 +157,22 @@ def get_segment_word_timings(segment, tx_words, last_tx_idx):
         for i in range(n_seg):
             w_start = int(segment.start_ms + i * word_duration)
             w_end = int(w_start + word_duration)
-            word_timings.append((seg_words[i], w_start, w_end))
-            
+            word_timings.append((seg_words[i], w_start, w_end, i))
+
     return word_timings, last_tx_idx
 
 
 def group_words(word_timings, word_limit, max_chars=24):
     groups = []
     current_group = []
-    
+
     i = 0
     while i < len(word_timings):
-        word, start_ms, end_ms = word_timings[i]
-        current_group.append((word, start_ms, end_ms))
-        
+        word, start_ms, end_ms, seg_word_idx = word_timings[i]
+        current_group.append((word, start_ms, end_ms, seg_word_idx))
+
         if i + 1 < len(word_timings):
-            next_word, next_start, next_end = word_timings[i+1]
+            next_word, next_start, next_end, _next_seg_idx = word_timings[i+1]
             current_text = " ".join([item[0] for item in current_group])
             projected_text = current_text + " " + next_word
             
@@ -161,11 +188,18 @@ def group_words(word_timings, word_limit, max_chars=24):
             if len(current_group) >= word_limit:
                 if not prevent_split:
                     force_split = True
-            
-            ends_with_punc = word[-1] in {'.', ',', '!', '?', ';'}
-            if ends_with_punc and not prevent_split:
+
+            # Strong sentence-enders always break a card. Weak punctuation
+            # (commas, semicolons) only breaks one once it already holds a
+            # reasonable number of words — otherwise almost every clause
+            # boundary fragments cards down to 1-2 words, which is far
+            # fewer than word_limit intends and leaves cards looking mostly
+            # empty relative to their container.
+            if word[-1] in {'.', '!', '?'} and not prevent_split:
                 force_split = True
-                
+            elif word[-1] in {',', ';'} and not prevent_split and len(current_group) >= max(2, word_limit // 2):
+                force_split = True
+
             if force_split:
                 groups.append(current_group)
                 current_group = []
@@ -237,7 +271,13 @@ class DummyRenderPlanProvider(RenderPlanProvider):
     ) -> ProviderOutput:
         start = time.monotonic()
 
-        preset = StylePresetManager.get_preset(style)
+        # The actual StylePresetManager dict key this style resolved to — NOT
+        # preset.name (a human display string like "Custom My Project") which
+        # doesn't round-trip through StylePresetManager.get_preset() and would
+        # silently fall back to "minimal" wherever this theme key is looked up
+        # again later (e.g. the ASS export engine).
+        resolved_style_key = (style or "minimal").strip().lower()
+        preset = StylePresetManager.get_preset(resolved_style_key)
 
         # Resolve caption template setting
         template = caption_template or getattr(preset.timing, "caption_template", "word_by_word")
@@ -257,37 +297,62 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         elif emotion in {"serious", "sad", "angry", "fearful"} or speaking_style in {"slow", "monotone"}:
             font_size *= 0.85
             animation = "fade"
-            highlight_color = preset.typography.color # mute highlight
+            # Tone the emphasis down (calmer "fade" animation, no size boost)
+            # rather than setting highlight_color to the exact same value as
+            # the base text color — that erased all contrast and made the
+            # "highlighted" keyword completely indistinguishable from
+            # surrounding text for any video the creative-analysis LLM
+            # judged as serious/sad/slow, i.e. illegible by construction.
 
         timeline = []
         event_counter = 1
         last_tx_idx = 0
         elapsed_time_ms = 0
+        # Tracks which highlight events belong to which caption, in lockstep
+        # with construction (one entry per caption, appended right after its
+        # caption event). This is later used instead of re-deriving
+        # ownership from timestamps, because the timing-floor pass below can
+        # stretch a caption's boundaries into a neighboring caption's
+        # original time window — a timestamp-range re-match would then
+        # attach a highlight to the wrong (spatially overlapping) caption.
+        per_caption_highlights: list[list[dict]] = []
         
         # Evaluation tracking
         single_word_lines_count = 0
         name_splits_count = 0
         flashing_captions_count = 0
 
-        # Process each segment
+        # Group-sizing and typography rules per template — see
+        # app.render.templates, the single source of truth every template
+        # (and app.render.engine's ASS export, via the resolved values baked
+        # into this timeline below) reads from. max_chars is a safety valve
+        # against absurdly long lines, not the primary driver — it used to
+        # be tight enough (30/36 chars) that it force-split groups well
+        # before word_limit was reached, so a "5-word" template routinely
+        # rendered only 1-2 words per card. word_limit is now the
+        # constraint that actually governs how full a card looks.
+        template_style = get_template_style(template)
+        word_limit_to_use = template_style.word_limit
+        max_chars = template_style.max_chars
+
+        # Process each caption-planning segment as-is. Segments come
+        # straight from the LLM (prompts/caption_planning.txt now targets
+        # 3-5 words per segment directly), so grouping only ever needs to
+        # subdivide *within* a segment via word_limit/max_chars below — no
+        # cross-segment merging. An earlier version of this code merged
+        # short, adjacent LLM segments together to hit a template's word
+        # count; that fixed the number but produced cards that glued two
+        # unrelated sentences/clauses together with no real seam, which
+        # read as more broken than the sparse cards it replaced. Getting
+        # the segmentation right at the source (the prompt) instead keeps
+        # every card's text a genuine, coherent phrase.
         for segment_idx, segment in enumerate(caption_plan.caption_segments):
             is_first = (segment_idx == 0)
-            
+
             # Align with transcript timestamps
             word_timings, last_tx_idx = get_segment_word_timings(
                 segment, transcript.words, last_tx_idx
             )
-            
-            # Group words using template rules
-            if template == "word_by_word":
-                word_limit_to_use = 1
-                max_chars = 20
-            elif template == "staggered_3line":
-                word_limit_to_use = 5
-                max_chars = 30
-            else:  # sentence_highlight or sentence_clean
-                word_limit_to_use = 8
-                max_chars = 36
 
             groups = group_words(word_timings, word_limit_to_use, max_chars)
 
@@ -318,9 +383,24 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     
                 # Hook & Feature Detection
                 features = analyze_text_features(group_text, is_first and g_idx == 0, elapsed_time_ms)
-                
-                curr_text = group_text
-                curr_size = font_size
+
+                # Case consistency: hook/CTA/surprise cards used to force
+                # ALL-CAPS while a "regular" card in the same video kept
+                # natural mixed case (with only the ASS/frontend renderer
+                # separately forcing the keyword word to caps) — so a video
+                # would flip between fully-shouty cards and mixed-case cards
+                # with one stray all-caps word, looking like two different
+                # style systems rather than one consistent design. Every
+                # template's own force_uppercase setting now applies
+                # consistently to every card.
+                curr_text = group_text.upper() if template_style.force_uppercase else group_text
+                # Non-highlighted text used to render at whatever the style
+                # preset's own (often modest) size/weight was, distinct from
+                # nothing — there was no "give the body text real presence"
+                # step. base_size_scale/base_weight are the template's
+                # opinion on how big/bold non-highlighted words should be.
+                curr_size = font_size * template_style.base_size_scale
+                curr_weight = _max_weight(preset.typography.weight, template_style.base_weight)
                 curr_color = preset.typography.color
                 curr_anim = animation
                 
@@ -368,20 +448,21 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                         "text": curr_text + emoji_suffix,
                         "font": preset.typography.font,
                         "size": curr_size,
-                        "weight": preset.typography.weight,
+                        "weight": curr_weight,
                         "color": curr_color,
                         "alignment": preset.typography.alignment,
                         "animation": curr_anim,
                     },
                 })
                 event_counter += 1
+                per_caption_highlights.append([])
 
                 # Generate highlight events for each word in the group. These double as
                 # both the "most important word" emphasis marker and the reveal-timing
                 # split points the render engine uses to build up the line word by word.
                 if template in {"sentence_highlight", "staggered_3line"}:
                     keyword_idx = pick_keyword_idx(group_words_text)
-                    for w_idx, (w_text, w_start, w_end) in enumerate(group):
+                    for w_idx, (w_text, w_start, w_end, _seg_word_idx) in enumerate(group):
                         # Ensure word highlights fit within the clamped caption boundaries
                         h_start = max(w_start, g_start)
                         h_end = min(w_end, g_end)
@@ -390,7 +471,8 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                             h_end = g_end
 
                         if h_start < h_end:
-                            timeline.append({
+                            is_kw = w_idx == keyword_idx
+                            highlight_evt = {
                                 "id": f"evt-{event_counter}",
                                 "start_ms": h_start,
                                 "end_ms": h_end,
@@ -400,9 +482,18 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                                     "indices": [w_idx],
                                     "color": highlight_color,
                                     "animation": "pop",
-                                    "is_keyword": w_idx == keyword_idx,
+                                    "is_keyword": is_kw,
+                                    # Only the hero word gets the template's
+                                    # distinct font/weight/size treatment —
+                                    # the other per-word highlight events
+                                    # here are just reveal-timing markers.
+                                    "font": template_style.keyword_font if is_kw else None,
+                                    "weight": template_style.keyword_weight if is_kw else None,
+                                    "size_scale": template_style.keyword_size_scale if is_kw else None,
                                 }
-                            })
+                            }
+                            timeline.append(highlight_evt)
+                            per_caption_highlights[-1].append(highlight_evt)
                             event_counter += 1
 
                 elapsed_time_ms = g_end
@@ -416,29 +507,77 @@ class DummyRenderPlanProvider(RenderPlanProvider):
             curr_evt = captions[idx]
             next_evt = captions[idx+1]
             gap = next_evt["start_ms"] - curr_evt["end_ms"]
-            if gap > 0:
-                if preset.timing.pause_handling == "hold":
-                    # Extend end time to cover silence up to 1.2s
-                    hold_extension = min(gap - preset.timing.caption_spacing_ms, 1200)
-                    if hold_extension > 0:
-                        curr_evt["end_ms"] += hold_extension
+            if gap > 0 and preset.timing.pause_handling == "hold":
+                # Extend end time to cover silence up to 1.2s
+                hold_extension = min(gap - preset.timing.caption_spacing_ms, 1200)
+                if hold_extension > 0:
+                    curr_evt["end_ms"] += hold_extension
 
-            # Clamp overlapping caption blocks
-            if curr_evt["end_ms"] >= next_evt["start_ms"]:
-                curr_evt["end_ms"] = max(curr_evt["start_ms"] + 1, next_evt["start_ms"] - 1)
+        # Timing Engine floor: guarantee every caption card stays on screen
+        # long enough to actually be read. The old overlap-clamp here used to
+        # shrink a card to as little as 1ms whenever timing estimates ran
+        # tight (segment boundaries, fast speech, slightly-overlapping LLM
+        # caption-plan segments) — effectively making words disappear before
+        # a viewer could ever see them. A forward monotonic pass instead
+        # pushes each card's start to the previous card's end (never
+        # overlapping) and stretches its end to a minimum readable duration.
+        MIN_CAPTION_DURATION_MS = 350
+        for idx in range(len(captions)):
+            if idx > 0:
+                prev_end = captions[idx - 1]["end_ms"]
+                if captions[idx]["start_ms"] < prev_end:
+                    captions[idx]["start_ms"] = prev_end
+            min_end = captions[idx]["start_ms"] + MIN_CAPTION_DURATION_MS
+            if captions[idx]["end_ms"] < min_end:
+                captions[idx]["end_ms"] = min_end
 
-        # For each caption, ensure its highlights fit within its (potentially adjusted) boundaries
-        for cap in captions:
-            # Find highlights associated with this caption's original time range
-            cap_highlights = [
-                h for h in highlights
-                if h["start_ms"] >= cap["start_ms"] and h["start_ms"] < cap["end_ms"]
-            ]
-            for h in cap_highlights:
-                h["start_ms"] = max(h["start_ms"], cap["start_ms"])
-                h["end_ms"] = min(h["end_ms"], cap["end_ms"])
-                if h["start_ms"] >= h["end_ms"]:
-                    h["end_ms"] = h["start_ms"] + 1
+        # For each caption, ensure its highlights fit within its (potentially
+        # adjusted) boundaries. Ownership comes from per_caption_highlights
+        # (recorded at construction time, in the same order as `captions`)
+        # rather than re-matching by timestamp — the timing-floor pass above
+        # can stretch a caption's box into a neighboring caption's original
+        # time window, and a timestamp-range re-match would then attach a
+        # highlight word to the wrong, now-overlapping caption card.
+        for cap, cap_highlights in zip(captions, per_caption_highlights):
+            if not cap_highlights:
+                continue
+
+            cap_span = cap["end_ms"] - cap["start_ms"]
+            n = len(cap_highlights)
+            natural_span = (
+                max(h["end_ms"] for h in cap_highlights) - min(h["start_ms"] for h in cap_highlights)
+            )
+
+            # Real word-level timestamps (from Whisper-style ASR, or after
+            # the timing floor above stretched a too-tight caption) are
+            # sometimes bunched together into a near-zero span — clamping
+            # those to the caption's box would leave every word's highlight
+            # overlapping at the same instant (a hard validation failure,
+            # and even when it validates, it visually reveals every word at
+            # once and then does nothing for the rest of the card's
+            # duration). When the natural timing can't sensibly carry a
+            # one-word-at-a-time reveal, redistribute the words evenly
+            # across the caption's actual on-screen duration instead.
+            if n > 0 and (natural_span <= 0 or natural_span < 50 * n):
+                slot = cap_span / n
+                for i, h in enumerate(cap_highlights):
+                    h["start_ms"] = int(cap["start_ms"] + i * slot)
+                    h["end_ms"] = cap["end_ms"] if i == n - 1 else int(cap["start_ms"] + (i + 1) * slot)
+            else:
+                for h in cap_highlights:
+                    h["start_ms"] = max(h["start_ms"], cap["start_ms"])
+                    h["end_ms"] = min(h["end_ms"], cap["end_ms"])
+                    if h["start_ms"] >= h["end_ms"]:
+                        h["end_ms"] = h["start_ms"] + 1
+                # Clamping alone doesn't guarantee order — natural
+                # timestamps that were merely out-of-order (rather than
+                # degenerate) could still cross after clamping. Enforce
+                # monotonic, non-overlapping boundaries as a final safety net.
+                for i in range(1, len(cap_highlights)):
+                    if cap_highlights[i]["start_ms"] < cap_highlights[i - 1]["end_ms"]:
+                        cap_highlights[i]["start_ms"] = cap_highlights[i - 1]["end_ms"]
+                        if cap_highlights[i]["end_ms"] <= cap_highlights[i]["start_ms"]:
+                            cap_highlights[i]["end_ms"] = cap_highlights[i]["start_ms"] + 1
 
         # Re-assemble and sort timeline by start_ms, and type (caption first) to preserve rendering order
         timeline = captions + highlights
@@ -485,10 +624,19 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                     "left": preset.safe_area.left,
                     "right": preset.safe_area.right,
                 },
-                "theme": preset.name.lower(),
+                "theme": resolved_style_key,
                 "default_font": preset.typography.font,
                 "default_colors": preset.highlight.colors,
                 "motion_preset": preset.animation.motion_preset,
+                # The template actually used to build this timeline — export
+                # (app.render.engine) must read this instead of re-deriving
+                # a template from the style preset's own default, which
+                # silently used the wrong layout whenever a project
+                # overrode its caption_template away from the preset default.
+                "caption_template": template,
+                # Layout variant for staggered_3line: "splash" (original
+                # left/right-offset look) or "centre" (all lines centered).
+                "staggered_layout": getattr(preset.timing, "staggered_layout", "splash"),
             },
             "timeline": timeline,
         }

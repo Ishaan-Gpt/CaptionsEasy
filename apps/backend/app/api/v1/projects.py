@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth.dependencies import get_current_profile
+from app.core.config import get_settings
 from app.core.errors import NotFoundError, ForbiddenError, AppError
 from app.core.responses import success_response
 from app.storage.base import StorageClient
@@ -126,6 +127,10 @@ class CustomStyleRequest(BaseModel):
     highlight_color: str
     background_style: str = "none"
     y_position_percent: float = 71.4
+    caption_template: str = "staggered_3line"
+    # Layout variant for staggered_3line only: "splash" (line 1 left, line 3
+    # right, offset around the keyword) or "centre" (all lines centered).
+    staggered_layout: str = "splash"
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -180,15 +185,18 @@ async def save_custom_style(
         "emoji": base_preset.get("emoji", {
             "behavior": "none"
         }),
-        "timing": base_preset.get("timing", {
-            "word_limit": 5,
-            "caption_spacing_ms": 50,
-            "word_pacing": "dynamic",
-            "pause_handling": "hold",
-            "sentence_segmentation": "semantic",
-            "reading_speed_limit_cps": 22,
-            "caption_template": "staggered_3line"
-        }),
+        "timing": {
+            **base_preset.get("timing", {
+                "word_limit": 5,
+                "caption_spacing_ms": 50,
+                "word_pacing": "dynamic",
+                "pause_handling": "hold",
+                "sentence_segmentation": "semantic",
+                "reading_speed_limit_cps": 22,
+            }),
+            "caption_template": body.caption_template,
+            "staggered_layout": body.staggered_layout,
+        },
         "transitions": base_preset.get("transitions", "fade")
     }
     
@@ -223,6 +231,7 @@ async def get_custom_style(
     if preset:
         topo = preset.get("typography", {})
         highlight = preset.get("highlight", {})
+        timing = preset.get("timing", {})
         colors = highlight.get("colors", ["#C5FF00"])
         return success_response({
             "font": topo.get("font", "Outfit"),
@@ -234,7 +243,9 @@ async def get_custom_style(
             "outline": topo.get("outline", 2.0),
             "highlight_color": colors[0] if colors else "#C5FF00",
             "background_style": topo.get("background_style", "none"),
-            "y_position_percent": topo.get("y_position_percent", 71.4)
+            "y_position_percent": topo.get("y_position_percent", 71.4),
+            "caption_template": timing.get("caption_template", "staggered_3line"),
+            "staggered_layout": timing.get("staggered_layout", "splash")
         })
     else:
         # Fall back to base Kalakar template values
@@ -248,7 +259,9 @@ async def get_custom_style(
             "outline": 2.0,
             "highlight_color": "#C5FF00",
             "background_style": "none",
-            "y_position_percent": 71.4
+            "y_position_percent": 71.4,
+            "caption_template": "staggered_3line",
+            "staggered_layout": "splash"
         })
 
 
@@ -380,14 +393,16 @@ async def generate_motion_script(
     if not transcript or not creative_plan or not caption_plan:
         raise AppError("Complete transcript and caption planning first.", code="BAD_REQUEST", status_code=400)
 
-    from app.ai.providers.dummy.render_plan import DummyRenderPlanProvider
+    from app.ai.providers.dummy import register_dummy_providers
+    from app.ai.providers.stage_provider_registry import render_plan_provider_registry
     from packages.contracts.python import Transcript as TranscriptModel, CreativePlan as CreativePlanModel, CaptionPlan as CaptionPlanModel
-    
+
     parsed_transcript = TranscriptModel.model_validate(transcript.transcript_json)
     parsed_creative = CreativePlanModel.model_validate(creative_plan.creative_plan)
     parsed_caption = CaptionPlanModel.model_validate(caption_plan.caption_json)
 
-    provider = DummyRenderPlanProvider()
+    register_dummy_providers()  # idempotent; ensures the configured provider name is resolvable.
+    provider = render_plan_provider_registry.create(get_settings().render_plan_provider_name)
     output = await provider.plan(
         transcript=parsed_transcript,
         creative_plan=parsed_creative,
@@ -395,8 +410,9 @@ async def generate_motion_script(
         project_id=str(project.id),
         video_id=str(project.id),
         style=project.style,
+        caption_template=project.caption_template,
     )
-    
+
     motion_script = await motion_script_repository.create(
         project_id=project.id,
         motion_script_json=output.data,
@@ -416,10 +432,42 @@ async def export_project(
     job_repository: JobRepository = Depends(get_job_repository),
     job_dispatcher: JobDispatcherProtocol = Depends(get_job_dispatcher),
     motion_script_repository: MotionScriptRepository = Depends(get_motion_script_repository),
+    transcript_repository: TranscriptRepository = Depends(get_transcript_repository),
+    creative_plan_repository: CreativePlanRepository = Depends(get_creative_plan_repository),
+    caption_plan_repository: CaptionPlanRepository = Depends(get_caption_plan_repository),
 ):
-    motion_script = await motion_script_repository.get_latest_for_project(project.id)
-    if motion_script is None:
-        raise AppError("Generate a MotionScript before exporting.", code="BAD_REQUEST", status_code=400)
+    # Automatically regenerate the MotionScript to capture the latest transcript/styling edits
+    transcript = await transcript_repository.get_latest_for_project(project.id)
+    creative_plan = await creative_plan_repository.get_latest_for_project(project.id)
+    caption_plan = await caption_plan_repository.get_latest_for_project(project.id)
+    
+    if not transcript or not creative_plan or not caption_plan:
+        raise AppError("Complete transcript and caption planning first.", code="BAD_REQUEST", status_code=400)
+
+    from app.ai.providers.dummy import register_dummy_providers
+    from app.ai.providers.stage_provider_registry import render_plan_provider_registry
+    from packages.contracts.python import Transcript as TranscriptModel, CreativePlan as CreativePlanModel, CaptionPlan as CaptionPlanModel
+
+    parsed_transcript = TranscriptModel.model_validate(transcript.transcript_json)
+    parsed_creative = CreativePlanModel.model_validate(creative_plan.creative_plan)
+    parsed_caption = CaptionPlanModel.model_validate(caption_plan.caption_json)
+
+    register_dummy_providers()  # idempotent; ensures the configured provider name is resolvable.
+    provider = render_plan_provider_registry.create(get_settings().render_plan_provider_name)
+    output = await provider.plan(
+        transcript=parsed_transcript,
+        creative_plan=parsed_creative,
+        caption_plan=parsed_caption,
+        project_id=str(project.id),
+        video_id=str(project.id),
+        style=project.style,
+        caption_template=project.caption_template,
+    )
+
+    await motion_script_repository.create(
+        project_id=project.id,
+        motion_script_json=output.data,
+    )
 
     job = await job_repository.create_queued(project_id=project.id, job_type="render")
     job_dispatcher.dispatch(str(job.id))

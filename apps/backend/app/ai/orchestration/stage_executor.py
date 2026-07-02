@@ -159,9 +159,10 @@ class StageExecutor:
             validation_failures=validation_failures,
         )
         stage_logger.log_failure(stage=definition.stage, error=last_error, attempt=2)
+        error_msg = f"Provider stage failed: {last_error}" if last_error else "Provider output failed validation after repair and one retry"
         raise StageFailure(
             definition.stage,
-            "Provider output failed validation after repair and one retry",
+            error_msg,
             cause=last_error,
         )
 
