@@ -666,13 +666,13 @@
   "custom_23f960eb-e1de-4362-89cc-276b358abce2": {
     "name": "Custom test4",
     "typography": {
-      "font": "Outfit",
-      "size": 48.0,
-      "weight": "600",
+      "font": "Inter",
+      "size": 56.0,
+      "weight": "500",
       "color": "#FFFFFF",
       "alignment": "center",
-      "shadow": 5.0,
-      "outline": 0.0,
+      "shadow": 0.0,
+      "outline": 2.0,
       "background_style": "none",
       "y_position_percent": 71.4
     },
@@ -683,7 +683,7 @@
     },
     "highlight": {
       "colors": [
-        "#8CFF3E"
+        "#C5FF00"
       ]
     },
     "safe_area": {
@@ -702,8 +702,9 @@
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
       "reading_speed_limit_cps": 22,
-      "caption_template": "cinematic_emerald",
-      "staggered_layout": "splash"
+      "caption_template": "staggered_3line",
+      "staggered_layout": "splash",
+      "accent_period_enabled": true
     },
     "transitions": "fade"
   }

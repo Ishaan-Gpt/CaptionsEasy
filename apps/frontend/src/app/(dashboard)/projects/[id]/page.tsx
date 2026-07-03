@@ -758,6 +758,12 @@ export default function ProjectWorkspacePage() {
   const [renderError, setRenderError] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [isPipelineDropdownOpen, setIsPipelineDropdownOpen] = useState(true);
+  // Which export (if any) the main player is showing instead of the raw
+  // source video. null = "Live Preview" (original clip + the editable
+  // CSS/DOM caption overlay below). Set automatically once a render
+  // finishes, or manually via "Preview" in Render History — always
+  // reversible via the Live Preview toggle so styling stays editable.
+  const [activeExportId, setActiveExportId] = useState<string | null>(null);
 
   const AI_PIPELINE_STAGES = [
     { id: "speech", name: "Speech Transcription" },
@@ -881,7 +887,17 @@ export default function ProjectWorkspacePage() {
       
       const finalStatus = await jobsService.getJobStatus(jobId);
       if (finalStatus.stage.toLowerCase() === "completed" || finalStatus.progress === 100) {
-        await refetchExports();
+        const { data: freshExports } = await refetchExports();
+        // Auto-switch the main player to the export that just finished —
+        // this is the actual burned-in-captions file, not the live CSS
+        // overlay, so the user sees exactly what they downloaded instead
+        // of only finding it via a download link in Render History.
+        const latestCompleted = (freshExports || [])
+          .filter((e: any) => e.status === "completed" && e.download_url)
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+        if (latestCompleted) {
+          setActiveExportId(latestCompleted.id);
+        }
       } else {
         setRenderError(`Rendering failed: ${finalStatus.stage}`);
       }
@@ -2144,12 +2160,63 @@ export default function ProjectWorkspacePage() {
               )}
               
               {/* HTML5 Video Element */}
-              {projectVideo?.download_url || (exports && exports.filter((e: any) => e.status === "completed").length > 0) ? (
-                <video
-                  ref={videoRef}
-                  src={projectVideo?.download_url || (exports || []).filter((e: any) => e.status === "completed")[0]?.download_url}
-                  className="w-full h-full object-cover"
-                  poster={project.thumbnail_url || undefined}
+              {(() => {
+                const completedExports = (exports || []).filter((e: any) => e.status === "completed" && e.download_url);
+                const activeExport = activeExportId ? completedExports.find((e: any) => e.id === activeExportId) : null;
+                // Viewing a real export (burned-in captions) takes priority
+                // over the raw source once one is selected/just finished —
+                // falls back to the raw clip, then to the latest export if
+                // that's literally all that exists (e.g. source deleted).
+                const previewSrc = activeExport?.download_url || projectVideo?.download_url || completedExports[0]?.download_url;
+                const isViewingExport = Boolean(activeExport);
+
+                if (!previewSrc) {
+                  return (
+                    <label className="flex flex-col items-center justify-center p-6 text-center space-y-4 cursor-pointer hover:bg-[#181B21]/50 transition-colors w-full h-full absolute inset-0">
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/webm"
+                        onChange={handleUploadFile}
+                        className="hidden"
+                      />
+                      <div className="w-10 h-10 rounded-full border border-dashed border-[#FFB800] flex items-center justify-center text-[#FFB800] hover:scale-105 transition-transform duration-200">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                        </svg>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-white uppercase font-black tracking-wider block">
+                          Upload Media
+                        </span>
+                        <span className="text-[7px] text-white/40 uppercase tracking-widest block">
+                          Drag & drop or click to upload
+                        </span>
+                      </div>
+                    </label>
+                  );
+                }
+
+                return (
+                  <>
+                    {isViewingExport && (
+                      <div className="absolute top-2 left-2 z-20 flex items-center gap-2 bg-[#0A0B0D]/80 border border-[#FFB800]/40 rounded-full pl-3 pr-1 py-1">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-[#FFB800]">
+                          Viewing Rendered Export
+                        </span>
+                        <button
+                          onClick={() => setActiveExportId(null)}
+                          className="text-[8px] font-bold uppercase tracking-wider text-white/80 bg-white/10 hover:bg-white/20 rounded-full px-2 py-0.5 cursor-pointer"
+                        >
+                          Back to Live Preview
+                        </button>
+                      </div>
+                    )}
+                    <video
+                      key={previewSrc}
+                      ref={videoRef}
+                      src={previewSrc}
+                      className="w-full h-full object-cover"
+                      poster={project.thumbnail_url || undefined}
                   onClick={() => {
                     if (videoRef.current) {
                       if (isPlaying) {
@@ -2178,33 +2245,15 @@ export default function ProjectWorkspacePage() {
                     }
                   }}
                   onEnded={() => setIsPlaying(false)}
-                />
-              ) : (
-                <label className="flex flex-col items-center justify-center p-6 text-center space-y-4 cursor-pointer hover:bg-[#181B21]/50 transition-colors w-full h-full absolute inset-0">
-                  <input
-                    type="file"
-                    accept="video/mp4,video/quicktime,video/webm"
-                    onChange={handleUploadFile}
-                    className="hidden"
-                  />
-                  <div className="w-10 h-10 rounded-full border border-dashed border-[#FFB800] flex items-center justify-center text-[#FFB800] hover:scale-105 transition-transform duration-200">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-white uppercase font-black tracking-wider block">
-                      Upload Media
-                    </span>
-                    <span className="text-[7px] text-white/40 uppercase tracking-widest block">
-                      Drag & drop or click to upload
-                    </span>
-                  </div>
-                </label>
-              )}
+                    />
+                  </>
+                );
+              })()}
 
-              {/* Subtitle Preview Overlay */}
-              {(() => {
+              {/* Subtitle Preview Overlay — only for Live Preview: a real
+                  export already has captions burned into the file, so
+                  drawing the CSS overlay on top would show them twice. */}
+              {!activeExportId && (() => {
                 // Normalize data to a consistent format
                 let wordsObj: { text: string }[] = [];
                 let revealedMax = 0;
@@ -3556,13 +3605,25 @@ export default function ProjectWorkspacePage() {
                       </span>
                     </div>
                     {exp.status === "completed" && exp.download_url && (
-                      <a 
-                        href={exp.download_url} 
-                        download 
-                        className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4] hover:text-[#00C2A0] transition-colors text-center w-full py-1 bg-[#0A0B0D] border border-[#23272F] block"
-                      >
-                        Download Output File
-                      </a>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setActiveExportId(exp.id)}
+                          className={`text-[9px] font-bold uppercase tracking-wider transition-colors text-center flex-1 py-1 border block cursor-pointer ${
+                            activeExportId === exp.id
+                              ? "text-[#0A0B0D] bg-[#FFB800] border-[#FFB800]"
+                              : "text-white/80 bg-[#0A0B0D] border-[#23272F] hover:text-white"
+                          }`}
+                        >
+                          {activeExportId === exp.id ? "Now Previewing" : "Preview"}
+                        </button>
+                        <a
+                          href={exp.download_url}
+                          download
+                          className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4] hover:text-[#00C2A0] transition-colors text-center flex-1 py-1 bg-[#0A0B0D] border border-[#23272F] block"
+                        >
+                          Download
+                        </a>
+                      </div>
                     )}
                   </div>
                 ))
