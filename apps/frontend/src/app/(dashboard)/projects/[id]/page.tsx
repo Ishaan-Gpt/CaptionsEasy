@@ -509,6 +509,9 @@ export default function ProjectWorkspacePage() {
   const transcriptSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveStyleImmediate = async (styleOverrides?: any) => {
+    // Any style edit is a request to see it live — don't leave the preview
+    // stuck showing a previously rendered export (see handleTemplateClick).
+    setActiveExportId(null);
     const wMap: Record<string, string> = {
       "Thin": "100", "Extra Light": "200", "Light": "300", "Regular": "400",
       "Medium": "500", "Semi Bold": "600", "Bold": "700", "Extra Bold": "800", "Black": "900",
@@ -564,6 +567,12 @@ export default function ProjectWorkspacePage() {
   };
 
   const saveStyleBackground = (styleOverrides?: any) => {
+    // Any style edit is a request to see it live — don't leave the preview
+    // stuck showing a previously rendered export (see handleTemplateClick).
+    // Done synchronously here (not inside the debounced setTimeout below)
+    // so the preview switches back immediately on the first keystroke/drag,
+    // not after the 1s save debounce.
+    setActiveExportId(null);
     if (styleSaveTimeoutRef.current) {
       clearTimeout(styleSaveTimeoutRef.current);
     }
@@ -644,9 +653,16 @@ export default function ProjectWorkspacePage() {
 
   const handleTemplateClick = (presetId: string) => {
     setExpandedTemplateId(presetId);
-    
+
     const preset = TEMPLATE_PRESETS_LIST.find((p) => p.id === presetId);
     if (!preset) return;
+
+    // Selecting a template is a request to see it live — if the preview is
+    // currently locked onto a previously rendered export (see the
+    // activeExportId auto-switch in handleExport), stay stuck showing that
+    // stale export forever, since nothing else ever cleared it. Every
+    // subsequent template click would silently do nothing visible.
+    setActiveExportId(null);
 
     setCustomFont(preset.font);
     setCustomSize(preset.size);
