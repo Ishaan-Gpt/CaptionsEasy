@@ -342,6 +342,17 @@ export default function ProjectWorkspacePage() {
               "500": "Medium", "600": "Semi Bold", "700": "Bold", "800": "Extra Bold", "900": "Black"
             };
             setCustomFontFace(wMap[res.weight || "800"] || "Bold");
+
+            // Previously reset to defaults on every reload (never actually
+            // persisted) — now round-trips through CustomStyleRequest for real.
+            setCustomCasing((res.text_transform || "none") as any);
+            setCustomUnderline(Boolean(res.underline));
+            setCustomLetterSpacing(res.letter_spacing ?? 0);
+            setCustomWordSpacing(res.word_spacing ?? 6);
+            setCustomLineSpacing(res.line_spacing ?? 1.0);
+            setCustomColorMode((res.color_mode || "solid") as any);
+            if (res.color2) setCustomColor2(res.color2);
+            if (res.x_position_percent != null) setCustomXPositionPercent(res.x_position_percent);
           }
         })
         .catch((err) => console.error("Error loading custom style: ", err));
@@ -530,6 +541,14 @@ export default function ProjectWorkspacePage() {
       caption_spacing_ms: customCaptionSpacingMs,
       word_pacing: customWordPacing,
       pause_handling: customPauseHandling,
+      text_transform: customCasing,
+      underline: customUnderline,
+      letter_spacing: customLetterSpacing,
+      word_spacing: customWordSpacing,
+      line_spacing: customLineSpacing,
+      color_mode: customColorMode,
+      color2: customColorMode === "gradient" ? customColor2 : null,
+      x_position_percent: customXPositionPercent,
       ...styleOverrides
     };
 
@@ -582,6 +601,14 @@ export default function ProjectWorkspacePage() {
         caption_spacing_ms: customCaptionSpacingMs,
         word_pacing: customWordPacing,
         pause_handling: customPauseHandling,
+        text_transform: customCasing,
+        underline: customUnderline,
+        letter_spacing: customLetterSpacing,
+        word_spacing: customWordSpacing,
+        line_spacing: customLineSpacing,
+        color_mode: customColorMode,
+        color2: customColorMode === "gradient" ? customColor2 : null,
+        x_position_percent: customXPositionPercent,
         ...styleOverrides
       };
 
@@ -644,6 +671,20 @@ export default function ProjectWorkspacePage() {
       setSelectedBackgroundStyle(preset.background_style as any);
     }
 
+    // These 9 fields used to never get reset on template switch — harmless
+    // while they were pure decoration (nothing persisted them), but now
+    // that they round-trip through CustomStyleRequest for real, leaving a
+    // stale value from a previous template would leak into the new one's
+    // saved style. No preset defines these, so reset to neutral defaults.
+    setCustomCasing("none");
+    setCustomUnderline(false);
+    setCustomAlignment("center");
+    setCustomXPositionPercent(50);
+    setCustomColorMode("solid");
+    setCustomLetterSpacing(0);
+    setCustomWordSpacing(6);
+    setCustomLineSpacing(1.0);
+
     const wMap: Record<string, string> = {
       "100": "Thin", "200": "Extra Light", "300": "Light", "400": "Regular",
       "500": "Medium", "600": "Semi Bold", "700": "Bold", "800": "Extra Bold", "900": "Black"
@@ -676,6 +717,15 @@ export default function ProjectWorkspacePage() {
       caption_spacing_ms: preset.caption_spacing_ms || 50,
       word_pacing: preset.word_pacing || "dynamic",
       pause_handling: preset.pause_handling || "hold",
+      text_transform: "none",
+      underline: false,
+      letter_spacing: 0,
+      word_spacing: 6,
+      line_spacing: 1.0,
+      color_mode: "solid",
+      color2: null,
+      x_position_percent: null,
+      alignment: "center",
     });
   };
 

@@ -13,6 +13,17 @@ class TypographyPreset(BaseModel):
     outline: float
     background_style: Optional[str] = "none"
     y_position_percent: Optional[float] = 71.4
+    # Previously only existed in the frontend's local CSS state — never
+    # reached this preset model, so they were silently dropped the moment
+    # presets.json was re-parsed even if the API layer wrote them.
+    text_transform: Optional[str] = "none"
+    underline: Optional[bool] = False
+    letter_spacing: Optional[float] = 0.0
+    word_spacing: Optional[float] = 0.0
+    line_spacing: Optional[float] = 1.0
+    color_mode: Optional[str] = "solid"
+    color2: Optional[str] = None
+    x_position_percent: Optional[float] = None
 
 class AnimationPreset(BaseModel):
     caption_animation: str

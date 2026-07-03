@@ -452,6 +452,21 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                         "color": curr_color,
                         "alignment": preset.typography.alignment,
                         "animation": curr_anim,
+                        # Baked in from the style preset the same way
+                        # font/size/color already are — see CaptionPayload
+                        # (packages/contracts/python/render_plan.py) for why
+                        # these live on the payload itself now.
+                        "text_transform": preset.typography.text_transform or "none",
+                        "underline": bool(preset.typography.underline),
+                        "letter_spacing": preset.typography.letter_spacing or 0.0,
+                        "word_spacing": preset.typography.word_spacing or 0.0,
+                        "line_spacing": preset.typography.line_spacing or 1.0,
+                        "color_mode": preset.typography.color_mode or "solid",
+                        "color2": preset.typography.color2,
+                        "x_position_percent": preset.typography.x_position_percent,
+                        "shadow": preset.typography.shadow,
+                        "outline": preset.typography.outline,
+                        "background_style": preset.typography.background_style or "none",
                     },
                 })
                 event_counter += 1

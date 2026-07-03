@@ -240,24 +240,37 @@ class RenderEngine:
 
         # Allow caption event payloads to override defaults (retains backward compatibility)
         caption_events = [e for e in motion_script.timeline if e.type == EventType.CAPTION]
+        underline_val = 0
+        spacing_val = 0.0
+        text_transform = "none"
+        background_style = "none"
         if caption_events:
             first_payload = caption_events[0].parsed_payload()
             font_family = map_font_family(getattr(first_payload, "font", font_family))
             font_size = getattr(first_payload, "size", font_size)
-            
+
             color_hex = getattr(first_payload, "color", None)
             if color_hex:
                 base_color = self.hex_to_ass_abgr(color_hex)
-                
+
             alignment = getattr(first_payload, "alignment", alignment)
             if alignment == "left":
                 alignment_code = 1
             elif alignment == "right":
                 alignment_code = 3
 
+            # Previously these three Style-line fields (Underline, Spacing)
+            # were hardcoded to 0/0 regardless of what the user set in the
+            # Text tab — underline and letter-spacing looked correct in the
+            # live preview but silently never reached the ASS export.
+            underline_val = -1 if getattr(first_payload, "underline", False) else 0
+            spacing_val = getattr(first_payload, "letter_spacing", 0.0) or 0.0
+            text_transform = getattr(first_payload, "text_transform", "none") or "none"
+            background_style = getattr(first_payload, "background_style", "none") or "none"
+
         # Style definition line
         ass_lines.append(
-            f"Style: Default,{font_family},{font_size},{base_color},&H000000FF,&H00000000,&H80000000,{bold_val},0,0,0,100,100,0,0,1,{outline},{shadow},{alignment_code},{margin_l},{margin_r},{margin_v},1"
+            f"Style: Default,{font_family},{font_size},{base_color},&H000000FF,&H00000000,&H80000000,{bold_val},0,{underline_val},0,100,100,{spacing_val},0,1,{outline},{shadow},{alignment_code},{margin_l},{margin_r},{margin_v},1"
         )
         ass_lines.append("")
         ass_lines.append("[Events]")
@@ -270,6 +283,13 @@ class RenderEngine:
         for cap in caption_events:
             cap_payload = cap.parsed_payload()
             text = cap_payload.text
+            cap_text_transform = getattr(cap_payload, "text_transform", "none") or "none"
+            if cap_text_transform == "uppercase":
+                text = text.upper()
+            elif cap_text_transform == "lowercase":
+                text = text.lower()
+            elif cap_text_transform == "capitalize":
+                text = text.title()
             words = text.split()
             
             # Find active highlights for this caption
@@ -945,10 +965,47 @@ class RenderEngine:
                         elif anim_preset == "elastic":
                             anim_tags = "{\\fscx0\\fscy0}{\\t(0,100,\\fscx120\\fscy120)}{\\t(100,180,\\fscx95\\fscy95)}{\\t(180,250,\\fscx100\\fscy100)}"
                     
-                    full_text = f"{anim_tags}{segment_text}"
-                    
                     start_str = self.ms_to_ass_time(t_start)
                     end_str = self.ms_to_ass_time(t_end)
+
+                    # Background Box: previously a fully-wired Text-tab
+                    # toggle (Pill / Shadow Box) that rendered nothing at
+                    # all in either exporter. Approximated here as a
+                    # semi-transparent rounded \p1 rectangle drawn behind
+                    # the text, sized to the estimated text width — needs
+                    # an explicit \pos to anchor the box, so this branch's
+                    # text line now carries the same \pos rather than
+                    # relying on the Style line's implicit margin-based
+                    # position (equivalent visual result, just explicit).
+                    if background_style != "none":
+                        y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                        box_y = int(height * y_pct / 100.0)
+                        box_text_w = estimate_text_width(text, font_size)
+                        pad_x, pad_y = 28, 18
+                        box_half_w = int(box_text_w / 2) + pad_x
+                        box_half_h = int(font_size / 2) + pad_y
+                        box_x = width // 2
+                        corner = 24 if background_style == "pill" else 8
+                        fill_alpha = "&H40&" if background_style == "pill" else "&H60&"
+                        box_left_px = box_x - box_half_w
+                        box_top_px = box_y - box_half_h
+                        box_tags = f"{{\\pos({box_left_px},{box_top_px})\\an7\\1c&H1A1A1A&\\1a{fill_alpha}\\bord0\\shad0}}"
+                        box_draw = (
+                            f"m {corner} 0 l {box_half_w * 2 - corner} 0 "
+                            f"b {box_half_w * 2} 0 {box_half_w * 2} 0 {box_half_w * 2} {corner} "
+                            f"l {box_half_w * 2} {box_half_h * 2 - corner} "
+                            f"b {box_half_w * 2} {box_half_h * 2} {box_half_w * 2} {box_half_h * 2} {box_half_w * 2 - corner} {box_half_h * 2} "
+                            f"l {corner} {box_half_h * 2} "
+                            f"b 0 {box_half_h * 2} 0 {box_half_h * 2} 0 {box_half_h * 2 - corner} "
+                            f"l 0 {corner} "
+                            f"b 0 0 0 0 {corner} 0{{\\p0}}"
+                        )
+                        ass_lines.append(f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{box_tags}{{\\p1}}{box_draw}")
+                        text_pos_tag = f"{{\\pos({box_x},{box_y})}}"
+                    else:
+                        text_pos_tag = ""
+
+                    full_text = f"{text_pos_tag}{anim_tags}{segment_text}"
                     ass_lines.append(
                         f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{full_text}"
                     )

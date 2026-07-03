@@ -136,6 +136,19 @@ class CustomStyleRequest(BaseModel):
     caption_spacing_ms: int | None = None
     word_pacing: str | None = None
     pause_handling: str | None = None
+    # Previously accepted by the frontend and applied to the live preview
+    # only — never persisted here, so they silently reset on reload and
+    # never reached either exporter. Now saved for real and threaded
+    # through to CaptionPayload (packages/contracts/python/render_plan.py)
+    # by DummyRenderPlanProvider.plan().
+    text_transform: str = "none"
+    underline: bool = False
+    letter_spacing: float = 0.0
+    word_spacing: float = 0.0
+    line_spacing: float = 1.0
+    color_mode: str = "solid"
+    color2: str | None = None
+    x_position_percent: float | None = None
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -172,7 +185,15 @@ async def save_custom_style(
             "shadow": body.shadow,
             "outline": body.outline,
             "background_style": body.background_style,
-            "y_position_percent": body.y_position_percent
+            "y_position_percent": body.y_position_percent,
+            "text_transform": body.text_transform,
+            "underline": body.underline,
+            "letter_spacing": body.letter_spacing,
+            "word_spacing": body.word_spacing,
+            "line_spacing": body.line_spacing,
+            "color_mode": body.color_mode,
+            "color2": body.color2,
+            "x_position_percent": body.x_position_percent,
         },
         "animation": base_preset.get("animation", {
             "caption_animation": "pop",
@@ -255,7 +276,15 @@ async def get_custom_style(
             "word_limit": timing.get("word_limit", 5),
             "caption_spacing_ms": timing.get("caption_spacing_ms", 50),
             "word_pacing": timing.get("word_pacing", "dynamic"),
-            "pause_handling": timing.get("pause_handling", "hold")
+            "pause_handling": timing.get("pause_handling", "hold"),
+            "text_transform": topo.get("text_transform", "none"),
+            "underline": topo.get("underline", False),
+            "letter_spacing": topo.get("letter_spacing", 0.0),
+            "word_spacing": topo.get("word_spacing", 0.0),
+            "line_spacing": topo.get("line_spacing", 1.0),
+            "color_mode": topo.get("color_mode", "solid"),
+            "color2": topo.get("color2"),
+            "x_position_percent": topo.get("x_position_percent"),
         })
     else:
         # Fall back to base Kalakar template values
@@ -276,7 +305,15 @@ async def get_custom_style(
             "word_limit": 5,
             "caption_spacing_ms": 50,
             "word_pacing": "dynamic",
-            "pause_handling": "hold"
+            "pause_handling": "hold",
+            "text_transform": "none",
+            "underline": False,
+            "letter_spacing": 0.0,
+            "word_spacing": 0.0,
+            "line_spacing": 1.0,
+            "color_mode": "solid",
+            "color2": None,
+            "x_position_percent": None,
         })
 
 

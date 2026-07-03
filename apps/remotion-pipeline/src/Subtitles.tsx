@@ -22,6 +22,20 @@ export interface TimelineEvent {
     size_scale?: number;
     background_style?: string;
     y_position_percent?: number;
+    // Baked in by DummyRenderPlanProvider.plan() from the style preset
+    // (packages/contracts/python/render_plan.py's CaptionPayload) — used
+    // by the generic template branch only; the 5 templates with their own
+    // dedicated layout keep their signature hardcoded looks.
+    text_transform?: string;
+    underline?: boolean;
+    letter_spacing?: number;
+    word_spacing?: number;
+    line_spacing?: number;
+    color_mode?: string;
+    color2?: string | null;
+    x_position_percent?: number | null;
+    shadow?: number;
+    outline?: number;
   };
 }
 
@@ -750,7 +764,10 @@ export const Subtitles: React.FC = () => {
     // sit at a comfortable, non-overlapping distance.
     const highlightColor = activeHighlight?.payload.color ?? heroEvent?.payload.color ?? "#C5FF00";
     const outlineColor = "#000000";
-    const outlinePx = 2;
+    // A plain legibility stroke (not a design-defining color, unlike
+    // cartoon_stack's bubble border) — safe to let the user's Text-tab
+    // outline thickness scale it up/down instead of always fixing it at 2px.
+    const outlinePx = activeCaption.payload.outline && activeCaption.payload.outline > 0 ? activeCaption.payload.outline : 2;
 
     if (heroIndex === -1) {
       const plainSize = fitFontSizePx(size * 1.1, text, maxWidthPx);
@@ -870,8 +887,44 @@ export const Subtitles: React.FC = () => {
     );
   }
 
+  // Generic template (word_by_word / sentence_highlight / sentence_clean —
+  // anything without its own dedicated layout above). Previously
+  // shadow/outline/casing/underline/spacing/gradient/background-box were
+  // either hardcoded per-template guesses (isGlowStack/isCartoonStack —
+  // both dead code, since glow_stack/cartoon_stack return from their own
+  // branches above and can never reach here) or simply never read from the
+  // payload at all — every one of those Text-tab controls was live-preview
+  // only. This branch now reads them for real, the same way font/size/
+  // color already did.
+  const payloadShadow = activeCaption.payload.shadow ?? 0;
+  const payloadOutline = activeCaption.payload.outline ?? 0;
+  const payloadTextTransform = activeCaption.payload.text_transform ?? "none";
+  const payloadUnderline = Boolean(activeCaption.payload.underline);
+  const payloadLetterSpacing = activeCaption.payload.letter_spacing ?? 0;
+  const payloadWordSpacing = activeCaption.payload.word_spacing ?? 0;
+  const payloadLineSpacing = activeCaption.payload.line_spacing ?? 1;
+  const payloadColorMode = activeCaption.payload.color_mode ?? "solid";
+  const payloadColor2 = activeCaption.payload.color2;
+  const payloadBackgroundStyle = activeCaption.payload.background_style ?? "none";
+  const payloadXPositionPercent = activeCaption.payload.x_position_percent;
+
+  const baseTextShadow = payloadShadow > 0 ? `0px ${payloadShadow}px ${payloadShadow}px rgba(0,0,0,0.6)` : "none";
+  const useGradient = payloadColorMode === "gradient";
+  const gradientCss = useGradient
+    ? `linear-gradient(135deg, ${color}, ${payloadColor2 || activeHighlight?.payload.color || "#00F5C4"})`
+    : undefined;
+
+  const bgPadding = payloadBackgroundStyle === "pill" ? "10px 20px" : payloadBackgroundStyle === "shadow-box" ? "14px 18px" : "0px";
+  const bgColor = payloadBackgroundStyle === "pill" ? "rgba(17,19,23,0.85)" : payloadBackgroundStyle === "shadow-box" ? "rgba(17,19,23,0.95)" : "transparent";
+  const bgRadius = payloadBackgroundStyle === "pill" ? "9999px" : payloadBackgroundStyle === "shadow-box" ? "8px" : "0px";
+
+  const positionedContainerStyle: React.CSSProperties =
+    payloadXPositionPercent != null
+      ? { ...containerStyle, left: `${payloadXPositionPercent}%`, right: "auto", transform: `translate(-50%, -50%)`, top: containerStyle.top }
+      : containerStyle;
+
   return (
-    <div style={containerStyle}>
+    <div style={positionedContainerStyle}>
       <div
         className="caption-content-wrapper"
         style={{
@@ -883,6 +936,11 @@ export const Subtitles: React.FC = () => {
           maxWidth: "800px",
           fontFamily: font,
           fontWeight: weight,
+          lineHeight: payloadLineSpacing,
+          wordSpacing: `${payloadWordSpacing}px`,
+          padding: bgPadding,
+          backgroundColor: bgColor,
+          borderRadius: bgRadius,
         }}
       >
         {rawWords.map((word: string, idx: number) => {
@@ -895,21 +953,28 @@ export const Subtitles: React.FC = () => {
           let wordWeight = weight;
           let wordTransform = "scale(1)";
           let wordRotate = "0deg";
-          let wordTextShadow = "none";
-          let textDecoration = "none";
 
-          // Active Word Spring scaling and rotation
+          // Active Word Spring scaling and rotation. The keyword's "bigger"
+          // look is applied ONLY via CSS transform:scale, never by changing
+          // fontSize — fontSize affects real layout, so bumping it every
+          // time a different word becomes active reflowed the entire row
+          // (and, after Phase A, visibly resized/shifted the new pill
+          // background box along with it) once per word — reading exactly
+          // like the whole card regenerating. transform:scale is purely
+          // visual and doesn't reserve extra layout space, so neighboring
+          // words stay exactly where they always were.
           if (isActive) {
             wordColor = activeHighlight?.payload.color ?? "#FFEA00";
-            const scale = 1 + (activeWordSpring - 1) * 0.25; // Scale up to 1.25x
-            wordTransform = `scale(${scale})`;
+            const popScale = 1 + (activeWordSpring - 1) * 0.25; // up to 1.25x
+            let totalScale = popScale;
 
             if (isKeyword) {
               wordRotate = "-4deg"; // Rotate active hero word slightly
               wordWeight = activeHighlight?.payload.weight ?? "900";
               const scaleFactor = activeHighlight?.payload.size_scale ?? 1.3;
-              wordSize = size * scaleFactor;
+              totalScale = popScale * scaleFactor;
             }
+            wordTransform = `scale(${totalScale})`;
           }
 
           // Bounding-box fit: a single scaled-up keyword is the most likely
@@ -917,39 +982,34 @@ export const Subtitles: React.FC = () => {
           // rather than letting it spill past the container.
           wordSize = fitFontSizePx(wordSize, word, maxWidthPx);
 
-          // Template styling overrides
-          const isGlowStack = template === "glow_stack";
-          const isCartoonStack = template === "cartoon_stack";
-
-          if (isGlowStack) {
-            if (isActive) {
-              wordTextShadow = `0 0 10px ${wordColor}, 0 0 20px ${wordColor}`;
-            } else {
-              wordTextShadow = "0 0 5px rgba(255, 255, 255, 0.3)";
-            }
-          }
-
-          if (isCartoonStack) {
-            // High contrast text borders using standard text shadow hacks
-            wordTextShadow = "3px 3px 0px #000000, -3px -3px 0px #000000, 3px -3px 0px #000000, -3px 3px 0px #000000";
+          // Gradient only applies to non-active words — the active/
+          // highlighted word keeps its flat highlight color, same as every
+          // other template's "pop" signature.
+          const wordStyle: React.CSSProperties = {
+            display: "inline-block",
+            fontSize: `${wordSize}px`,
+            fontWeight: wordWeight,
+            transform: `${wordTransform} rotate(${wordRotate})`,
+            textShadow: baseTextShadow,
+            textDecoration: payloadUnderline ? "underline" : "none",
+            textTransform: payloadTextTransform as any,
+            letterSpacing: `${payloadLetterSpacing}px`,
+            WebkitTextStroke: payloadOutline > 0 ? `${payloadOutline * 0.5}px ${isActive ? wordColor : "#000000"}` : undefined,
+            transition: "color 0.15s ease, text-shadow 0.15s ease",
+            padding: "2px 4px",
+            position: "relative",
+          };
+          if (useGradient && !isActive) {
+            wordStyle.backgroundImage = gradientCss;
+            wordStyle.WebkitBackgroundClip = "text";
+            wordStyle.backgroundClip = "text";
+            wordStyle.color = "transparent";
+          } else {
+            wordStyle.color = wordColor;
           }
 
           return (
-            <span
-              key={`${idx}-${word}`}
-              style={{
-                display: "inline-block",
-                color: wordColor,
-                fontSize: `${wordSize}px`,
-                fontWeight: wordWeight,
-                transform: `${wordTransform} rotate(${wordRotate})`,
-                textShadow: wordTextShadow,
-                textDecoration: textDecoration,
-                transition: "color 0.15s ease, text-shadow 0.15s ease",
-                padding: "2px 4px",
-                position: "relative",
-              }}
-            >
+            <span key={`${idx}-${word}`} style={wordStyle}>
               {word}
             </span>
           );

@@ -168,6 +168,14 @@ export const projectsService = {
       caption_spacing_ms?: number;
       word_pacing?: string;
       pause_handling?: string;
+      text_transform?: string;
+      underline?: boolean;
+      letter_spacing?: number;
+      word_spacing?: number;
+      line_spacing?: number;
+      color_mode?: string;
+      color2?: string | null;
+      x_position_percent?: number | null;
     }
   ): Promise<{ style: string }> {
     return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {

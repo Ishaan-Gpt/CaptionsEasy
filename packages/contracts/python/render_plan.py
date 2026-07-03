@@ -113,6 +113,25 @@ class CaptionPayload(StrictModel):
     color: str
     alignment: str
     animation: Animation
+    # Promoted onto the payload itself (rather than only living in the style
+    # preset) so every renderer — ASS and Remotion alike — reads the same
+    # resolved values the same way it already reads font/size/color, instead
+    # of each renderer needing its own path back to the preset. Previously
+    # shadow/outline only reached the ASS exporter via `preset.typography`
+    # and Remotion never saw them at all; text_transform/underline/spacing/
+    # color_mode/color2/x_position_percent/background_style didn't reach
+    # either renderer — they were live-preview-only CSS with no persistence.
+    text_transform: str = "none"  # "none" | "uppercase" | "lowercase" | "capitalize"
+    underline: bool = False
+    letter_spacing: float = 0.0
+    word_spacing: float = 0.0
+    line_spacing: float = 1.0
+    color_mode: str = "solid"  # "solid" | "gradient"
+    color2: str | None = None
+    x_position_percent: float | None = None
+    shadow: float = 0.0
+    outline: float = 0.0
+    background_style: str = "none"  # "none" | "pill" | "shadow-box"
 
 
 class HighlightPayload(StrictModel):
