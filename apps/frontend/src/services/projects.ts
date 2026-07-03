@@ -176,6 +176,10 @@ export const projectsService = {
       color_mode?: string;
       color2?: string | null;
       x_position_percent?: number | null;
+      box_top?: number | null;
+      box_bottom?: number | null;
+      box_left?: number | null;
+      box_right?: number | null;
     }
   ): Promise<{ style: string }> {
     return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {
@@ -185,5 +189,22 @@ export const projectsService = {
 
   async getCustomStyle(id: string): Promise<any> {
     return apiClient.get<any>(`/projects/${id}/custom-style`);
+  },
+
+  /** Upserts a per-caption-card bounding-box override, keyed by the card's
+   * own start_ms (the only anchor stable across MotionScript
+   * regenerations — see docs/REMOTION_REVAMP_HANDOFF.md Phase C). */
+  async setFragmentOverride(
+    id: string,
+    startMs: number,
+    box: { top: number; bottom: number; left: number; right: number }
+  ): Promise<{ start_ms: number }> {
+    return apiClient.put<{ start_ms: number }>(`/projects/${id}/fragment-override/${startMs}`, {
+      json: box,
+    });
+  },
+
+  async deleteFragmentOverride(id: string, startMs: number): Promise<void> {
+    await apiClient.delete(`/projects/${id}/fragment-override/${startMs}`);
   },
 };

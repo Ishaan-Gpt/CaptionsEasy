@@ -13,6 +13,7 @@ import { transcriptService, TranscriptResponse } from "@/services/transcript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
 import { TEMPLATE_PRESETS_LIST, getTemplateStyle, fitFontSizePx, estimateTextWidthPx, lightenHex, darkenHex } from "@/config/captionTemplates";
+import { BoxEditorOverlay, BoxMargins } from "@/components/BoxEditorOverlay";
 
 // Safe-area box every caption template's text must stay inside — matches
 // the max-w-[...] wrappers already used per template, minus a little
@@ -178,6 +179,20 @@ export default function ProjectWorkspacePage() {
   const [customLetterSpacing, setCustomLetterSpacing] = useState<number>(0);
   const [customWordSpacing, setCustomWordSpacing] = useState<number>(6);
   const [customLineSpacing, setCustomLineSpacing] = useState<number>(1.0);
+
+  // Phase C: bounding-box editor. These 4 are the project's GLOBAL default
+  // box (GlobalSettings.safe_area) — per-caption overrides live server-side
+  // in Project.fragment_overrides_json and are read back through
+  // motionScript.timeline[i].payload.box (already merged in by the backend),
+  // never fetched or held here as a parallel copy.
+  const [customBoxTop, setCustomBoxTop] = useState<number>(80);
+  const [customBoxBottom, setCustomBoxBottom] = useState<number>(120);
+  const [customBoxLeft, setCustomBoxLeft] = useState<number>(50);
+  const [customBoxRight, setCustomBoxRight] = useState<number>(50);
+  const [boxEditMode, setBoxEditMode] = useState<boolean>(false);
+  const [pendingBoxCommit, setPendingBoxCommit] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
+  const [liveDragBox, setLiveDragBox] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
+  const [isSavingBox, setIsSavingBox] = useState(false);
 
   // Effects toggles
   const [shadowEnabled, setShadowEnabled] = useState<boolean>(false);
@@ -353,6 +368,10 @@ export default function ProjectWorkspacePage() {
             setCustomColorMode((res.color_mode || "solid") as any);
             if (res.color2) setCustomColor2(res.color2);
             if (res.x_position_percent != null) setCustomXPositionPercent(res.x_position_percent);
+            if (res.box_top != null) setCustomBoxTop(res.box_top);
+            if (res.box_bottom != null) setCustomBoxBottom(res.box_bottom);
+            if (res.box_left != null) setCustomBoxLeft(res.box_left);
+            if (res.box_right != null) setCustomBoxRight(res.box_right);
           }
         })
         .catch((err) => console.error("Error loading custom style: ", err));
@@ -552,6 +571,10 @@ export default function ProjectWorkspacePage() {
       color_mode: customColorMode,
       color2: customColorMode === "gradient" ? customColor2 : null,
       x_position_percent: customXPositionPercent,
+      box_top: customBoxTop,
+      box_bottom: customBoxBottom,
+      box_left: customBoxLeft,
+      box_right: customBoxRight,
       ...styleOverrides
     };
 
@@ -618,6 +641,10 @@ export default function ProjectWorkspacePage() {
         color_mode: customColorMode,
         color2: customColorMode === "gradient" ? customColor2 : null,
         x_position_percent: customXPositionPercent,
+        box_top: customBoxTop,
+        box_bottom: customBoxBottom,
+        box_left: customBoxLeft,
+        box_right: customBoxRight,
         ...styleOverrides
       };
 
@@ -631,6 +658,48 @@ export default function ProjectWorkspacePage() {
         console.error("Error background saving custom style:", err);
       }
     }, 1000);
+  };
+
+  // Phase C: applies a just-dragged box either to only the caption card
+  // that was active when the drag ended (fragment override, keyed by its
+  // start_ms — the only anchor stable across MotionScript regenerations)
+  // or to the project's global default box. Either path regenerates the
+  // MotionScript so the merge step (app.api.v1.projects.
+  // apply_fragment_overrides) re-resolves payload.box and the preview
+  // reflects the change immediately.
+  const applyBoxToFragment = async (startMs: number, box: { top: number; bottom: number; left: number; right: number }) => {
+    setIsSavingBox(true);
+    try {
+      await projectsService.setFragmentOverride(projectId, startMs, box);
+      if (project?.status === "COMPLETED") {
+        await projectsService.generateMotionScript(projectId);
+        refetchMotionScript();
+      }
+    } catch (err) {
+      console.error("Error saving fragment box override:", err);
+    } finally {
+      setIsSavingBox(false);
+      setPendingBoxCommit(null);
+    }
+  };
+
+  const applyBoxToAll = async (box: { top: number; bottom: number; left: number; right: number }) => {
+    setIsSavingBox(true);
+    setCustomBoxTop(box.top);
+    setCustomBoxBottom(box.bottom);
+    setCustomBoxLeft(box.left);
+    setCustomBoxRight(box.right);
+    try {
+      await saveStyleImmediate({
+        box_top: box.top,
+        box_bottom: box.bottom,
+        box_left: box.left,
+        box_right: box.right,
+      });
+    } finally {
+      setIsSavingBox(false);
+      setPendingBoxCommit(null);
+    }
   };
 
   const saveTranscriptBackground = (updatedWords: any[]) => {
@@ -3170,13 +3239,105 @@ export default function ProjectWorkspacePage() {
                 );
               })()}
 
+              {/* Phase C: bounding-box editor overlay — a separate block
+                  (not nested inside the subtitle-preview IIFE above) so it
+                  keeps working even at a timestamp with no active caption,
+                  and so it can't be affected by that block's early
+                  `if (!activeCaption) return null` returns. */}
+              {boxEditMode && !activeExportId && (() => {
+                const getCanvasDims = () => {
+                  if (motionScript?.global_settings?.canvas) {
+                    return {
+                      width: motionScript.global_settings.canvas.width,
+                      height: motionScript.global_settings.canvas.height,
+                    };
+                  }
+                  const width = 1080;
+                  const ratio = selectedRatio === "original"
+                    ? naturalAspectRatio
+                    : selectedRatio === "9:16" ? 9 / 16
+                    : selectedRatio === "16:9" ? 16 / 9
+                    : selectedRatio === "1:1" ? 1
+                    : 4 / 5;
+                  return { width, height: width / ratio };
+                };
+                const { width: canvasWidth, height: canvasHeight } = getCanvasDims();
+                const S = playerWidth / canvasWidth;
+
+                const activeCaption = motionScript?.timeline?.find(
+                  (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
+                );
+                // A per-caption override, if the backend's merge step
+                // (apply_fragment_overrides) already resolved one for this
+                // exact card — falls back to the project's global default
+                // box otherwise, same priority order as every renderer.
+                const resolvedBox: BoxMargins = activeCaption?.payload?.box ?? {
+                  top: customBoxTop, bottom: customBoxBottom, left: customBoxLeft, right: customBoxRight,
+                };
+                const displayBox = liveDragBox ?? resolvedBox;
+
+                return (
+                  <BoxEditorOverlay
+                    box={displayBox}
+                    canvasWidth={canvasWidth}
+                    canvasHeight={canvasHeight}
+                    scale={S}
+                    onChange={setLiveDragBox}
+                    onCommit={(box) => {
+                      setLiveDragBox(null);
+                      setPendingBoxCommit(box);
+                    }}
+                  />
+                );
+              })()}
+
               {/* Scrubber progress indicator */}
               <div className="absolute bottom-0 inset-x-0 h-1 bg-[#23272F]">
-                <div 
+                <div
                   className="h-full bg-[#00F5C4] transition-all duration-75"
                   style={{ width: `${durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0}%` }}
                 />
               </div>
+
+              {/* Phase C: apply-choice bar, shown once a box drag ends —
+                  user explicitly wants a per-fragment-vs-global choice
+                  here rather than always applying globally. */}
+              {pendingBoxCommit && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-[#0A0B0D]/95 border border-[#00F5C4]/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-xl">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-white/70">Apply box to</span>
+                  <button
+                    disabled={isSavingBox}
+                    onClick={() => {
+                      const activeCaption = motionScript?.timeline?.find(
+                        (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
+                      );
+                      if (activeCaption && pendingBoxCommit) {
+                        applyBoxToFragment(activeCaption.start_ms, pendingBoxCommit);
+                      } else {
+                        setPendingBoxCommit(null);
+                      }
+                    }}
+                    className="text-[9px] font-bold uppercase tracking-wider text-[#0A0B0D] bg-[#00F5C4] hover:bg-[#00D9AC] rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
+                  >
+                    This Caption
+                  </button>
+                  <button
+                    disabled={isSavingBox}
+                    onClick={() => pendingBoxCommit && applyBoxToAll(pendingBoxCommit)}
+                    className="text-[9px] font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
+                  >
+                    All Captions
+                  </button>
+                  <button
+                    disabled={isSavingBox}
+                    onClick={() => setPendingBoxCommit(null)}
+                    className="text-[9px] font-bold uppercase tracking-wider text-white/50 hover:text-white/80 rounded-full px-2 py-1 cursor-pointer disabled:opacity-50"
+                    title="Discard"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
             </div>
           </div>
@@ -3251,6 +3412,28 @@ export default function ProjectWorkspacePage() {
                 return `${formatTime(currentTimeMs)} / ${formatTime(durationMs)}`;
               })()}
             </div>
+
+            {/* Phase C: bounding-box editor toggle. Only meaningful once
+                there's a live preview to drag a box on top of. */}
+            <button
+              onClick={() => {
+                setBoxEditMode((v) => !v);
+                setPendingBoxCommit(null);
+                setLiveDragBox(null);
+                // The box overlay only renders over the live CSS preview,
+                // same as every other style edit — see the activeExportId
+                // fix earlier (handleTemplateClick/saveStyleImmediate).
+                setActiveExportId(null);
+              }}
+              className={`text-[9px] font-black uppercase tracking-wider rounded-full px-3 py-1.5 cursor-pointer transition-colors ${
+                boxEditMode
+                  ? "bg-[#00F5C4] text-[#0A0B0D]"
+                  : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+              }`}
+              title="Drag/resize the caption's bounding box"
+            >
+              {boxEditMode ? "Editing Box" : "Edit Box"}
+            </button>
           </div>
 
           {/* C. BOTTOM TIMELINE WORKSTATION */}
