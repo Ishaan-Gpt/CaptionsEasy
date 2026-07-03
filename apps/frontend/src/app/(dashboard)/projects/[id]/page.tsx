@@ -14,6 +14,7 @@ import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
 import { TEMPLATE_PRESETS_LIST, getTemplateStyle, fitFontSizePx, estimateTextWidthPx, lightenHex, darkenHex } from "@/config/captionTemplates";
 import { BoxEditorOverlay, BoxMargins } from "@/components/BoxEditorOverlay";
+import { TemplateSwatch } from "@/components/TemplateSwatch";
 
 // Safe-area box every caption template's text must stay inside — matches
 // the max-w-[...] wrappers already used per template, minus a little
@@ -92,6 +93,17 @@ export default function ProjectWorkspacePage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    // Preload every template preset's font once, up front — the Templates
+    // tab's swatches (TemplateSwatch) need the real font to render an
+    // honest preview, and waiting for a per-card lazy load would show a
+    // fallback font flash on every scroll.
+    const seen = new Set<string>();
+    for (const tpl of TEMPLATE_PRESETS_LIST) {
+      if (!seen.has(tpl.font)) {
+        seen.add(tpl.font);
+        ensureFontLoaded(tpl.font);
+      }
+    }
   }, []);
 
   const [playerWidth, setPlayerWidth] = useState<number>(360);
@@ -1722,7 +1734,7 @@ export default function ProjectWorkspacePage() {
             ) : (
               // TEMPLATES TAB CONTENT
               <div className="space-y-4 text-left">
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   {(() => {
                     // Trending group first, Built-in group second — a single
                     // ordered list lets one .map() render both sections'
@@ -1741,14 +1753,14 @@ export default function ProjectWorkspacePage() {
                     return (
                       <React.Fragment key={tpl.id}>
                       {sectionHeader && (
-                        <div className={`pb-1 border-b border-[#23272F]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
+                        <div className={`col-span-2 pb-1 border-b border-[#23272F]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
                           <span className="text-[9px] font-bold text-white uppercase tracking-widest">
                             {sectionHeader}
                           </span>
                         </div>
                       )}
                       <div
-                        className={`border rounded p-3 transition-all duration-200 ${
+                        className={`border rounded p-2.5 transition-all duration-200 ${isSelected ? "col-span-2" : ""} ${
                           isSelected ? "border-[#FFB800] bg-[#181B21]" : "border-[#23272F] bg-[#111317] hover:border-white/20"
                         }`}
                       >
@@ -1756,12 +1768,13 @@ export default function ProjectWorkspacePage() {
                           onClick={() => handleTemplateClick(tpl.id)}
                           className="w-full text-left flex flex-col justify-between cursor-pointer focus:outline-none"
                         >
-                          <div className="flex justify-between items-start w-full">
+                          <TemplateSwatch preset={tpl} />
+                          <div className="flex justify-between items-start w-full mt-2">
                             <span className="text-[11px] font-primary font-black uppercase text-white tracking-wide block">
                               {tpl.name}
                             </span>
                             {isSelected && (
-                              <span className="w-2 h-2 rounded-full bg-[#FFB800]" />
+                              <span className="w-2 h-2 rounded-full bg-[#FFB800] shrink-0 mt-0.5" />
                             )}
                           </div>
                           <span className="text-[9px] text-white/50 uppercase tracking-wide leading-relaxed block mt-1">
