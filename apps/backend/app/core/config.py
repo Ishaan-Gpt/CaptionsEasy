@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     # vendor-specific knobs, and SPEECH_PROVIDER_NAME stays the single
     # switch that decides whether this vendor is even used.
     groq_api_key: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
+    groq_api_key_backup: Optional[str] = Field(default=None, alias="GROQ_API_KEY_BACKUP")
     groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_speech_model: str = Field(default="whisper-large-v3", alias="GROQ_SPEECH_MODEL")
     groq_timeout_seconds: float = Field(default=120.0, alias="GROQ_TIMEOUT_SECONDS")

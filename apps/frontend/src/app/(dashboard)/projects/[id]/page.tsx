@@ -19,6 +19,30 @@ import { TEMPLATE_PRESETS_LIST, getTemplateStyle, fitFontSizePx, estimateTextWid
 // interior breathing room so a shrunk line doesn't touch the edge.
 const CAPTION_BOX_WIDTH_PX = 300;
 
+// "Trending" = the 5 self-engineered layouts with a real dedicated
+// renderOverlayContent() branch and real export support (4 through the ASS
+// exporter — staggered_3line, glow_stack, cartoon_stack, serif_pop — plus
+// cinematic_emerald through the Remotion exporter). Everything else falls
+// into "Built-in": the generic word_by_word/sentence_highlight/sentence_clean
+// family, which all share the same plain renderer.
+const TRENDING_CAPTION_TEMPLATES = new Set([
+  "staggered_3line",
+  "glow_stack",
+  "cartoon_stack",
+  "serif_pop",
+  "cinematic_emerald",
+]);
+
+// Split once at module scope (TEMPLATE_PRESETS_LIST is a static import),
+// trending group first, built-in group second, preserving each group's
+// original relative order.
+const TRENDING_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter((p) =>
+  TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
+);
+const BUILTIN_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter(
+  (p) => !TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
+);
+
 function describeError(err: unknown): string {
   if (err instanceof NetworkUnavailableError) return err.message;
   if (err instanceof ApiError) return err.message;
@@ -1547,17 +1571,32 @@ export default function ProjectWorkspacePage() {
             ) : (
               // TEMPLATES TAB CONTENT
               <div className="space-y-4 text-left">
-                <div className="pb-1 border-b border-[#23272F]/50">
-                  <span className="text-[9px] font-bold text-white uppercase tracking-widest">Presets List</span>
-                </div>
-
                 <div className="space-y-3">
-                  {TEMPLATE_PRESETS_LIST.map((tpl) => {
+                  {(() => {
+                    // Trending group first, Built-in group second — a single
+                    // ordered list lets one .map() render both sections'
+                    // headers inline without duplicating the (large)
+                    // per-card JSX below.
+                    const groupedPresets = [...TRENDING_TEMPLATE_PRESETS, ...BUILTIN_TEMPLATE_PRESETS];
+                    return groupedPresets.map((tpl, presetIdx) => {
                     const isSelected = expandedTemplateId === tpl.id;
+                    const sectionHeader =
+                      presetIdx === 0
+                        ? "Trending"
+                        : presetIdx === TRENDING_TEMPLATE_PRESETS.length
+                        ? "Built-in"
+                        : null;
 
                     return (
+                      <React.Fragment key={tpl.id}>
+                      {sectionHeader && (
+                        <div className={`pb-1 border-b border-[#23272F]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
+                          <span className="text-[9px] font-bold text-white uppercase tracking-widest">
+                            {sectionHeader}
+                          </span>
+                        </div>
+                      )}
                       <div
-                        key={tpl.id}
                         className={`border rounded p-3 transition-all duration-200 ${
                           isSelected ? "border-[#FFB800] bg-[#181B21]" : "border-[#23272F] bg-[#111317] hover:border-white/20"
                         }`}
@@ -1965,8 +2004,10 @@ export default function ProjectWorkspacePage() {
                           </div>
                         )}
                       </div>
+                      </React.Fragment>
                     );
-                  })}
+                    });
+                  })()}
                 </div>
               </div>
             )}
@@ -2812,6 +2853,134 @@ export default function ProjectWorkspacePage() {
                           );
                         })}
                       </div>
+                    );
+                  } else if (customCaptionTemplate === "cinematic_emerald") {
+                    // Mirrors apps/remotion-pipeline/src/Subtitles.tsx's
+                    // cinematic_emerald branch: fixed hero word (k, computed
+                    // upstream from the backend's is_keyword highlight —
+                    // never re-derived from "whichever word is currently
+                    // active", which is what made the Remotion export
+                    // reshuffle itself before that was fixed), progressive
+                    // reveal via revealedMax, parrot-green glow gradient
+                    // that defaults from — but still follows —
+                    // customHighlightColor.
+                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
+                    const line2Word = wordsObj[k]?.text || "";
+                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
+                    const visibleL2 = k <= revealedMax ? line2Word : null;
+
+                    const bodyFont = `"${templateStyle.baseFont}", ${customFont}, sans-serif`;
+                    const bodyShadow = "0px 1px 0px rgba(255,255,255,0.55), 0px -1px 0px rgba(0,0,0,0.18), 0px 6px 16px rgba(0,0,0,0.4)";
+
+                    const baseSizePx = customSize * templateStyle.baseSizeScale;
+                    const keywordSizePx = customSize * templateStyle.keywordSizeScale;
+                    const sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
+                    const sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
+                    const sizeL2 = fitFontSizePx(keywordSizePx, line2Word, boxWidth * 1.05);
+
+                    const glossDark = darkenHex(customHighlightColor, 0.3);
+                    const glossLight = lightenHex(customHighlightColor, 0.45);
+
+                    const yPct = customYPositionPercent || 71.4;
+                    const baseY = canvasHeight * yPct / 100.0;
+                    const lineGap = baseSizePx * 1.1;
+
+                    let Y_l1 = baseY - lineGap;
+                    let Y_l2 = baseY;
+                    let Y_l3 = baseY + lineGap;
+
+                    if (line1Words.length === 0) {
+                      Y_l2 = baseY - lineGap / 2;
+                      Y_l3 = baseY + lineGap / 2;
+                      Y_l1 = Y_l2 - lineGap;
+                    } else if (line3Words.length === 0) {
+                      Y_l1 = baseY - lineGap / 2;
+                      Y_l2 = baseY + lineGap / 2;
+                      Y_l3 = Y_l2 + lineGap;
+                    }
+
+                    return (
+                      <>
+                        {/* Soft ambient halo behind the hero word */}
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: "540px",
+                            top: `${Y_l2}px`,
+                            width: `${sizeL2 * 4}px`,
+                            height: `${sizeL2 * 2.2}px`,
+                            transform: "translate(-50%, -50%)",
+                            background: `radial-gradient(ellipse at center, ${glossLight}66 0%, ${customHighlightColor}33 45%, transparent 75%)`,
+                            filter: "blur(18px)",
+                          }}
+                        />
+
+                        {line1Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 600,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l1}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL1}px`,
+                              textShadow: bodyShadow,
+                            }}
+                          >
+                            {line1Words.map((w, i) => (
+                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
+                                {w}{i < line1Words.length - 1 ? " " : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {line2Word && (
+                          <div
+                            className="absolute italic leading-none whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: `"${templateStyle.keywordFont}", ${customFont}, serif`,
+                              fontWeight: 900,
+                              left: "540px",
+                              top: `${Y_l2}px`,
+                              transform: "translate(-50%, -50%) rotate(-4deg)",
+                              fontSize: `${sizeL2}px`,
+                              letterSpacing: "-0.01em",
+                              backgroundImage: `linear-gradient(160deg, ${glossDark} 0%, ${customHighlightColor} 45%, ${glossLight} 100%)`,
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                              filter: `drop-shadow(0 0 18px ${glossLight}) drop-shadow(0 0 8px ${customHighlightColor}) drop-shadow(0 8px 12px rgba(0,0,0,0.3))`,
+                              visibility: visibleL2 ? "visible" : "hidden",
+                            }}
+                          >
+                            {line2Word}
+                          </div>
+                        )}
+
+                        {line3Words.length > 0 && (
+                          <div
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            style={{
+                              fontFamily: bodyFont,
+                              fontWeight: 600,
+                              color: "#FFFFFF",
+                              left: "540px",
+                              top: `${Y_l3}px`,
+                              transform: "translate(-50%, -50%)",
+                              fontSize: `${sizeL3}px`,
+                              textShadow: bodyShadow,
+                            }}
+                          >
+                            {line3Words.map((w, i) => (
+                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
+                                {i > 0 ? " " : ""}{w}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     );
                   } else {
                     const yPct = customYPositionPercent || 71.4;

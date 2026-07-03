@@ -67,30 +67,46 @@ class GroqCreativeProvider(CreativeProvider):
 
     async def _call_groq(self, prompt: str) -> dict[str, Any]:
         url = f"{self._settings.groq_base_url}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {self._settings.groq_api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self._settings.groq_creative_model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.2,
-        }
+        
+        keys_to_try = [self._settings.groq_api_key]
+        if getattr(self._settings, "groq_api_key_backup", None):
+            keys_to_try.append(self._settings.groq_api_key_backup)
 
-        client = self._http_client
-        owns_client = client is None
-        if owns_client:
-            client = httpx.AsyncClient(timeout=self._settings.groq_timeout_seconds)
-        try:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            return response.json()
-        finally:
+        last_exc = None
+        for i, api_key in enumerate(keys_to_try):
+            if not api_key:
+                continue
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": self._settings.groq_creative_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.2,
+            }
+
+            client = self._http_client
+            owns_client = client is None
             if owns_client:
-                await client.aclose()
+                client = httpx.AsyncClient(timeout=self._settings.groq_timeout_seconds)
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                last_exc = e
+                if i < len(keys_to_try) - 1:
+                    print(f"[Creative Provider] Call to Groq with primary API key failed: {e}. Trying backup API key...")
+                    continue
+                else:
+                    raise
+            finally:
+                if owns_client:
+                    await client.aclose()

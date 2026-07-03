@@ -303,6 +303,7 @@ class RenderEngine:
                 is_glow_stack = used_template == "glow_stack"
                 is_cartoon_stack = used_template == "cartoon_stack"
                 is_serif_pop = used_template == "serif_pop"
+                is_cinematic_emerald = used_template == "cinematic_emerald"
                 staggered_layout = getattr(motion_script.global_settings, "staggered_layout", None) or getattr(
                     preset.timing, "staggered_layout", "splash"
                 )
@@ -594,6 +595,87 @@ class RenderEngine:
                         l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&HFFFFFF&{drop_shadow_tag}\\b900}}"
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
 
+                elif is_cinematic_emerald:
+                    k = None
+                    keyword_payload = None
+                    for h in cap_highlights:
+                        h_payload = h.parsed_payload()
+                        if getattr(h_payload, "is_keyword", False) and h_payload.indices:
+                            k = h_payload.indices[0]
+                            keyword_payload = h_payload
+                            break
+                    if k is None:
+                        k = pick_keyword_idx(words)
+
+                    line1_words = words[:k]
+                    line2_text = words[k]
+                    line3_words = words[k+1:]
+
+                    active_idx = None
+                    active_color_abgr = None
+                    for h in cap_highlights:
+                        if h.start_ms <= t_start and h.end_ms >= t_end:
+                            highlight_payload = h.parsed_payload()
+                            if highlight_payload.indices:
+                                active_idx = highlight_payload.indices[0]
+                            color_hex = getattr(highlight_payload, "color", None)
+                            if color_hex:
+                                active_color_abgr = self.hex_to_ass_abgr(color_hex)
+
+                    revealed_max = active_idx if active_idx is not None else 0
+                    visible_l1 = [w for idx, w in enumerate(line1_words) if idx <= revealed_max]
+                    has_l2 = (k <= revealed_max)
+                    visible_l3 = [w for idx, w in enumerate(line3_words) if (k + 1 + idx) <= revealed_max]
+
+                    size_normal = getattr(cap_payload, "size", font_size)
+                    body_font = font_family
+                    keyword_font = "Playfair Display"
+
+                    size_l1 = size_normal * 1.1
+                    size_l3 = size_normal * 1.1
+                    size_large = size_normal * 2.3
+
+                    box_left = margin_l
+                    box_right = width - margin_r
+                    box_width = box_right - box_left
+
+                    def fit(sz: float, text: str) -> float:
+                        if not text:
+                            return sz
+                        w_est = estimate_text_width(text, sz)
+                        return sz * (box_width / w_est) if w_est > box_width else sz
+
+                    size_l1 = fit(size_l1, " ".join(line1_words))
+                    size_l3 = fit(size_l3, " ".join(line3_words))
+                    size_large = fit(size_large, line2_text)
+
+                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
+                    base_y = int(height * y_pct / 100.0)
+                    line_gap = size_normal * 0.8
+                    Y_l1 = base_y - line_gap
+                    Y_l2 = base_y
+                    Y_l3 = base_y + line_gap
+
+                    start_str = self.ms_to_ass_time(t_start)
+                    end_str = self.ms_to_ass_time(t_end)
+
+                    hl_color = active_color_abgr or self.hex_to_ass_abgr("#8CFF3E")
+                    drop_shadow_tag = "\\bord0\\shad5\\4c&H000000&\\4a&H50&\\blur0.8"
+
+                    if visible_l1:
+                        l1_str = " ".join(visible_l1)
+                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&HFFFFFF&{drop_shadow_tag}\\b600}}"
+                        ass_lines.append(f"Dialogue: 1,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{l1_str}")
+
+                    if has_l2:
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c{hl_color}{drop_shadow_tag}\\b900\\i1}}"
+                        ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{line2_text}")
+
+                    if visible_l3:
+                        l3_str = " ".join(visible_l3)
+                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&HFFFFFF&{drop_shadow_tag}\\b600}}"
+                        ass_lines.append(f"Dialogue: 1,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
+
                 elif is_staggered:
                     # 1. Staggered 3-line template generation
                     # Determine the keyword index k for the words in this caption segment.
@@ -880,7 +962,7 @@ class RenderEngine:
             "-v", "error",
             "-select_streams", "v:0",
             "-show_entries", "stream=width,height,codec_name,duration",
-            "-show_entries", "format=size",
+            "-show_entries", "format=size,duration",
             "-of", "json",
             filepath
         ]
@@ -889,11 +971,20 @@ class RenderEngine:
             data = json.loads(res.stdout)
             stream = data.get("streams", [{}])[0]
             fmt = data.get("format", {})
+            # format=duration wasn't actually requested before, so this always
+            # fell back to 0.0 regardless of the real video length — for
+            # render_remotion() that meant duration_frames rounded to 0/1,
+            # so the Remotion overlay only ever rendered a single blank
+            # frame and every caption silently vanished from the export.
+            # format.duration is the reliable one (stream.duration can be
+            # missing depending on container/muxer); fall back to the
+            # stream value if format ever lacks it.
+            duration_s = fmt.get("duration", stream.get("duration", 0.0))
             return {
                 "width": stream.get("width"),
                 "height": stream.get("height"),
                 "codec": stream.get("codec_name"),
-                "duration_s": float(fmt.get("duration", 0.0)),
+                "duration_s": float(duration_s or 0.0),
                 "size_bytes": int(fmt.get("size", 0)),
             }
         except Exception as exc:
@@ -917,7 +1008,11 @@ class RenderEngine:
         from app.core.config import get_settings
         settings = get_settings()
 
-        if settings.use_remotion_render:
+        # Determine if the template is cinematic_emerald
+        used_template = getattr(motion_script.global_settings, "caption_template", None)
+        is_cinematic = (used_template == "cinematic_emerald")
+
+        if settings.use_remotion_render and is_cinematic:
             return self.render_remotion(motion_script, video_path, output_path, progress_callback)
         else:
             return self.render_ass(motion_script, video_path, output_path, progress_callback)
@@ -944,14 +1039,19 @@ class RenderEngine:
         # Write temp input props JSON
         temp_json = Path(output_path).with_suffix(".json")
         motion_script_dict = motion_script.model_dump(mode="json")
+        # Root.tsx's calculateMetadata reads these to size the composition —
+        # without them it falls back to the hardcoded 150-frame (5s) default
+        # and Remotion rejects any --frames range beyond that.
+        motion_script_dict["duration_frames"] = duration_frames
+        motion_script_dict["fps"] = fps
         with open(temp_json, "w", encoding="utf-8") as f:
             json.dump(motion_script_dict, f)
 
-        # Generate transparent overlay WebM
+        # Generate transparent overlay (ProRes 4444, not WebM/VP9)
         if progress_callback:
-            progress_callback("Rendering transparent WebM in Remotion", 20)
+            progress_callback("Rendering transparent overlay in Remotion", 20)
 
-        temp_overlay = Path(output_path).with_name(f"temp_overlay_{int(time.time())}.webm")
+        temp_overlay = Path(output_path).with_name(f"temp_overlay_{int(time.time())}.mov")
         repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
         remotion_dir = repo_root / "apps" / "remotion-pipeline"
 
@@ -960,19 +1060,46 @@ class RenderEngine:
             "Subtitles",
             str(temp_overlay.resolve()),
             f"--props={str(temp_json.resolve())}",
-            "--codec=vp9",
+            # codec=vp9 + pixel-format=yuva420p is the documented way to get
+            # a transparent WebM, but empirically this Remotion/ffmpeg build
+            # silently ignores --pixel-format for vp9's "pre-encoded" fast
+            # path and always emits an opaque yuv420p WebM — every frame of
+            # the "transparent" overlay was actually a solid rectangle, so
+            # the FFmpeg `overlay` merge below painted over the entire
+            # source video and produced a black screen. ProRes 4444 with
+            # yuva444p10le reliably keeps its alpha channel end to end
+            # (verified via ffprobe), so we use that as the overlay
+            # intermediate instead — same visual result, no format-specific
+            # alpha bug.
+            "--codec=prores",
+            "--prores-profile=4444",
+            "--image-format=png",
+            "--pixel-format=yuva444p10le",
             f"--width={meta.get('width', 1080)}",
             f"--height={meta.get('height', 1920)}",
-            f"--frames=0-{duration_frames}"
+            # durationInFrames is exclusive of the end index (valid frames
+            # are 0..duration_frames-1) — requesting duration_frames itself
+            # is one past the end and Remotion rejects the whole range.
+            f"--frames=0-{duration_frames - 1}"
         ]
 
         start_time = time.monotonic()
         try:
             # Run remotion CLI
+            # shell=True + a list argv only round-trips correctly on Windows
+            # (subprocess uses list2cmdline() to rebuild a command line, and
+            # npx needs shell resolution there to find its .cmd shim). On
+            # POSIX, shell=True with a sequence arg silently only passes
+            # remotion_cmd[0] ("npx") to sh -c and turns everything else
+            # into positional shell parameters ($0, $1, ...) instead of
+            # actual npx arguments — every Remotion render would silently
+            # run bare `npx` with no args on Linux (i.e. prod). PATH-based
+            # lookup of `npx` works fine under shell=False on POSIX, so
+            # only enable the shell on Windows where it's actually needed.
             subprocess.run(
                 remotion_cmd,
                 cwd=str(remotion_dir.resolve()),
-                shell=True,
+                shell=(os.name == "nt"),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True

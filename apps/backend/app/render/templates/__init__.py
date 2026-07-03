@@ -171,6 +171,19 @@ TEMPLATE_STYLES: dict[str, TemplateStyleConfig] = {
         keyword_font="Playfair Display",
         line_gap_scale=1.15,
     ),
+    "cinematic_emerald": TemplateStyleConfig(
+        name="cinematic_emerald",
+        word_limit=5,
+        max_chars=50,
+        force_uppercase=False,
+        base_size_scale=1.1,
+        base_weight="600",
+        keyword_size_scale=2.3,
+        keyword_weight="900",
+        keyword_font="Playfair Display",
+        line_gap_scale=0.8,
+        base_font="Outfit",
+    ),
 }
 
 DEFAULT_TEMPLATE_NAME = "word_by_word"

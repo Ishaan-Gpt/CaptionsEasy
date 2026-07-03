@@ -81,25 +81,41 @@ class GroqSpeechProvider(SpeechProvider):
 
     async def _call_groq(self, audio_bytes: bytes) -> dict[str, Any]:
         url = f"{self._settings.groq_base_url}/audio/transcriptions"
-        headers = {"Authorization": f"Bearer {self._settings.groq_api_key}"}
-        files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
-        data = {
-            "model": self._settings.groq_speech_model,
-            "response_format": "verbose_json",
-            "timestamp_granularities[]": "word",
-        }
+        
+        keys_to_try = [self._settings.groq_api_key]
+        if getattr(self._settings, "groq_api_key_backup", None):
+            keys_to_try.append(self._settings.groq_api_key_backup)
 
-        client = self._http_client
-        owns_client = client is None
-        if owns_client:
-            client = httpx.AsyncClient(timeout=self._settings.groq_timeout_seconds)
-        try:
-            response = await client.post(url, headers=headers, files=files, data=data)
-            response.raise_for_status()
-            return response.json()
-        finally:
+        last_exc = None
+        for i, api_key in enumerate(keys_to_try):
+            if not api_key:
+                continue
+            headers = {"Authorization": f"Bearer {api_key}"}
+            files = {"file": ("audio.wav", audio_bytes, "audio/wav")}
+            data = {
+                "model": self._settings.groq_speech_model,
+                "response_format": "verbose_json",
+                "timestamp_granularities[]": "word",
+            }
+
+            client = self._http_client
+            owns_client = client is None
             if owns_client:
-                await client.aclose()
+                client = httpx.AsyncClient(timeout=self._settings.groq_timeout_seconds)
+            try:
+                response = await client.post(url, headers=headers, files=files, data=data)
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                last_exc = e
+                if i < len(keys_to_try) - 1:
+                    print(f"[Speech Provider] Call to Groq with primary API key failed: {e}. Trying backup API key...")
+                    continue
+                else:
+                    raise
+            finally:
+                if owns_client:
+                    await client.aclose()
 
 
 def _content_type_for_path(storage_path: str) -> str:

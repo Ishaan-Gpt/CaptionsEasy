@@ -7,11 +7,11 @@
     "build": "remotion bundle src/index.ts out/bundle.js"
   },
   "dependencies": {
-    "remotion": "^4.0.484",
-    "@remotion/cli": "^4.0.484",
+    "@remotion/cli": "4.0.484",
     "@remotion/renderer": "^4.0.484",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "remotion": "4.0.484"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

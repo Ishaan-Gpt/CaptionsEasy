@@ -662,5 +662,49 @@
       "staggered_layout": "splash"
     },
     "transitions": "fade"
+  },
+  "custom_23f960eb-e1de-4362-89cc-276b358abce2": {
+    "name": "Custom test4",
+    "typography": {
+      "font": "Outfit",
+      "size": 48.0,
+      "weight": "600",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 5.0,
+      "outline": 0.0,
+      "background_style": "none",
+      "y_position_percent": 71.4
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": [
+        "#8CFF3E"
+      ]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 50.0,
+      "right": 50.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 5,
+      "caption_spacing_ms": 50,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22,
+      "caption_template": "cinematic_emerald",
+      "staggered_layout": "splash"
+    },
+    "transitions": "fade"
   }
 }
