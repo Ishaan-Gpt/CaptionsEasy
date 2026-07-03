@@ -666,9 +666,9 @@
   "custom_23f960eb-e1de-4362-89cc-276b358abce2": {
     "name": "Custom test4",
     "typography": {
-      "font": "Inter",
-      "size": 56.0,
-      "weight": "500",
+      "font": "Roboto",
+      "size": 60.0,
+      "weight": "400",
       "color": "#FFFFFF",
       "alignment": "center",
       "shadow": 0.0,

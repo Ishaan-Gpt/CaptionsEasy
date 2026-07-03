@@ -140,7 +140,7 @@ TEMPLATE_STYLES: dict[str, TemplateStyleConfig] = {
         force_uppercase=False,
         base_size_scale=1.2,
         base_weight="800",
-        keyword_size_scale=1.7,
+        keyword_size_scale=2.3,
         keyword_weight="900",
         keyword_font=DEFAULT_KEYWORD_FONT,
         line_gap_scale=1.15,
@@ -152,7 +152,7 @@ TEMPLATE_STYLES: dict[str, TemplateStyleConfig] = {
         max_chars=50,
         force_uppercase=False,
         base_size_scale=0.8,
-        base_weight="400",
+        base_weight="700",
         keyword_size_scale=1.6,
         keyword_weight="700",
         keyword_font="Fredoka",
@@ -168,7 +168,10 @@ TEMPLATE_STYLES: dict[str, TemplateStyleConfig] = {
         base_weight="800",
         keyword_size_scale=1.8,
         keyword_weight="900",
-        keyword_font="Playfair Display",
+        # Reference design is a bold brush/cursive script, not a serif
+        # italic — Playfair Display's italic reads as elegant-serif, not
+        # handwritten, so it didn't match the "Are You Stuck." look.
+        keyword_font="Kaushan Script",
         line_gap_scale=1.15,
     ),
     "cinematic_emerald": TemplateStyleConfig(

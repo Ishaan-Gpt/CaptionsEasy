@@ -487,7 +487,7 @@ class RenderEngine:
                     end_str = self.ms_to_ass_time(t_end)
 
                     if visible_l1:
-                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&H1C1C1C&\\bord0\\shad0\\b400}}"
+                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&HFFFFFF&\\bord0\\shad0\\b700}}"
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{' '.join(visible_l1)}")
 
                     if has_l2:
@@ -495,7 +495,7 @@ class RenderEngine:
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{line2_text}")
 
                     if visible_l3:
-                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&H1C1C1C&\\bord0\\shad0\\b400}}"
+                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&HFFFFFF&\\bord0\\shad0\\b700}}"
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{' '.join(visible_l3)}")
 
                 elif is_serif_pop:
@@ -1008,11 +1008,24 @@ class RenderEngine:
         from app.core.config import get_settings
         settings = get_settings()
 
-        # Determine if the template is cinematic_emerald
+        # Remotion is now the primary rendering engine for every template
+        # that has a real per-template layout (the "advanced" family below)
+        # — these used to render through the ASS/libass path, which can't
+        # express gradients, blurred glows, or CSS-quality typography and
+        # forced every effect to be approximated with ASS tag hacks. The
+        # ASS path remains as the renderer for the plain word_by_word /
+        # sentence_highlight / sentence_clean templates, which have no
+        # layered look worth the extra Remotion render cost.
         used_template = getattr(motion_script.global_settings, "caption_template", None)
-        is_cinematic = (used_template == "cinematic_emerald")
+        is_advanced_template = used_template in {
+            "cinematic_emerald",
+            "staggered_3line",
+            "glow_stack",
+            "cartoon_stack",
+            "serif_pop",
+        }
 
-        if settings.use_remotion_render and is_cinematic:
+        if settings.use_remotion_render and is_advanced_template:
             return self.render_remotion(motion_script, video_path, output_path, progress_callback)
         else:
             return self.render_ass(motion_script, video_path, output_path, progress_callback)

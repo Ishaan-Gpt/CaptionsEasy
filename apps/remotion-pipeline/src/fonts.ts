@@ -32,6 +32,10 @@ const FONTS: FontDef[] = [
   { family: "Fredoka", file: "fonts/Fredoka-Bold.ttf", weight: "700" },
   { family: "Caveat", file: "fonts/Caveat-Regular.ttf", weight: "400" },
   { family: "Caveat", file: "fonts/Caveat-Bold.ttf", weight: "700" },
+  // Downloaded for serif_pop's hero word — the reference design is a bold
+  // brush/cursive script, not a serif italic (Playfair Display's italic
+  // reads as elegant-serif, not handwritten, so it didn't match).
+  { family: "Kaushan Script", file: "fonts/KaushanScript-Regular.ttf", weight: "400" },
 ];
 
 let loadPromise: Promise<void> | null = null;

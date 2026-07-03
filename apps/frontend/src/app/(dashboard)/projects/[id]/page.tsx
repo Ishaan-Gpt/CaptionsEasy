@@ -2513,22 +2513,48 @@ export default function ProjectWorkspacePage() {
                       </div>
                     );
                   } else if (customCaptionTemplate === "glow_stack") {
+                    // Splash-anchored (line1 left edge / line3 right edge
+                    // sync to the hero's own edges — same algorithm as
+                    // staggered_3line), flat deep-blue hero + plain white
+                    // body. Mirrors apps/remotion-pipeline/src/Subtitles.tsx's
+                    // glow_stack branch after two gradient/emboss passes
+                    // didn't match the reference — flat was the right call.
                     const line1Words = wordsObj.slice(0, k).map(w => w.text);
                     const line2Word = wordsObj[k]?.text || "";
                     const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
                     const visibleL2 = k <= revealedMax ? line2Word : null;
 
                     const bodyFont = `"${templateStyle.baseFont}", ${customFont}, sans-serif`;
-                    const bodyShadow = "0 3px 0 rgba(22,34,78,0.9), 0 6px 16px rgba(0,0,0,0.55)";
+                    const bodyShadow = "0px 3px 6px rgba(0,0,0,0.45)";
 
                     const baseSizePx = customSize * templateStyle.baseSizeScale;
                     const keywordSizePx = customSize * templateStyle.keywordSizeScale;
-                    const sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
-                    const sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
+                    let sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
+                    let sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
                     const sizeL2 = fitFontSizePx(keywordSizePx, (line2Word || "").toUpperCase(), boxWidth);
 
-                    const gradientTop = lightenHex(customHighlightColor, 0.4);
-                    const gradientBottom = darkenHex(customHighlightColor, 0.55);
+                    const W2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
+                    let X_l1 = 540 - W2 / 2;
+                    if (X_l1 < safeAreaLeft) X_l1 = safeAreaLeft;
+                    const fullL1Text = line1Words.join(" ");
+                    if (fullL1Text) {
+                      const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
+                      const availableL1 = (canvasWidth - safeAreaRight) - X_l1;
+                      if (availableL1 > 0 && availableL1 < fullL1Width) {
+                        sizeL1 = sizeL1 * (availableL1 / fullL1Width);
+                      }
+                    }
+
+                    let X_l3 = 540 + W2 / 2;
+                    if (X_l3 > (canvasWidth - safeAreaRight)) X_l3 = canvasWidth - safeAreaRight;
+                    const fullL3Text = line3Words.join(" ");
+                    if (fullL3Text) {
+                      const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
+                      const availableL3 = X_l3 - safeAreaLeft;
+                      if (availableL3 > 0 && availableL3 < fullL3Width) {
+                        sizeL3 = sizeL3 * (availableL3 / fullL3Width);
+                      }
+                    }
 
                     const yPct = customYPositionPercent || 71.4;
                     const baseY = canvasHeight * yPct / 100.0;
@@ -2548,14 +2574,9 @@ export default function ProjectWorkspacePage() {
                       Y_l3 = Y_l2 + lineGap;
                     }
 
-                    const widthL1 = estimateTextWidthPx(line1Words.join(" "), sizeL1);
                     const widthL2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
-                    const widthL3 = estimateTextWidthPx(line3Words.join(" "), sizeL3);
-                    
-                    const maxLineW = Math.max(widthL1, widthL2, widthL3);
-                    const blobHalfW = Math.min(boxWidth, maxLineW * 0.75 + 60) / 2;
-                    const blobHalfH = lineGap * 1.9;
-
+                    const blobHalfW = Math.min(boxWidth, widthL2 * 1.8 + 60) / 2;
+                    const blobHalfH = lineGap * 1.7;
                     const blobLeft = 540 - blobHalfW;
                     const blobTop = Y_l2 - blobHalfH;
 
@@ -2569,23 +2590,24 @@ export default function ProjectWorkspacePage() {
                             width: `${blobHalfW * 2}px`,
                             height: `${blobHalfH * 2}px`,
                             borderRadius: "40px",
-                            filter: "blur(30px)",
-                            background: "radial-gradient(ellipse 62% 58% at 50% 50%, rgba(12,18,36,0.5), rgba(12,18,36,0.25) 55%, transparent 78%)",
+                            filter: "blur(28px)",
+                            background: "radial-gradient(ellipse 62% 58% at 50% 50%, rgba(10,16,32,0.55), rgba(10,16,32,0.28) 55%, transparent 78%)",
                           }}
                         />
 
                         {line1Words.length > 0 && (
                           <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            className="absolute whitespace-nowrap transition-all duration-100"
                             style={{
                               fontFamily: bodyFont,
                               fontWeight: 800,
                               color: "#FFFFFF",
-                              left: "540px",
+                              left: `${X_l1}px`,
                               top: `${Y_l1}px`,
-                              transform: "translate(-50%, -50%)",
+                              transform: "translateY(-50%)",
                               fontSize: `${sizeL1}px`,
                               textShadow: bodyShadow,
+                              textAlign: "left",
                             }}
                           >
                             {line1Words.map((w, i) => (
@@ -2602,14 +2624,12 @@ export default function ProjectWorkspacePage() {
                             style={{
                               fontFamily: `"${templateStyle.keywordFont}", ${customFont}, sans-serif`,
                               fontWeight: 900,
+                              color: customHighlightColor,
                               left: "540px",
                               top: `${Y_l2}px`,
                               transform: "translate(-50%, -50%)",
                               fontSize: `${sizeL2}px`,
-                              backgroundImage: `linear-gradient(180deg, ${gradientTop} 0%, ${customHighlightColor} 55%, ${gradientBottom} 100%)`,
-                              WebkitBackgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                              filter: `drop-shadow(0 0 14px ${customHighlightColor}) drop-shadow(0 4px 8px rgba(0,0,0,0.5))`,
+                              textShadow: "0px 4px 8px rgba(0,0,0,0.45)",
                               visibility: visibleL2 ? "visible" : "hidden",
                             }}
                           >
@@ -2619,16 +2639,17 @@ export default function ProjectWorkspacePage() {
 
                         {line3Words.length > 0 && (
                           <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
+                            className="absolute whitespace-nowrap transition-all duration-100"
                             style={{
                               fontFamily: bodyFont,
                               fontWeight: 800,
                               color: "#FFFFFF",
-                              left: "540px",
+                              left: `${X_l3}px`,
                               top: `${Y_l3}px`,
-                              transform: "translate(-50%, -50%)",
+                              transform: "translate(-100%, -50%)",
                               fontSize: `${sizeL3}px`,
                               textShadow: bodyShadow,
+                              textAlign: "right",
                             }}
                           >
                             {line3Words.map((w, i) => (
@@ -2682,8 +2703,8 @@ export default function ProjectWorkspacePage() {
                             className="absolute text-center whitespace-nowrap transition-all duration-100"
                             style={{
                               fontFamily: bodyFont,
-                              fontWeight: 400,
-                              color: "#2D2019",
+                              fontWeight: 700,
+                              color: "#FFFFFF",
                               left: "540px",
                               top: `${Y_l1}px`,
                               transform: "translate(-50%, -50%)",
@@ -2725,8 +2746,8 @@ export default function ProjectWorkspacePage() {
                             className="absolute text-center whitespace-nowrap transition-all duration-100"
                             style={{
                               fontFamily: bodyFont,
-                              fontWeight: 400,
-                              color: "#2D2019",
+                              fontWeight: 700,
+                              color: "#FFFFFF",
                               left: "540px",
                               top: `${Y_l3}px`,
                               transform: "translate(-50%, -50%)",
@@ -2816,10 +2837,10 @@ export default function ProjectWorkspacePage() {
                         )}
                         {line2Word && (
                           <div
-                            className="absolute text-center whitespace-nowrap italic transition-all duration-100"
+                            className="absolute text-center whitespace-nowrap transition-all duration-100"
                             style={{
                               fontFamily: keywordFont,
-                              fontWeight: 900,
+                              fontWeight: 400,
                               color: "#FFFFFF",
                               left: "540px",
                               top: `${Y_l2}px`,
