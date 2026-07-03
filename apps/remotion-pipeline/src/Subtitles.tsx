@@ -272,7 +272,13 @@ export const Subtitles: React.FC = () => {
     // the whole block resizing/jittering as each new word appears.
     const line1Size = fitFontSizePx(size * 1.1, line1Words.join(" "), maxWidthPx);
     const line3Size = fitFontSizePx(size * 1.1, line3Words.join(" "), maxWidthPx);
-    const heroSizeRaw = size * 2.3;
+    // Phase D: a user-set keyword_size_scale/font/weight (HighlightPayload,
+    // resolved server-side onto this card's heroEvent) overrides the
+    // template's own fixed default — falls back to the original hardcoded
+    // values, matching every other per-template constant's behavior.
+    const resolvedHeroFont = heroEvent?.payload.font || "Playfair Display";
+    const resolvedHeroWeight = heroEvent?.payload.weight || "900";
+    const heroSizeRaw = size * (heroEvent?.payload.size_scale ?? 2.3);
     const heroSize = fitFontSizePx(heroSizeRaw, line2Text, maxWidthPx * 1.05);
 
     const scale = 0.85 + heroPopSpring * 0.15;
@@ -332,9 +338,9 @@ export const Subtitles: React.FC = () => {
                 style={{
                   position: "absolute",
                   inset: 0,
-                  fontFamily: "Playfair Display",
+                  fontFamily: resolvedHeroFont,
                   fontSize: `${heroSize}px`,
-                  fontWeight: 900,
+                  fontWeight: resolvedHeroWeight,
                   fontStyle: "italic",
                   color: highlightColor,
                   textAlign: "center",
@@ -348,9 +354,9 @@ export const Subtitles: React.FC = () => {
               <div
                 style={{
                   position: "relative",
-                  fontFamily: "Playfair Display",
+                  fontFamily: resolvedHeroFont,
                   fontSize: `${heroSize}px`,
-                  fontWeight: 900,
+                  fontWeight: resolvedHeroWeight,
                   fontStyle: "italic",
                   letterSpacing: "-0.01em",
                   // Glossy vertical gradient fill — dark parrot-green
@@ -435,7 +441,9 @@ export const Subtitles: React.FC = () => {
 
     const line1Size = fitFontSizePx(size, line1Words.join(" "), maxWidthPx);
     const line3Size = fitFontSizePx(size, line3Words.join(" "), maxWidthPx);
-    const heroSizeRaw = size * 1.8;
+    const resolvedHeroFont = heroEvent?.payload.font || "Kaushan Script";
+    const resolvedHeroWeight = heroEvent?.payload.weight || "400";
+    const heroSizeRaw = size * (heroEvent?.payload.size_scale ?? 1.8);
     const heroSize = fitFontSizePx(heroSizeRaw, `${line2Text}.`, maxWidthPx);
     const scale = 0.9 + heroPopSpring * 0.1;
 
@@ -475,9 +483,9 @@ export const Subtitles: React.FC = () => {
           {hasHero && line2Text && (
             <div
               style={{
-                fontFamily: "Kaushan Script",
+                fontFamily: resolvedHeroFont,
                 fontSize: `${heroSize}px`,
-                fontWeight: 400,
+                fontWeight: resolvedHeroWeight,
                 color: "#FFFFFF",
                 textShadow: dropShadow,
                 textAlign: "center",
@@ -555,7 +563,9 @@ export const Subtitles: React.FC = () => {
     const bodySizeRaw = size * 0.8;
     const line1Size = fitFontSizePx(bodySizeRaw, line1Words.join(" "), maxWidthPx);
     const line3Size = fitFontSizePx(bodySizeRaw, line3Words.join(" "), maxWidthPx);
-    const heroSizeRaw = size * 1.6;
+    const resolvedHeroFont = heroEvent?.payload.font || "Fredoka";
+    const resolvedHeroWeight = heroEvent?.payload.weight || "700";
+    const heroSizeRaw = size * (heroEvent?.payload.size_scale ?? 1.6);
     const heroSize = fitFontSizePx(heroSizeRaw, line2Text, maxWidthPx);
     const scale = 0.92 + heroPopSpring * 0.08;
 
@@ -588,9 +598,9 @@ export const Subtitles: React.FC = () => {
           {hasHero && line2Text && (
             <div
               style={{
-                fontFamily: "Fredoka",
+                fontFamily: resolvedHeroFont,
                 fontSize: `${heroSize}px`,
-                fontWeight: 700,
+                fontWeight: resolvedHeroWeight,
                 color: highlightColor,
                 WebkitTextStroke: `${Math.max(4, heroSize * 0.055)}px ${borderColor}`,
                 paintOrder: "stroke fill",
@@ -662,7 +672,9 @@ export const Subtitles: React.FC = () => {
     const bodySizeRaw = size * 1.2;
     const line1Size = fitFontSizePx(bodySizeRaw, line1Words.join(" "), maxWidthPx);
     const line3Size = fitFontSizePx(bodySizeRaw, line3Words.join(" "), maxWidthPx);
-    const heroSizeRaw = size * 2.3;
+    const resolvedHeroFont = heroEvent?.payload.font || "Anton";
+    const resolvedHeroWeight = heroEvent?.payload.weight || "900";
+    const heroSizeRaw = size * (heroEvent?.payload.size_scale ?? 2.3);
     const heroSize = fitFontSizePx(heroSizeRaw, line2Text, maxWidthPx);
     const scale = 0.93 + heroPopSpring * 0.07;
 
@@ -728,9 +740,9 @@ export const Subtitles: React.FC = () => {
               style={{
                 position: "relative",
                 zIndex: 2,
-                fontFamily: "Anton",
+                fontFamily: resolvedHeroFont,
                 fontSize: `${heroSize}px`,
-                fontWeight: 900,
+                fontWeight: resolvedHeroWeight,
                 color: highlightColor,
                 textShadow: "0px 4px 8px rgba(0,0,0,0.45)",
                 textAlign: "center",
@@ -812,7 +824,9 @@ export const Subtitles: React.FC = () => {
     const bodySizeRaw = size * 1.1;
     const line1Size = fitFontSizePx(bodySizeRaw, line1Words.join(" "), maxWidthPx);
     const line3Size = fitFontSizePx(bodySizeRaw, line3Words.join(" "), maxWidthPx);
-    const heroSizeRaw = size * 1.5;
+    const resolvedHeroFont = heroEvent?.payload.font || "Anton";
+    const resolvedHeroWeight = heroEvent?.payload.weight || "900";
+    const heroSizeRaw = size * (heroEvent?.payload.size_scale ?? 1.5);
     const heroSize = fitFontSizePx(heroSizeRaw, line2Text, maxWidthPx);
     const scale = 0.95 + heroPopSpring * 0.05;
 
@@ -860,9 +874,9 @@ export const Subtitles: React.FC = () => {
           {hasHero && line2Text && (
             <div
               style={{
-                fontFamily: "Anton",
+                fontFamily: resolvedHeroFont,
                 fontSize: `${heroSize}px`,
-                fontWeight: 900,
+                fontWeight: resolvedHeroWeight,
                 color: highlightColor,
                 WebkitTextStroke: `${outlinePx}px ${outlineColor}`,
                 paintOrder: "stroke fill",

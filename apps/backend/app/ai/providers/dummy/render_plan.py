@@ -383,6 +383,15 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         box_width_px = canvas_width_px - preset.safe_area.left - preset.safe_area.right
         grouping_font_size = font_size * template_style.base_size_scale
 
+        # Phase D: independent hero/keyword-word styling. A user-set
+        # keyword_* value on the preset (CustomStyleRequest, saved via
+        # POST /custom-style) takes priority over the template's own fixed
+        # default — falls back to the template default when the user
+        # hasn't overridden it, same as every other per-template constant.
+        resolved_keyword_font = getattr(preset.typography, "keyword_font", None) or template_style.keyword_font
+        resolved_keyword_weight = getattr(preset.typography, "keyword_weight", None) or template_style.keyword_weight
+        resolved_keyword_size_scale = getattr(preset.typography, "keyword_size_scale", None) or template_style.keyword_size_scale
+
         # Process each caption-planning segment as-is. Segments come
         # straight from the LLM (prompts/caption_planning.txt now targets
         # 3-5 words per segment directly), so grouping only ever needs to
@@ -556,9 +565,9 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                                     # distinct font/weight/size treatment —
                                     # the other per-word highlight events
                                     # here are just reveal-timing markers.
-                                    "font": template_style.keyword_font if is_kw else None,
-                                    "weight": template_style.keyword_weight if is_kw else None,
-                                    "size_scale": template_style.keyword_size_scale if is_kw else None,
+                                    "font": resolved_keyword_font if is_kw else None,
+                                    "weight": resolved_keyword_weight if is_kw else None,
+                                    "size_scale": resolved_keyword_size_scale if is_kw else None,
                                 }
                             }
                             timeline.append(highlight_evt)

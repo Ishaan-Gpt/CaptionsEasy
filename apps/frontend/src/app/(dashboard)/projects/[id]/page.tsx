@@ -206,6 +206,17 @@ export default function ProjectWorkspacePage() {
   const [liveDragBox, setLiveDragBox] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
 
+  // Phase D: independent Primary (body) / Secondary (hero/keyword word)
+  // text styling. Only meaningful for templates with a hero word
+  // (getTemplateStyle(...).keywordFont/keywordSizeScale !== the body's own
+  // values) — editTarget picks which one the Font Settings section below
+  // reads from and writes to, so there is exactly one set of controls, not
+  // two, and never both targets editable at once.
+  const [editTarget, setEditTarget] = useState<"primary" | "secondary">("primary");
+  const [heroFont, setHeroFont] = useState<string>("");
+  const [heroFontFace, setHeroFontFace] = useState<string>("Template default");
+  const [heroSizeScale, setHeroSizeScale] = useState<number>(1.5);
+
   // Effects toggles
   const [shadowEnabled, setShadowEnabled] = useState<boolean>(false);
   const [strokeEnabled, setStrokeEnabled] = useState<boolean>(true);
@@ -384,6 +395,9 @@ export default function ProjectWorkspacePage() {
             if (res.box_bottom != null) setCustomBoxBottom(res.box_bottom);
             if (res.box_left != null) setCustomBoxLeft(res.box_left);
             if (res.box_right != null) setCustomBoxRight(res.box_right);
+            if (res.keyword_font) setHeroFont(res.keyword_font);
+            if (res.keyword_weight) setHeroFontFace(wMap[res.keyword_weight] || "Template default");
+            if (res.keyword_size_scale != null) setHeroSizeScale(res.keyword_size_scale);
           }
         })
         .catch((err) => console.error("Error loading custom style: ", err));
@@ -556,6 +570,10 @@ export default function ProjectWorkspacePage() {
     const resolvedShadow = (styleOverrides?.shadowEnabled ?? shadowEnabled) ? (styleOverrides?.shadow ?? (customShadow || 3.0)) : 0.0;
     const resolvedOutline = (styleOverrides?.strokeEnabled ?? strokeEnabled) ? (styleOverrides?.outline ?? (customOutline || 2.0)) : 0.0;
     const resolvedBgStyle = (styleOverrides?.backgroundEnabled ?? backgroundEnabled) ? (styleOverrides?.backgroundStyle || selectedBackgroundStyle) : "none";
+    // "Template default" means "no override" (null) — anything else resolves
+    // to a numeric weight via the same wMap the body font uses.
+    const heroFaceValue = styleOverrides?.heroFontFace ?? heroFontFace;
+    const resolvedKeywordWeight = heroFaceValue === "Template default" ? null : (wMap[heroFaceValue] || null);
 
     const merged = {
       font: customFont,
@@ -587,6 +605,9 @@ export default function ProjectWorkspacePage() {
       box_bottom: customBoxBottom,
       box_left: customBoxLeft,
       box_right: customBoxRight,
+      keyword_font: heroFont || null,
+      keyword_weight: resolvedKeywordWeight,
+      keyword_size_scale: heroSizeScale,
       ...styleOverrides
     };
 
@@ -626,6 +647,8 @@ export default function ProjectWorkspacePage() {
       const resolvedShadow = (styleOverrides?.shadowEnabled ?? shadowEnabled) ? (styleOverrides?.shadow ?? (customShadow || 3.0)) : 0.0;
       const resolvedOutline = (styleOverrides?.strokeEnabled ?? strokeEnabled) ? (styleOverrides?.outline ?? (customOutline || 2.0)) : 0.0;
       const resolvedBgStyle = (styleOverrides?.backgroundEnabled ?? backgroundEnabled) ? (styleOverrides?.backgroundStyle || selectedBackgroundStyle) : "none";
+      const heroFaceValue = styleOverrides?.heroFontFace ?? heroFontFace;
+      const resolvedKeywordWeight = heroFaceValue === "Template default" ? null : (wMap[heroFaceValue] || null);
 
       const merged = {
         font: customFont,
@@ -657,6 +680,9 @@ export default function ProjectWorkspacePage() {
         box_bottom: customBoxBottom,
         box_left: customBoxLeft,
         box_right: customBoxRight,
+        keyword_font: heroFont || null,
+        keyword_weight: resolvedKeywordWeight,
+        keyword_size_scale: heroSizeScale,
         ...styleOverrides
       };
 
@@ -782,6 +808,15 @@ export default function ProjectWorkspacePage() {
     setCustomWordSpacing(6);
     setCustomLineSpacing(1.0);
 
+    // Phase D: hero/keyword styling is per-template by nature (a hero word
+    // makes no sense on a template without one) — reset to "inherit the
+    // new template's own default" and drop back to editing the body, same
+    // reasoning as the 9 fields above.
+    setEditTarget("primary");
+    setHeroFont("");
+    setHeroFontFace("Template default");
+    setHeroSizeScale(getTemplateStyle(preset.caption_template).keywordSizeScale);
+
     const wMap: Record<string, string> = {
       "100": "Thin", "200": "Extra Light", "300": "Light", "400": "Regular",
       "500": "Medium", "600": "Semi Bold", "700": "Bold", "800": "Extra Bold", "900": "Black"
@@ -823,6 +858,9 @@ export default function ProjectWorkspacePage() {
       color2: null,
       x_position_percent: null,
       alignment: "center",
+      keyword_font: null,
+      keyword_weight: null,
+      keyword_size_scale: null,
     });
   };
 
@@ -1212,16 +1250,59 @@ export default function ProjectWorkspacePage() {
                     Font Settings
                   </div>
 
+                  {(() => {
+                    // Templates with a hero/keyword word (its font/weight/
+                    // size genuinely differ from the body's) get a
+                    // Primary/Secondary toggle scoping these same controls
+                    // to one target at a time — never both editable at
+                    // once. Templates without a hero word (word_by_word,
+                    // sentence_clean) skip the toggle entirely since there's
+                    // nothing to switch between.
+                    const activeTplStyle = getTemplateStyle(customCaptionTemplate);
+                    const hasHeroWord = activeTplStyle.keywordFont !== null || activeTplStyle.keywordSizeScale !== activeTplStyle.baseSizeScale;
+                    if (!hasHeroWord) return null;
+                    return (
+                      <div className="flex border border-[#23272F] rounded overflow-hidden">
+                        <button
+                          onClick={() => setEditTarget("primary")}
+                          className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider cursor-pointer transition-colors ${
+                            editTarget === "primary" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Primary Text
+                        </button>
+                        <button
+                          onClick={() => setEditTarget("secondary")}
+                          className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider cursor-pointer transition-colors ${
+                            editTarget === "secondary" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Hero Word
+                        </button>
+                      </div>
+                    );
+                  })()}
+
                   <div className="space-y-1">
-                    <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Family</label>
+                    <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">
+                      Font Family {editTarget === "secondary" && <span className="text-[#FFB800]">(Hero Word)</span>}
+                    </label>
                     <select
-                      value={customFont}
+                      value={editTarget === "secondary" ? (heroFont || "Template default") : customFont}
                       onChange={(e) => {
-                        setCustomFont(e.target.value);
-                        saveStyleImmediate({ font: e.target.value });
+                        if (editTarget === "secondary") {
+                          const val = e.target.value === "Template default" ? "" : e.target.value;
+                          setHeroFont(val);
+                          ensureFontLoaded(val || getTemplateStyle(customCaptionTemplate).keywordFont || customFont);
+                          saveStyleImmediate({ keyword_font: val || null });
+                        } else {
+                          setCustomFont(e.target.value);
+                          saveStyleImmediate({ font: e.target.value });
+                        }
                       }}
                       className="w-full bg-[#181B21] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
                     >
+                      {editTarget === "secondary" && <option value="Template default">Template default</option>}
                       {POPULAR_FONTS.map((font) => (
                         <option key={font} value={font}>
                           {font}
@@ -1233,10 +1314,15 @@ export default function ProjectWorkspacePage() {
                   <div className="space-y-1">
                     <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Face</label>
                     <select
-                      value={customFontFace}
+                      value={editTarget === "secondary" ? heroFontFace : customFontFace}
                       onChange={(e) => {
-                        setCustomFontFace(e.target.value);
-                        saveStyleImmediate({ fontFace: e.target.value });
+                        if (editTarget === "secondary") {
+                          setHeroFontFace(e.target.value);
+                          saveStyleImmediate({ heroFontFace: e.target.value });
+                        } else {
+                          setCustomFontFace(e.target.value);
+                          saveStyleImmediate({ fontFace: e.target.value });
+                        }
                       }}
                       className="w-full bg-[#181B21] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
                     >
@@ -1261,37 +1347,202 @@ export default function ProjectWorkspacePage() {
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                      <span>Subtitle Size</span>
-                      <span className="font-mono text-[#FFB800]">{customSize}px</span>
+                  {editTarget === "secondary" ? (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                        <span>Hero Size Scale</span>
+                        <span className="font-mono text-[#FFB800]">{heroSizeScale.toFixed(1)}x</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="3.0"
+                          step="0.1"
+                          value={heroSizeScale}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setHeroSizeScale(v);
+                            saveStyleBackground({ keyword_size_scale: v });
+                          }}
+                          className="flex-1 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                        />
+                        <button
+                          onClick={() => {
+                            const def = getTemplateStyle(customCaptionTemplate).keywordSizeScale;
+                            setHeroSizeScale(def);
+                            saveStyleImmediate({ keyword_size_scale: def });
+                          }}
+                          className="text-[9px] text-white/40 hover:text-white transition-colors cursor-pointer"
+                          title="Reset to template default"
+                        >
+                          ↺
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="24"
-                        max="80"
-                        step="2"
-                        value={customSize}
-                        onChange={(e) => {
-                          setCustomSize(parseInt(e.target.value));
-                          saveStyleBackground({ size: parseInt(e.target.value) });
-                        }}
-                        className="flex-1 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                      />
-                      <button 
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
+                        <span>Subtitle Size</span>
+                        <span className="font-mono text-[#FFB800]">{customSize}px</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="24"
+                          max="80"
+                          step="2"
+                          value={customSize}
+                          onChange={(e) => {
+                            setCustomSize(parseInt(e.target.value));
+                            saveStyleBackground({ size: parseInt(e.target.value) });
+                          }}
+                          className="flex-1 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                        />
+                        <button
+                          onClick={() => {
+                            setCustomSize(48);
+                            saveStyleImmediate({ size: 48 });
+                          }}
+                          className="text-[9px] text-white/40 hover:text-white transition-colors cursor-pointer"
+                          title="Reset font size"
+                        >
+                          ↺
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 1b. TEMPLATE-SPECIFIC OPTIONS — layout/timing knobs that
+                    only make sense for one particular caption_template
+                    (staggered_3line's splash/centre layout, word_by_word's
+                    per-word timing). Used to be duplicated inside every
+                    Templates-tab card, keyed off that card's own template
+                    (tpl.caption_template) rather than the active one — now
+                    lives once here, keyed off customCaptionTemplate. */}
+                {customCaptionTemplate === "staggered_3line" && (
+                  <div className="space-y-2 border-t border-[#23272F]/50 pt-3">
+                    <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Staggered Layout Options</label>
+
+                    <div className="grid grid-cols-2 gap-2 h-[26px]">
+                      {(["splash", "centre"] as const).map((layout) => (
+                        <button
+                          key={layout}
+                          onClick={() => {
+                            setCustomStaggeredLayout(layout);
+                            saveStyleImmediate({ staggered_layout: layout });
+                          }}
+                          className={`text-[8px] font-bold uppercase transition-colors border border-[#23272F] rounded cursor-pointer ${
+                            customStaggeredLayout === layout ? "bg-[#FFB800]/10 border-[#FFB800] text-[#FFB800]" : "bg-[#111317] text-white/60"
+                          }`}
+                        >
+                          {layout} Layout
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[8px] text-white/60 uppercase">Accent Period Emphasis</span>
+                      <button
                         onClick={() => {
-                          setCustomSize(48);
-                          saveStyleImmediate({ size: 48 });
+                          const enabled = !customAccentPeriodEnabled;
+                          setCustomAccentPeriodEnabled(enabled);
+                          saveStyleImmediate({ accent_period_enabled: enabled });
                         }}
-                        className="text-[9px] text-white/40 hover:text-white transition-colors cursor-pointer"
-                        title="Reset font size"
+                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
+                          customAccentPeriodEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                        }`}
                       >
-                        ↺
+                        <div
+                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                            customAccentPeriodEnabled ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
                       </button>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {customCaptionTemplate === "word_by_word" && (
+                  <div className="space-y-2 border-t border-[#23272F]/50 pt-3">
+                    <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Word-by-Word Timing Settings</label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
+                          <span>Words per card</span>
+                          <span className="font-mono text-[#FFB800]">{customWordLimit}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="5"
+                          step="1"
+                          value={customWordLimit}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setCustomWordLimit(val);
+                            saveStyleImmediate({ word_limit: val });
+                          }}
+                          className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
+                          <span>Word Delay (ms)</span>
+                          <span className="font-mono text-[#FFB800]">{customCaptionSpacingMs}ms</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="300"
+                          step="10"
+                          value={customCaptionSpacingMs}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setCustomCaptionSpacingMs(val);
+                            saveStyleBackground({ caption_spacing_ms: val });
+                          }}
+                          className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pacing</label>
+                        <select
+                          value={customWordPacing}
+                          onChange={(e) => {
+                            setCustomWordPacing(e.target.value);
+                            saveStyleImmediate({ word_pacing: e.target.value });
+                          }}
+                          className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
+                        >
+                          <option value="dynamic">Dynamic</option>
+                          <option value="even">Even</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pause Handling</label>
+                        <select
+                          value={customPauseHandling}
+                          onChange={(e) => {
+                            setCustomPauseHandling(e.target.value);
+                            saveStyleImmediate({ pause_handling: e.target.value });
+                          }}
+                          className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
+                        >
+                          <option value="hold">Hold text</option>
+                          <option value="clear">Clear text</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. FORMAT SECTION */}
                 <div className="space-y-3">
@@ -1782,389 +2033,24 @@ export default function ProjectWorkspacePage() {
                           </span>
                         </button>
 
-                        {/* Template specific Customs Panel */}
+                        {/* Fine-tuning lives in one place (the Text tab),
+                            not duplicated per-card here — this used to be a
+                            few hundred lines of the same font/size/color/
+                            spacing controls the Text tab already has,
+                            editing the exact same state through a second,
+                            inconsistent UI. Selecting a card applies the
+                            preset immediately (see handleTemplateClick); a
+                            short hint plus a jump-to-Text-tab link replaces
+                            the old inline panel. */}
                         {isSelected && (
-                          <div className="mt-4 pt-4 border-t border-[#23272F] space-y-4 text-left">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-[#FFB800] block">
-                              ⚡ Customize Preset Style
-                            </span>
-
-                            <div className="grid grid-cols-1 gap-3">
-                              {/* 1. Font Family Dropdown */}
-                              <div className="space-y-1">
-                                <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Family</label>
-                                <select
-                                  value={customFont}
-                                  onChange={(e) => {
-                                    setCustomFont(e.target.value);
-                                    ensureFontLoaded(e.target.value);
-                                    saveStyleImmediate({ font: e.target.value });
-                                  }}
-                                  className="w-full bg-[#111317] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
-                                >
-                                  {POPULAR_FONTS.map((font) => (
-                                    <option key={font} value={font}>
-                                      {font}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* 2. Font Face (Weight) */}
-                              <div className="space-y-1">
-                                <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Face / Weight</label>
-                                <select
-                                  value={customFontFace}
-                                  onChange={(e) => {
-                                    setCustomFontFace(e.target.value);
-                                    saveStyleImmediate({ fontFace: e.target.value });
-                                  }}
-                                  className="w-full bg-[#111317] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
-                                >
-                                  <option value="Template default">Template default</option>
-                                  <option value="Thin">Thin</option>
-                                  <option value="Extra Light">Extra Light</option>
-                                  <option value="Light">Light</option>
-                                  <option value="Regular">Regular</option>
-                                  <option value="Medium">Medium</option>
-                                  <option value="Semi Bold">Semi Bold</option>
-                                  <option value="Bold">Bold</option>
-                                  <option value="Extra Bold">Extra Bold</option>
-                                  <option value="Black">Black</option>
-                                  <option value="Thin Italic">Thin Italic</option>
-                                  <option value="Light Italic">Light Italic</option>
-                                  <option value="Regular Italic">Regular Italic</option>
-                                  <option value="Medium Italic">Medium Italic</option>
-                                  <option value="Semi Bold Italic">Semi Bold Italic</option>
-                                  <option value="Bold Italic">Bold Italic</option>
-                                  <option value="Extra Bold Italic">Extra Bold Italic</option>
-                                  <option value="Black Italic">Black Italic</option>
-                                </select>
-                              </div>
-
-                              {/* 3. Font Size & Color */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                                    <span>Size</span>
-                                    <span className="font-mono text-[#FFB800]">{customSize}px</span>
-                                  </div>
-                                  <input
-                                    type="range"
-                                    min="10"
-                                    max="100"
-                                    step="2"
-                                    value={customSize}
-                                    onChange={(e) => {
-                                      setCustomSize(parseInt(e.target.value));
-                                      saveStyleBackground({ size: parseInt(e.target.value) });
-                                    }}
-                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Text Color</label>
-                                  <div className="flex items-center gap-1.5 bg-[#111317] border border-[#23272F] p-1 rounded h-[26px]">
-                                    <input
-                                      type="color"
-                                      value={customColor}
-                                      onChange={(e) => {
-                                        setCustomColor(e.target.value);
-                                        saveStyleBackground({ color: e.target.value });
-                                      }}
-                                      className="w-4 h-4 bg-transparent cursor-pointer shrink-0 rounded border-0"
-                                    />
-                                    <span className="text-[8px] text-white font-mono uppercase truncate">{customColor}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 4. Highlight Color & Alignment */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Highlight Color</label>
-                                  <div className="flex items-center gap-1.5 bg-[#111317] border border-[#23272F] p-1 rounded h-[26px]">
-                                    <input
-                                      type="color"
-                                      value={customHighlightColor}
-                                      onChange={(e) => {
-                                        setCustomHighlightColor(e.target.value);
-                                        saveStyleBackground({ highlight_color: e.target.value });
-                                      }}
-                                      className="w-4 h-4 bg-transparent cursor-pointer shrink-0 rounded border-0"
-                                    />
-                                    <span className="text-[8px] text-white font-mono uppercase truncate">{customHighlightColor}</span>
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
-                                  <div className="flex border border-[#23272F] rounded overflow-hidden h-[26px]">
-                                    {(["left", "center", "right"] as const).map((align) => (
-                                      <button
-                                        key={align}
-                                        onClick={() => {
-                                          setCustomAlignment(align);
-                                          saveStyleImmediate({ alignment: align });
-                                        }}
-                                        className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
-                                          customAlignment === align ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
-                                        }`}
-                                      >
-                                        {align}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 5. Shadow Offset & Stroke Outline sliders */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                                    <span>Shadow Offset</span>
-                                    <span className="font-mono text-[#FFB800]">{customShadow}px</span>
-                                  </div>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="8"
-                                    step="0.5"
-                                    value={customShadow}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value);
-                                      setCustomShadow(val);
-                                      setShadowEnabled(val > 0);
-                                      saveStyleBackground({ shadow: val, shadowEnabled: val > 0 });
-                                    }}
-                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                                    <span>Stroke Outline</span>
-                                    <span className="font-mono text-[#FFB800]">{customOutline}px</span>
-                                  </div>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="8"
-                                    step="0.5"
-                                    value={customOutline}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value);
-                                      setCustomOutline(val);
-                                      setStrokeEnabled(val > 0);
-                                      saveStyleBackground({ outline: val, strokeEnabled: val > 0 });
-                                    }}
-                                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* 6. Y Position Slider */}
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                                  <span>Vertical Position (Y%)</span>
-                                  <span className="font-mono text-[#FFB800]">{customYPositionPercent}%</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min="10"
-                                  max="90"
-                                  step="0.5"
-                                  value={customYPositionPercent}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    setCustomYPositionPercent(val);
-                                    saveStyleBackground({ y_position_percent: val });
-                                  }}
-                                  className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                />
-                              </div>
-
-                              {/* 7. Background Box container settings */}
-                              <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex flex-col">
-                                    <span className="text-[8px] font-bold text-white uppercase">Background Box</span>
-                                    <span className="text-[6px] text-white/40 uppercase tracking-wider">Container backdrop behind text</span>
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      const enabled = !backgroundEnabled;
-                                      setBackgroundEnabled(enabled);
-                                      saveStyleImmediate({ backgroundEnabled: enabled, backgroundStyle: enabled ? selectedBackgroundStyle : "none" });
-                                    }}
-                                    className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
-                                      backgroundEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                                    }`}
-                                  >
-                                    <div
-                                      className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                                        backgroundEnabled ? "translate-x-4" : "translate-x-0"
-                                      }`}
-                                    />
-                                  </button>
-                                </div>
-
-                                {backgroundEnabled && (
-                                  <div className="flex border border-[#23272F] rounded overflow-hidden h-[26px]">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedBackgroundStyle("pill");
-                                        saveStyleImmediate({ backgroundStyle: "pill" });
-                                      }}
-                                      className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
-                                        selectedBackgroundStyle === "pill" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
-                                      }`}
-                                    >
-                                      Pill
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedBackgroundStyle("shadow-box");
-                                        saveStyleImmediate({ backgroundStyle: "shadow-box" });
-                                      }}
-                                      className={`flex-1 text-[8px] font-bold uppercase transition-colors cursor-pointer ${
-                                        selectedBackgroundStyle === "shadow-box" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60"
-                                      }`}
-                                    >
-                                      Shadow Box
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 8. TEMPLATE-SPECIFIC UNIQUE CONTROLS */}
-                              
-                              {/* 8a. staggered_3line specifics (Kalakar presets) */}
-                              {tpl.caption_template === "staggered_3line" && (
-                                <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
-                                  <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Kalakar Staggered Layout Options</label>
-                                  
-                                  <div className="grid grid-cols-2 gap-2 h-[26px]">
-                                    {(["splash", "centre"] as const).map((layout) => (
-                                      <button
-                                        key={layout}
-                                        onClick={() => {
-                                          setCustomStaggeredLayout(layout);
-                                          saveStyleImmediate({ staggered_layout: layout });
-                                        }}
-                                        className={`text-[8px] font-bold uppercase transition-colors border border-[#23272F] rounded cursor-pointer ${
-                                          customStaggeredLayout === layout ? "bg-[#FFB800]/10 border-[#FFB800] text-[#FFB800]" : "bg-[#111317] text-white/60"
-                                        }`}
-                                      >
-                                        {layout} Layout
-                                      </button>
-                                    ))}
-                                  </div>
-
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[8px] text-white/60 uppercase">Accent Period Emphasis</span>
-                                    <button
-                                      onClick={() => {
-                                        const enabled = !customAccentPeriodEnabled;
-                                        setCustomAccentPeriodEnabled(enabled);
-                                        saveStyleImmediate({ accent_period_enabled: enabled });
-                                      }}
-                                      className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
-                                        customAccentPeriodEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                                      }`}
-                                    >
-                                      <div
-                                        className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                                          customAccentPeriodEnabled ? "translate-x-4" : "translate-x-0"
-                                        }`}
-                                      />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* 8b. word_by_word / single_word specifics (Podcast, Viral Shorts) */}
-                              {tpl.caption_template === "word_by_word" && (
-                                <div className="space-y-2 border-t border-[#23272F]/50 pt-2">
-                                  <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Word-by-Word Timing Settings</label>
-                                  
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                                        <span>Words per card</span>
-                                        <span className="font-mono text-[#FFB800]">{customWordLimit}</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="1"
-                                        max="5"
-                                        step="1"
-                                        value={customWordLimit}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value);
-                                          setCustomWordLimit(val);
-                                          saveStyleImmediate({ word_limit: val });
-                                        }}
-                                        className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                      />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                                        <span>Word Delay (ms)</span>
-                                        <span className="font-mono text-[#FFB800]">{customCaptionSpacingMs}ms</span>
-                                      </div>
-                                      <input
-                                        type="range"
-                                        min="10"
-                                        max="300"
-                                        step="10"
-                                        value={customCaptionSpacingMs}
-                                        onChange={(e) => {
-                                          const val = parseInt(e.target.value);
-                                          setCustomCaptionSpacingMs(val);
-                                          saveStyleBackground({ caption_spacing_ms: val });
-                                        }}
-                                        className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                      <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pacing</label>
-                                      <select
-                                        value={customWordPacing}
-                                        onChange={(e) => {
-                                          setCustomWordPacing(e.target.value);
-                                          saveStyleImmediate({ word_pacing: e.target.value });
-                                        }}
-                                        className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
-                                      >
-                                        <option value="dynamic">Dynamic</option>
-                                        <option value="even">Even</option>
-                                      </select>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pause Handling</label>
-                                      <select
-                                        value={customPauseHandling}
-                                        onChange={(e) => {
-                                          setCustomPauseHandling(e.target.value);
-                                          saveStyleImmediate({ pause_handling: e.target.value });
-                                        }}
-                                        className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
-                                      >
-                                        <option value="hold">Hold text</option>
-                                        <option value="clear">Clear text</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+                          <div className="mt-3 pt-3 border-t border-[#23272F] flex items-center justify-between">
+                            <span className="text-[8px] text-white/50 uppercase tracking-wide">Applied — fine-tune font, size, color, spacing in the Text tab</span>
+                            <button
+                              onClick={() => setActiveTab("text")}
+                              className="text-[8px] font-bold uppercase tracking-wider text-[#FFB800] hover:text-white cursor-pointer whitespace-nowrap ml-2"
+                            >
+                              Edit Style →
+                            </button>
                           </div>
                         )}
                       </div>

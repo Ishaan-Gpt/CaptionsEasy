@@ -180,6 +180,9 @@ export const projectsService = {
       box_bottom?: number | null;
       box_left?: number | null;
       box_right?: number | null;
+      keyword_font?: string | null;
+      keyword_weight?: string | null;
+      keyword_size_scale?: number | null;
     }
   ): Promise<{ style: string }> {
     return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {

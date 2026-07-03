@@ -189,6 +189,13 @@ class CustomStyleRequest(BaseModel):
     box_bottom: float | None = None
     box_left: float | None = None
     box_right: float | None = None
+    # Independent hero/keyword-word styling (Phase D) — None means "use the
+    # template's own default" (app.render.templates.TemplateStyleConfig's
+    # keyword_font/keyword_weight/keyword_size_scale), same as every
+    # template's behavior before these fields existed.
+    keyword_font: str | None = None
+    keyword_weight: str | None = None
+    keyword_size_scale: float | None = None
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -250,6 +257,9 @@ async def save_custom_style(
             "color_mode": body.color_mode,
             "color2": body.color2,
             "x_position_percent": body.x_position_percent,
+            "keyword_font": body.keyword_font,
+            "keyword_weight": body.keyword_weight,
+            "keyword_size_scale": body.keyword_size_scale,
         },
         "animation": base_preset.get("animation", {
             "caption_animation": "pop",
@@ -341,6 +351,9 @@ async def get_custom_style(
             "box_bottom": safe_area.get("bottom", 120.0),
             "box_left": safe_area.get("left", 50.0),
             "box_right": safe_area.get("right", 50.0),
+            "keyword_font": topo.get("keyword_font"),
+            "keyword_weight": topo.get("keyword_weight"),
+            "keyword_size_scale": topo.get("keyword_size_scale"),
         })
     else:
         # Fall back to base Kalakar template values
@@ -374,6 +387,9 @@ async def get_custom_style(
             "box_bottom": 120.0,
             "box_left": 50.0,
             "box_right": 50.0,
+            "keyword_font": None,
+            "keyword_weight": None,
+            "keyword_size_scale": None,
         })
 
 

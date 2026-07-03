@@ -24,6 +24,13 @@ class TypographyPreset(BaseModel):
     color_mode: Optional[str] = "solid"
     color2: Optional[str] = None
     x_position_percent: Optional[float] = None
+    # Independent hero/keyword-word styling (Phase D) — None means "inherit
+    # the template's own keyword_font/keyword_weight/keyword_size_scale
+    # default" (app.render.templates.TemplateStyleConfig), same fallback
+    # every template already had before these fields existed.
+    keyword_font: Optional[str] = None
+    keyword_weight: Optional[str] = None
+    keyword_size_scale: Optional[float] = None
 
 class AnimationPreset(BaseModel):
     caption_animation: str

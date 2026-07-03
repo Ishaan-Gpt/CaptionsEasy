@@ -475,8 +475,8 @@
     "safe_area": {
       "top": 80.0,
       "bottom": 120.0,
-      "left": 50.0,
-      "right": 50.0
+      "left": 65.0,
+      "right": 65.0
     },
     "emoji": {
       "behavior": "none"
@@ -516,8 +516,8 @@
     "safe_area": {
       "top": 80.0,
       "bottom": 120.0,
-      "left": 50.0,
-      "right": 50.0
+      "left": 65.0,
+      "right": 65.0
     },
     "emoji": {
       "behavior": "none"
