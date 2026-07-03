@@ -30,6 +30,27 @@ def _max_weight(a: str, b: str) -> str:
     return a if to_int(a) >= to_int(b) else b
 
 
+# Same per-character-class glyph-width heuristic as app.render.engine's
+# estimate_text_width() and the frontend/Remotion estimateTextWidthPx()
+# copies (packages/contracts has no shared runtime between Python and TS,
+# so this is a 4th hand-kept copy by existing convention — keep all four in
+# sync if the formula ever changes).
+def estimate_text_width(text: str, font_size: float) -> float:
+    width = 0.0
+    for c in text:
+        if c.isupper():
+            width += font_size * 0.65
+        elif c in "1ilI|!.,:;":
+            width += font_size * 0.25
+        elif c in "mwMW":
+            width += font_size * 0.85
+        elif c == " ":
+            width += font_size * 0.3
+        else:
+            width += font_size * 0.52
+    return width
+
+
 def normalize_word(w: str) -> str:
     return re.sub(r'[^\w]', '', w).lower()
 
@@ -162,9 +183,23 @@ def get_segment_word_timings(segment, tx_words, last_tx_idx):
     return word_timings, last_tx_idx
 
 
-def group_words(word_timings, word_limit, max_chars=24):
+def group_words(word_timings, word_limit, max_chars=24, max_width_px=None, font_size=None):
+    """Splits word_timings into on-screen caption groups.
+
+    When max_width_px/font_size are given, the group's estimated rendered
+    width (via estimate_text_width) drives splitting instead of raw word
+    count — a group keeps taking words as long as it still fits the box,
+    so five short words ("go for it now go") and two long ones behave
+    differently instead of both being capped at the same word_limit.
+    word_limit becomes a sanity-cap ceiling (2x) that only kicks in if
+    width estimation would otherwise let a card grow unreasonably long
+    (e.g. a run of very narrow words) — it no longer forces a split just
+    because a "normal" card was reached.
+    """
     groups = []
     current_group = []
+    width_driven = bool(max_width_px and font_size)
+    ceiling = word_limit * 2 if width_driven else word_limit
 
     i = 0
     while i < len(word_timings):
@@ -175,17 +210,22 @@ def group_words(word_timings, word_limit, max_chars=24):
             next_word, next_start, next_end, _next_seg_idx = word_timings[i+1]
             current_text = " ".join([item[0] for item in current_group])
             projected_text = current_text + " " + next_word
-            
+
             force_split = False
             prevent_split = should_prevent_split(word, next_word)
-            
+
             if len(projected_text) > max_chars:
                 if not prevent_split:
                     force_split = True
                 elif len(projected_text) > max_chars * 1.5:
                     force_split = True
-            
-            if len(current_group) >= word_limit:
+
+            if width_driven:
+                projected_width = estimate_text_width(projected_text, font_size)
+                if projected_width > max_width_px and not prevent_split:
+                    force_split = True
+
+            if len(current_group) >= ceiling:
                 if not prevent_split:
                     force_split = True
 
@@ -326,14 +366,22 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         # app.render.templates, the single source of truth every template
         # (and app.render.engine's ASS export, via the resolved values baked
         # into this timeline below) reads from. max_chars is a safety valve
-        # against absurdly long lines, not the primary driver — it used to
-        # be tight enough (30/36 chars) that it force-split groups well
-        # before word_limit was reached, so a "5-word" template routinely
-        # rendered only 1-2 words per card. word_limit is now the
-        # constraint that actually governs how full a card looks.
+        # against absurdly long lines, not the primary driver.
+        #
+        # Card word count is now driven by estimated rendered width against
+        # the caption box (canvas width minus the style's safe-area
+        # margins), not a fixed word_limit — a card keeps taking words
+        # while they still fit, so short words fill a card fuller than long
+        # ones do. word_limit is demoted to a sanity-cap ceiling (see
+        # group_words). word_by_word is exempt: its whole identity is
+        # exactly one word per card, so it keeps the old fixed-count path.
         template_style = get_template_style(template)
         word_limit_to_use = template_style.word_limit
         max_chars = template_style.max_chars
+        # Matches the canvas dims baked into global_settings below.
+        canvas_width_px = 1080
+        box_width_px = canvas_width_px - preset.safe_area.left - preset.safe_area.right
+        grouping_font_size = font_size * template_style.base_size_scale
 
         # Process each caption-planning segment as-is. Segments come
         # straight from the LLM (prompts/caption_planning.txt now targets
@@ -354,7 +402,13 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                 segment, transcript.words, last_tx_idx
             )
 
-            groups = group_words(word_timings, word_limit_to_use, max_chars)
+            if template == "word_by_word":
+                groups = group_words(word_timings, word_limit_to_use, max_chars)
+            else:
+                groups = group_words(
+                    word_timings, word_limit_to_use, max_chars,
+                    max_width_px=box_width_px, font_size=grouping_font_size,
+                )
 
             for g_idx, group in enumerate(groups):
                 group_words_text = [item[0] for item in group]
