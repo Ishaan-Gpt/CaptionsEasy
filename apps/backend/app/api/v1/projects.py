@@ -48,6 +48,36 @@ from app.services.transcript_repository import TranscriptRepository
 
 router = APIRouter(tags=["projects"])
 
+# How close a caption card's start_ms has to be to a saved fragment-override
+# key to still count as "the same card" after a MotionScript regeneration
+# reshuffled word grouping slightly (re-transcription, template switch
+# changing word_limit, etc.) — see docs/REMOTION_REVAMP_HANDOFF.md Phase C.
+FRAGMENT_OVERRIDE_MATCH_TOLERANCE_MS = 250
+
+
+def apply_fragment_overrides(motion_script_data: dict, project: Project) -> dict:
+    """Resolves each caption event's payload.box from the project's sparse
+    fragment_overrides_json (nearest start_ms within tolerance), mutating
+    and returning the same motion_script_data dict. A caption with no
+    matching override keeps payload.box unset (None) — renderers already
+    fall back to the project's global safe_area in that case, so "no
+    override" needs no explicit action here."""
+    overrides = project.fragment_overrides_json or {}
+    if not overrides:
+        return motion_script_data
+
+    override_starts = [int(k) for k in overrides.keys()]
+    for event in motion_script_data.get("timeline", []):
+        if event.get("type") != "caption":
+            continue
+        start_ms = event.get("start_ms")
+        if start_ms is None:
+            continue
+        nearest = min(override_starts, key=lambda s: abs(s - start_ms))
+        if abs(nearest - start_ms) <= FRAGMENT_OVERRIDE_MATCH_TOLERANCE_MS:
+            event["payload"]["box"] = overrides[str(nearest)]["box"]
+    return motion_script_data
+
 
 class CreateProjectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -149,6 +179,16 @@ class CustomStyleRequest(BaseModel):
     color_mode: str = "solid"
     color2: str | None = None
     x_position_percent: float | None = None
+    # Global default bounding box, in pixel margins from each canvas edge —
+    # the same GlobalSettings.safe_area concept every renderer already
+    # reads, just made user-editable instead of hardcoded per-style-preset.
+    # None for any side means "keep whatever's already in the preset"
+    # (falls back to the base "kalakar" preset's 80/120/50/50 the first
+    # time a project sets a custom style at all).
+    box_top: float | None = None
+    box_bottom: float | None = None
+    box_left: float | None = None
+    box_right: float | None = None
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -173,7 +213,23 @@ async def save_custom_style(
         
     base_preset = data.get("kalakar", {})
     base_timing = base_preset.get("timing", {})
-    
+    # Priority for each safe-area side: this request's explicit box_* value
+    # > this project's own previously saved custom safe_area (data[preset_key]
+    # was always overwritten wholesale below, so without reading it back
+    # first any earlier custom safe_area save would be silently discarded
+    # on the next unrelated style edit) > the base "kalakar" preset's > a
+    # hardcoded fallback.
+    existing_custom_safe_area = data.get(preset_key, {}).get("safe_area", {})
+    default_safe_area = base_preset.get("safe_area", {
+        "top": 80.0, "bottom": 120.0, "left": 50.0, "right": 50.0,
+    })
+    resolved_safe_area = {
+        "top": body.box_top if body.box_top is not None else existing_custom_safe_area.get("top", default_safe_area.get("top", 80.0)),
+        "bottom": body.box_bottom if body.box_bottom is not None else existing_custom_safe_area.get("bottom", default_safe_area.get("bottom", 120.0)),
+        "left": body.box_left if body.box_left is not None else existing_custom_safe_area.get("left", default_safe_area.get("left", 50.0)),
+        "right": body.box_right if body.box_right is not None else existing_custom_safe_area.get("right", default_safe_area.get("right", 50.0)),
+    }
+
     data[preset_key] = {
         "name": f"Custom {project.title}",
         "typography": {
@@ -203,12 +259,7 @@ async def save_custom_style(
         "highlight": {
             "colors": [body.highlight_color]
         },
-        "safe_area": base_preset.get("safe_area", {
-            "top": 80.0,
-            "bottom": 120.0,
-            "left": 50.0,
-            "right": 50.0
-        }),
+        "safe_area": resolved_safe_area,
         "emoji": base_preset.get("emoji", {
             "behavior": "none"
         }),
@@ -258,6 +309,7 @@ async def get_custom_style(
         topo = preset.get("typography", {})
         highlight = preset.get("highlight", {})
         timing = preset.get("timing", {})
+        safe_area = preset.get("safe_area", {})
         colors = highlight.get("colors", ["#C5FF00"])
         return success_response({
             "font": topo.get("font", "Outfit"),
@@ -285,6 +337,10 @@ async def get_custom_style(
             "color_mode": topo.get("color_mode", "solid"),
             "color2": topo.get("color2"),
             "x_position_percent": topo.get("x_position_percent"),
+            "box_top": safe_area.get("top", 80.0),
+            "box_bottom": safe_area.get("bottom", 120.0),
+            "box_left": safe_area.get("left", 50.0),
+            "box_right": safe_area.get("right", 50.0),
         })
     else:
         # Fall back to base Kalakar template values
@@ -314,7 +370,50 @@ async def get_custom_style(
             "color_mode": "solid",
             "color2": None,
             "x_position_percent": None,
+            "box_top": 80.0,
+            "box_bottom": 120.0,
+            "box_left": 50.0,
+            "box_right": 50.0,
         })
+
+
+class FragmentOverrideRequest(BaseModel):
+    top: float
+    bottom: float
+    left: float
+    right: float
+
+
+@router.put("/projects/{project_id}/fragment-override/{start_ms}")
+async def upsert_fragment_override(
+    project_id: uuid.UUID,
+    start_ms: int,
+    body: FragmentOverrideRequest,
+    project: Project = Depends(get_owned_project),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    # Keyed by the caption card's own start_ms — the only anchor stable
+    # across MotionScript regenerations (evt-N timeline IDs restart at 1
+    # every regeneration and are not safe to key overrides on). The merge
+    # step in generate_motion_script/export_project matches by nearest
+    # start_ms within a tolerance window, not exact equality, so a few ms
+    # of drift from re-transcription/re-grouping doesn't detach this.
+    await project_repository.set_fragment_override(
+        project,
+        start_ms_key=str(start_ms),
+        box={"top": body.top, "bottom": body.bottom, "left": body.left, "right": body.right},
+    )
+    return success_response({"start_ms": start_ms})
+
+
+@router.delete("/projects/{project_id}/fragment-override/{start_ms}", status_code=204)
+async def delete_fragment_override(
+    project_id: uuid.UUID,
+    start_ms: int,
+    project: Project = Depends(get_owned_project),
+    project_repository: ProjectRepository = Depends(get_project_repository),
+):
+    await project_repository.delete_fragment_override(project, start_ms_key=str(start_ms))
 
 
 @router.delete("/projects/{project_id}", status_code=204)
@@ -465,6 +564,7 @@ async def generate_motion_script(
         caption_template=project.caption_template,
     )
 
+    apply_fragment_overrides(output.data, project)
     motion_script = await motion_script_repository.create(
         project_id=project.id,
         motion_script_json=output.data,
@@ -516,6 +616,7 @@ async def export_project(
         caption_template=project.caption_template,
     )
 
+    apply_fragment_overrides(output.data, project)
     await motion_script_repository.create(
         project_id=project.id,
         motion_script_json=output.data,

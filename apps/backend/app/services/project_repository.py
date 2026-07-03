@@ -97,6 +97,26 @@ class ProjectRepository:
         await self._db.refresh(project)
         return project
 
+    async def set_fragment_override(self, project: Project, *, start_ms_key: str, box: dict) -> Project:
+        # Reassign a new dict (not mutate project.fragment_overrides_json
+        # in place) — SQLAlchemy's JSONB change tracking only fires on
+        # attribute assignment, an in-place dict mutation would silently
+        # not be flushed to the column.
+        overrides = dict(project.fragment_overrides_json or {})
+        overrides[start_ms_key] = {"box": box}
+        project.fragment_overrides_json = overrides
+        await self._db.commit()
+        await self._db.refresh(project)
+        return project
+
+    async def delete_fragment_override(self, project: Project, *, start_ms_key: str) -> Project:
+        overrides = dict(project.fragment_overrides_json or {})
+        overrides.pop(start_ms_key, None)
+        project.fragment_overrides_json = overrides
+        await self._db.commit()
+        await self._db.refresh(project)
+        return project
+
     async def soft_delete(self, project: Project) -> Project:
         project.deleted_at = datetime.now(timezone.utc)
         await self._db.commit()

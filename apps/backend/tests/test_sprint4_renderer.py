@@ -60,7 +60,13 @@ def test_ass_generation():
     assert "PlayResY: 1920" in ass_content
     assert "Default,Inter,48" in ass_content
     assert "[Events]" in ass_content
-    assert "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\fad(150,150)}Hello world" in ass_content
+    # MarginL/MarginR are now the preset's real safe_area (40/40 for
+    # "minimal", the fallback this mock's "dark" theme resolves to), not
+    # hardcoded 0 — Phase C's per-caption box override reuses this same
+    # Dialogue-level margin column, so the no-override case had to start
+    # actually reflecting the project's global safe_area instead of ignoring
+    # it entirely.
+    assert "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,40,40,0,,{\\fad(150,150)}Hello world" in ass_content
 
 
 def test_ass_generation_with_animations():
@@ -87,7 +93,7 @@ def test_ass_generation_with_animations():
     script = validate_motion_script(data)
     ass_content = engine.generate_ass(script)
     assert "Default,Outfit,60" in ass_content
-    assert "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}Subtitles" in ass_content
+    assert "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,40,40,0,,{\\fscx0\\fscy0}{\\t(0,150,\\fscx100\\fscy100)}Subtitles" in ass_content
 
 
 class FakeSession:

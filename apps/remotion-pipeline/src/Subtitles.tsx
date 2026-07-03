@@ -36,6 +36,13 @@ export interface TimelineEvent {
     x_position_percent?: number | null;
     shadow?: number;
     outline?: number;
+    // Per-caption-card bounding-box override (Phase C), pixel margins from
+    // each canvas edge — same convention as GlobalSettings.safe_area.
+    // Resolved server-side (app.api.v1.projects.apply_fragment_overrides)
+    // from the project's fragment_overrides_json; undefined/null means
+    // "use the project's global safe_area", i.e. the existing 90%/800px
+    // fallback this component already had before this field existed.
+    box?: { top: number; bottom: number; left: number; right: number } | null;
   };
 }
 
@@ -163,8 +170,14 @@ export const Subtitles: React.FC = () => {
 
   // Bounding box every template renders inside — mirrors the frontend
   // preview and the ASS exporter so all three surfaces agree on when text
-  // needs to shrink instead of overflowing the safe area.
-  const maxWidthPx = Math.min(width * 0.9, 800);
+  // needs to shrink instead of overflowing the safe area. A per-caption
+  // box override (Phase C) takes priority over the default 90%/800px
+  // fallback, same priority order as app.render.engine's
+  // resolve_box_margins() and the frontend's box-editor state.
+  const capBox = activeCaption.payload.box;
+  const maxWidthPx = capBox
+    ? Math.max(100, width - capBox.left - capBox.right)
+    : Math.min(width * 0.9, 800);
 
   // Renders a stylized container based on the background styles
   const containerStyle: React.CSSProperties = {
@@ -932,8 +945,8 @@ export const Subtitles: React.FC = () => {
           flexWrap: "wrap",
           justifyContent: alignment === "left" ? "flex-start" : alignment === "right" ? "flex-end" : "center",
           gap: "10px 16px",
-          width: "90%",
-          maxWidth: "800px",
+          width: capBox ? `${maxWidthPx}px` : "90%",
+          maxWidth: capBox ? `${maxWidthPx}px` : "800px",
           fontFamily: font,
           fontWeight: weight,
           lineHeight: payloadLineSpacing,

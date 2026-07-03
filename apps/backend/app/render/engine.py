@@ -128,6 +128,16 @@ def pick_keyword_idx(words_text: list[str]) -> int:
             best_idx = i
     return best_idx
 
+def resolve_box_margins(cap_payload, margin_l: int, margin_r: int, canvas_width: int) -> tuple[int, int]:
+    """Per-caption-card box override (Phase C) takes priority over the
+    project's global safe_area margins — falls back to the global margins
+    when the card has no override, same as before this field existed."""
+    box = getattr(cap_payload, "box", None)
+    if box is not None:
+        return int(box.left), canvas_width - int(box.right)
+    return margin_l, canvas_width - margin_r
+
+
 def estimate_text_width(text: str, font_size: float) -> float:
     width = 0.0
     for c in text:
@@ -375,8 +385,7 @@ class RenderEngine:
                     size_large = size_normal * keyword_size_scale
                     keyword_font = getattr(keyword_payload, "font", None) or "Anton"
 
-                    box_left = margin_l
-                    box_right = width - margin_r
+                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
                     box_width = box_right - box_left
 
                     # Bounding box: shrink (never overflow) each line to fit.
@@ -482,8 +491,7 @@ class RenderEngine:
                     size_normal = size_normal * 0.8
                     size_large = getattr(cap_payload, "size", font_size) * 1.6
 
-                    box_left = margin_l
-                    box_right = width - margin_r
+                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
                     box_width = box_right - box_left
 
                     def fit(sz: float, text: str) -> float:
@@ -558,8 +566,7 @@ class RenderEngine:
                     size_l3 = size_normal
                     size_large = size_normal * 1.8
 
-                    box_left = margin_l
-                    box_right = width - margin_r
+                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
                     box_width = box_right - box_left
 
                     def fit(sz: float, text: str) -> float:
@@ -655,8 +662,7 @@ class RenderEngine:
                     size_l3 = size_normal * 1.1
                     size_large = size_normal * 2.3
 
-                    box_left = margin_l
-                    box_right = width - margin_r
+                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
                     box_width = box_right - box_left
 
                     def fit(sz: float, text: str) -> float:
@@ -779,8 +785,7 @@ class RenderEngine:
                     # off their keyword-synced anchor — see below) just
                     # enough to keep their full (not just currently-revealed)
                     # text inside this box.
-                    box_left = margin_l
-                    box_right = width - margin_r
+                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
 
                     # Vertical position calculations: ensure they appear at the chosen y-axis height
                     y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
@@ -1006,8 +1011,17 @@ class RenderEngine:
                         text_pos_tag = ""
 
                     full_text = f"{text_pos_tag}{anim_tags}{segment_text}"
+                    # No \pos here (unlike the background-box path above),
+                    # so libass wraps this line using the Dialogue's own
+                    # MarginL/MarginR — a per-caption box override (Phase C)
+                    # narrows/widens that wrap width by overriding them
+                    # in-line instead of falling through to the Style
+                    # line's global margins (the "0,0" default below).
+                    cap_box = getattr(cap_payload, "box", None)
+                    dialogue_margin_l = int(cap_box.left) if cap_box is not None else margin_l
+                    dialogue_margin_r = int(cap_box.right) if cap_box is not None else margin_r
                     ass_lines.append(
-                        f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{full_text}"
+                        f"Dialogue: 0,{start_str},{end_str},Default,,{dialogue_margin_l},{dialogue_margin_r},0,,{full_text}"
                     )
 
         return "\n".join(ass_lines)

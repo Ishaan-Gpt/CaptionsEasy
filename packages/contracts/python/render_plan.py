@@ -132,6 +132,16 @@ class CaptionPayload(StrictModel):
     shadow: float = 0.0
     outline: float = 0.0
     background_style: str = "none"  # "none" | "pill" | "shadow-box"
+    # Per-caption-card bounding-box override (pixel margins from each canvas
+    # edge, same convention as GlobalSettings.safe_area — the box's own
+    # width/height are derived by subtracting these from canvas dims, not
+    # stored directly). None means "use the project's global safe_area" —
+    # the existing fallback behavior every renderer already had before this
+    # field existed. Resolved once by the merge step in
+    # app.api.v1.projects (generate_motion_script/export_project) from the
+    # project's fragment_overrides_json, keyed by this card's start_ms —
+    # not by the caller of DummyRenderPlanProvider.plan().
+    box: SafeArea | None = None
 
 
 class HighlightPayload(StrictModel):
