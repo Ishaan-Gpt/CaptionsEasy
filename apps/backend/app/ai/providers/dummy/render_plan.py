@@ -55,6 +55,15 @@ def normalize_word(w: str) -> str:
     return re.sub(r'[^\w]', '', w).lower()
 
 
+def _clean_transcript_word(w: str) -> str:
+    """Strips trailing commas/semicolons (breath-pause artifacts, not
+    meaningful punctuation) from a raw Groq transcript word, mirroring
+    prompts/caption_planning.txt rule 8's intent — but applied deterministically
+    to the real transcript word instead of trusting the caption-planning LLM's
+    own retyped copy of it (see get_segment_word_timings)."""
+    return re.sub(r'[,;]+$', '', w)
+
+
 def is_capitalized(word: str) -> bool:
     clean = re.sub(r'^[^\w]+', '', word)
     return len(clean) > 0 and clean[0].isupper()
@@ -167,7 +176,13 @@ def get_segment_word_timings(segment, tx_words, last_tx_idx):
             tx_word_idx = best_match_idx + i
             if tx_word_idx < len(tx_words):
                 tw = tx_words[tx_word_idx]
-                word_timings.append((seg_words[i], tw.start_ms, tw.end_ms, i))
+                # Use the real Groq transcript word, not the caption-planning
+                # LLM's own retyped `seg_words[i]` — the LLM is free to
+                # rephrase/hallucinate wording (only the timing match above
+                # is trusted), so what actually renders on screen must come
+                # from the transcript, the one place fidelity to what was
+                # actually said is guaranteed.
+                word_timings.append((_clean_transcript_word(tw.text), tw.start_ms, tw.end_ms, i))
             else:
                 prev_end = word_timings[-1][2] if word_timings else segment.start_ms
                 word_timings.append((seg_words[i], prev_end, prev_end + 300, i))

@@ -707,5 +707,50 @@
       "accent_period_enabled": true
     },
     "transitions": "fade"
+  },
+  "custom_47e3b5e0-d3bd-4e4d-af6c-ea0b0795d497": {
+    "name": "Custom lol",
+    "typography": {
+      "font": "Baloo 2",
+      "size": 48.0,
+      "weight": "800",
+      "color": "#FFFFFF",
+      "alignment": "center",
+      "shadow": 4.0,
+      "outline": 2.0,
+      "background_style": "none",
+      "y_position_percent": 71.4
+    },
+    "animation": {
+      "caption_animation": "pop",
+      "motion_preset": "dynamic",
+      "intensity": "medium"
+    },
+    "highlight": {
+      "colors": [
+        "#4FA8FF"
+      ]
+    },
+    "safe_area": {
+      "top": 80.0,
+      "bottom": 120.0,
+      "left": 65.0,
+      "right": 65.0
+    },
+    "emoji": {
+      "behavior": "none"
+    },
+    "timing": {
+      "word_limit": 5,
+      "caption_spacing_ms": 50,
+      "word_pacing": "dynamic",
+      "pause_handling": "hold",
+      "sentence_segmentation": "semantic",
+      "reading_speed_limit_cps": 22,
+      "caption_template": "glow_stack",
+      "staggered_layout": "splash",
+      "accent_period_enabled": true
+    },
+    "transitions": "fade"
   }
 }

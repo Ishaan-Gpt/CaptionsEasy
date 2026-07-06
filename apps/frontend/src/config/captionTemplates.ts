@@ -166,6 +166,15 @@ export interface PresetConfig {
   caption_spacing_ms?: number;
   word_pacing?: string;
   pause_handling?: string;
+  /** Default caption safe-area box for this template, mirroring each
+   * preset's `safe_area` in apps/backend/app/render/presets.json. Template
+   * switches must reset the box to these values — otherwise a box left
+   * over from a previous template (or a manual drag) silently carries over
+   * and can look misplaced against the new template's own layout. */
+  box_top: number;
+  box_bottom: number;
+  box_left: number;
+  box_right: number;
 }
 
 export const PRESETS_LIST: PresetConfig[] = [
@@ -187,6 +196,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 100,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 80, box_left: 40, box_right: 40,
   },
   {
     id: "modern",
@@ -206,6 +216,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 50, box_right: 50,
   },
   {
     id: "podcast",
@@ -225,6 +236,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 30,
     word_pacing: "dynamic",
     pause_handling: "clear",
+    box_top: 100, box_bottom: 150, box_left: 80, box_right: 80,
   },
   {
     id: "documentary",
@@ -244,6 +256,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 150,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 120, box_bottom: 120, box_left: 100, box_right: 100,
   },
   {
     id: "viral shorts",
@@ -263,6 +276,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 20,
     word_pacing: "dynamic",
     pause_handling: "clear",
+    box_top: 60, box_bottom: 160, box_left: 40, box_right: 40,
   },
   {
     id: "educational",
@@ -282,6 +296,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 80,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 100, box_left: 50, box_right: 50,
   },
   {
     id: "luxury",
@@ -301,6 +316,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 120,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 100, box_bottom: 100, box_left: 80, box_right: 80,
   },
   {
     id: "formal",
@@ -320,6 +336,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 120,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 100, box_bottom: 100, box_left: 60, box_right: 60,
   },
   {
     id: "sarcastic",
@@ -339,6 +356,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 60,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 50, box_right: 50,
   },
   {
     id: "humorous_tech",
@@ -358,6 +376,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 40,
     word_pacing: "dynamic",
     pause_handling: "clear",
+    box_top: 60, box_bottom: 150, box_left: 40, box_right: 40,
   },
   {
     id: "humorous_non_tech",
@@ -377,6 +396,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 80,
     word_pacing: "even",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 110, box_left: 50, box_right: 50,
   },
   {
     id: "kalakar",
@@ -398,6 +418,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 65, box_right: 65,
   },
   {
     id: "kalakar_shadow",
@@ -419,6 +440,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 65, box_right: 65,
   },
   {
     id: "glow_stack",
@@ -438,6 +460,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 50, box_right: 50,
   },
   {
     id: "cartoon_stack",
@@ -457,6 +480,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 50, box_right: 50,
   },
   {
     id: "serif_pop",
@@ -476,6 +500,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 50, box_right: 50,
   },
   {
     id: "cinematic_emerald",
@@ -495,6 +520,7 @@ export const PRESETS_LIST: PresetConfig[] = [
     caption_spacing_ms: 50,
     word_pacing: "dynamic",
     pause_handling: "hold",
+    box_top: 80, box_bottom: 120, box_left: 65, box_right: 65,
   }
 ];
 

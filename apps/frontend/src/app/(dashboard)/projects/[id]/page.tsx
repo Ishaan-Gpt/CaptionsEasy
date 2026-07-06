@@ -144,6 +144,12 @@ export default function ProjectWorkspacePage() {
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
   const [editingWordText, setEditingWordText] = useState("");
   const [localWords, setLocalWords] = useState<any[]>([]);
+  // Timeline workstation: Word/Line granularity toggle, and a bounded undo
+  // history over localWords edits (text edits + highlight toggles) so the
+  // Undo/Redo buttons in the timeline top bar are real, not decorative.
+  const [wordDisplayMode, setWordDisplayMode] = useState<"word" | "line">("word");
+  const wordsHistoryRef = useRef<{ past: any[][]; future: any[][] }>({ past: [], future: [] });
+  const [historyVersion, setHistoryVersion] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
@@ -455,8 +461,42 @@ export default function ProjectWorkspacePage() {
     }
   }, [zoomLevel]);
 
+  // Records the pre-edit words snapshot so handleUndo can restore it, and
+  // clears redo history — a fresh edit invalidates whatever was undone
+  // before it, same as any standard editor undo stack.
+  const pushWordsHistory = (snapshot: any[]) => {
+    const MAX_HISTORY = 50;
+    const hist = wordsHistoryRef.current;
+    hist.past = [...hist.past, snapshot].slice(-MAX_HISTORY);
+    hist.future = [];
+    setHistoryVersion((v) => v + 1);
+  };
+
+  const handleUndo = () => {
+    const hist = wordsHistoryRef.current;
+    if (hist.past.length === 0) return;
+    const previous = hist.past[hist.past.length - 1];
+    hist.past = hist.past.slice(0, -1);
+    hist.future = [localWords, ...hist.future];
+    setLocalWords(previous);
+    saveTranscriptBackground(previous);
+    setHistoryVersion((v) => v + 1);
+  };
+
+  const handleRedo = () => {
+    const hist = wordsHistoryRef.current;
+    if (hist.future.length === 0) return;
+    const next = hist.future[0];
+    hist.future = hist.future.slice(1);
+    hist.past = [...hist.past, localWords];
+    setLocalWords(next);
+    saveTranscriptBackground(next);
+    setHistoryVersion((v) => v + 1);
+  };
+
   const handleWordEditSave = (wordIdx: number) => {
     if (!editingWordText.trim()) return;
+    pushWordsHistory(localWords);
     const updated = [...localWords];
     updated[wordIdx] = {
       ...updated[wordIdx],
@@ -466,8 +506,9 @@ export default function ProjectWorkspacePage() {
     setEditingWordIndex(null);
     saveTranscriptBackground(updated);
   };
- 
+
   const handleToggleHighlight = (wordIdx: number) => {
+    pushWordsHistory(localWords);
     const updated = [...localWords];
     updated[wordIdx] = {
       ...updated[wordIdx],
@@ -475,6 +516,40 @@ export default function ProjectWorkspacePage() {
     };
     setLocalWords(updated);
     saveTranscriptBackground(updated);
+  };
+
+  // Groups the full transcript into caption-line spans for the timeline's
+  // Line mode — same pause/sentence-boundary heuristic getActiveSegmentAndIndex
+  // uses around the playhead, applied across every word instead of just the
+  // active one.
+  const groupWordsIntoLines = (words: any[]) => {
+    const MAX_GROUP_WORDS = 8;
+    const PAUSE_GAP_MS = 400;
+    const endsSentence = (text: string) => /[.!?]$/.test((text || "").trim());
+
+    const lines: { words: any[]; startIdx: number }[] = [];
+    let current: any[] = [];
+    let currentStartIdx = 0;
+
+    words.forEach((word, idx) => {
+      if (current.length === 0) {
+        currentStartIdx = idx;
+        current.push(word);
+        return;
+      }
+      const prev = current[current.length - 1];
+      const gap = word.start_ms - prev.end_ms;
+      if (endsSentence(prev.text) || gap > PAUSE_GAP_MS || current.length >= MAX_GROUP_WORDS) {
+        lines.push({ words: current, startIdx: currentStartIdx });
+        current = [word];
+        currentStartIdx = idx;
+      } else {
+        current.push(word);
+      }
+    });
+    if (current.length > 0) lines.push({ words: current, startIdx: currentStartIdx });
+
+    return lines;
   };
  
   // Mirrors app.ai.providers.dummy.render_plan.pick_keyword_idx on the backend
@@ -808,6 +883,16 @@ export default function ProjectWorkspacePage() {
     setCustomWordSpacing(6);
     setCustomLineSpacing(1.0);
 
+    // The caption safe-area box is also per-template (see PresetConfig's
+    // box_* fields) — previously left untouched here, so a box dragged (or
+    // inherited) under the old template kept rendering under the new one,
+    // which could look misplaced once the new template's own text size/
+    // layout no longer matched the stale box.
+    setCustomBoxTop(preset.box_top);
+    setCustomBoxBottom(preset.box_bottom);
+    setCustomBoxLeft(preset.box_left);
+    setCustomBoxRight(preset.box_right);
+
     // Phase D: hero/keyword styling is per-template by nature (a hero word
     // makes no sense on a template without one) — reset to "inherit the
     // new template's own default" and drop back to editing the body, same
@@ -861,6 +946,10 @@ export default function ProjectWorkspacePage() {
       keyword_font: null,
       keyword_weight: null,
       keyword_size_scale: null,
+      box_top: preset.box_top,
+      box_bottom: preset.box_bottom,
+      box_left: preset.box_left,
+      box_right: preset.box_right,
     });
   };
 
@@ -3397,14 +3486,18 @@ export default function ProjectWorkspacePage() {
               {/* Undo / Redo / Toggles */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <button 
-                    className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer text-[10px] uppercase font-bold"
+                  <button
+                    onClick={handleUndo}
+                    disabled={wordsHistoryRef.current.past.length === 0}
+                    className="p-1.5 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors cursor-pointer disabled:cursor-not-allowed text-[10px] uppercase font-bold"
                     title="Undo"
                   >
                     ↰
                   </button>
-                  <button 
-                    className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer text-[10px] uppercase font-bold"
+                  <button
+                    onClick={handleRedo}
+                    disabled={wordsHistoryRef.current.future.length === 0}
+                    className="p-1.5 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors cursor-pointer disabled:cursor-not-allowed text-[10px] uppercase font-bold"
                     title="Redo"
                   >
                     ↱
@@ -3416,24 +3509,22 @@ export default function ProjectWorkspacePage() {
                 {/* WORD / LINE Mode Selector Toggle */}
                 <div className="flex border border-[#23272F] rounded bg-[#181B21] overflow-hidden">
                   <button
-                    onClick={() => {}}
-                    className="px-3 py-1 text-[8px] font-black uppercase tracking-wider text-white/40 hover:text-white transition-all cursor-pointer"
+                    onClick={() => setWordDisplayMode("word")}
+                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      wordDisplayMode === "word" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                    }`}
                   >
                     Word
                   </button>
                   <button
-                    onClick={() => {}}
-                    className="px-3 py-1 text-[8px] font-black uppercase tracking-wider bg-[#FFB800] text-[#0A0B0D] transition-all cursor-pointer"
+                    onClick={() => setWordDisplayMode("line")}
+                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      wordDisplayMode === "line" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                    }`}
                   >
                     Line
                   </button>
                 </div>
-
-                <button 
-                  className="px-2.5 py-1 bg-[#1C2027] border border-[#23272F] text-white/80 hover:text-[#FFB800] transition-colors rounded text-[8px] font-black uppercase tracking-wider cursor-pointer"
-                >
-                  + Line
-                </button>
               </div>
 
               {/* Time display & Zoom */}
@@ -3483,92 +3574,141 @@ export default function ProjectWorkspacePage() {
                 }
               }}
             >
-              <div 
-                className="h-full relative"
-                style={{ width: `${(durationMs || 10000) * 0.15 * zoomLevel}px` }}
-              >
-                {/* Word Bounding Boxes Track */}
-                <div className="absolute top-1 inset-x-0 h-14 z-10">
-                  {localWords.map((word, idx) => {
-                    const startX = word.start_ms * 0.15 * zoomLevel;
-                    const width = (word.end_ms - word.start_ms) * 0.15 * zoomLevel;
-                    const isActive = currentTimeMs >= word.start_ms && currentTimeMs <= word.end_ms;
+              {(() => {
+                // Matches WaveSurfer's own minPxPerSec (150 * zoomLevel, see
+                // the "Initialize WaveSurfer" effect above) so word/line
+                // blocks always line up with the waveform beneath them —
+                // this constant must never drift from that one.
+                const PX_PER_MS = 0.15 * zoomLevel;
+                const lineGroups = wordDisplayMode === "line" ? groupWordsIntoLines(localWords) : null;
 
-                    return (
-                      <div
-                        key={idx}
-                        className={`absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
-                          isActive
-                            ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
-                            : word.highlighted
-                            ? "bg-[#FFEAA7]/80 border-[#FFB800]/50 text-[#2D3436]"
-                            : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
-                        }`}
-                        style={{ 
-                          left: `${startX}px`, 
-                          width: `${Math.max(28, width)}px` 
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (videoRef.current) {
-                            videoRef.current.currentTime = word.start_ms / 1000;
-                            setCurrentTimeMs(word.start_ms);
-                          }
-                        }}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingWordIndex(idx);
-                          setEditingWordText(word.text);
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          handleToggleHighlight(idx);
-                        }}
-                        title="Double-click to edit, right-click to highlight"
-                      >
-                        {editingWordIndex === idx ? (
-                          <input
-                            type="text"
-                            value={editingWordText}
-                            onChange={(e) => setEditingWordText(e.target.value)}
-                            onBlur={() => handleWordEditSave(idx)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleWordEditSave(idx);
-                              if (e.key === "Escape") setEditingWordIndex(null);
-                            }}
-                            autoFocus
-                            className="bg-[#111317] border border-[#FFB800] text-[9px] font-bold text-center w-full focus:outline-none text-white rounded p-0.5"
-                          />
-                        ) : (
-                          <>
-                            <span className="text-[9px] font-black truncate w-full block">
-                              {word.text}
-                            </span>
-                            <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#0A0B0D]/80" : "text-[#2E2514]/70"}`}>
-                              ♩ Text
-                            </span>
-                          </>
-                        )}
+                return (
+                  <div
+                    className="h-full relative"
+                    style={{ width: `${(durationMs || 10000) * PX_PER_MS}px` }}
+                  >
+                    {wordDisplayMode === "word" ? (
+                      <div className="absolute top-1 inset-x-0 h-14 z-10">
+                        {localWords.map((word, idx) => {
+                          const startX = word.start_ms * PX_PER_MS;
+                          const width = (word.end_ms - word.start_ms) * PX_PER_MS;
+                          const isActive = currentTimeMs >= word.start_ms && currentTimeMs <= word.end_ms;
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
+                                isActive
+                                  ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
+                                  : word.highlighted
+                                  ? "bg-[#FFEAA7]/80 border-[#FFB800]/50 text-[#2D3436]"
+                                  : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
+                              }`}
+                              style={{
+                                left: `${startX}px`,
+                                width: `${Math.max(28, width)}px`
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (videoRef.current) {
+                                  videoRef.current.currentTime = word.start_ms / 1000;
+                                  setCurrentTimeMs(word.start_ms);
+                                }
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingWordIndex(idx);
+                                setEditingWordText(word.text);
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                handleToggleHighlight(idx);
+                              }}
+                              title="Double-click to edit, right-click to highlight"
+                            >
+                              {editingWordIndex === idx ? (
+                                <input
+                                  type="text"
+                                  value={editingWordText}
+                                  onChange={(e) => setEditingWordText(e.target.value)}
+                                  onBlur={() => handleWordEditSave(idx)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleWordEditSave(idx);
+                                    if (e.key === "Escape") setEditingWordIndex(null);
+                                  }}
+                                  autoFocus
+                                  className="bg-[#111317] border border-[#FFB800] text-[9px] font-bold text-center w-full focus:outline-none text-white rounded p-0.5"
+                                />
+                              ) : (
+                                <>
+                                  <span className="text-[9px] font-black truncate w-full block">
+                                    {word.text}
+                                  </span>
+                                  <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#0A0B0D]/80" : "text-[#2E2514]/70"}`}>
+                                    ♩ Text
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    ) : (
+                      <div className="absolute top-1 inset-x-0 h-14 z-10">
+                        {(lineGroups || []).map((line, lineIdx) => {
+                          const lineStart = line.words[0].start_ms;
+                          const lineEnd = line.words[line.words.length - 1].end_ms;
+                          const startX = lineStart * PX_PER_MS;
+                          const width = (lineEnd - lineStart) * PX_PER_MS;
+                          const isActive = currentTimeMs >= lineStart && currentTimeMs <= lineEnd;
+                          const lineText = line.words.map((w: any) => w.text).join(" ");
 
-                {/* WaveSurfer anchor element */}
-                <div 
-                  ref={waveformRef} 
-                  className="absolute inset-x-0 bottom-1 h-[72px] z-0 opacity-80"
-                />
+                          return (
+                            <div
+                              key={lineIdx}
+                              className={`absolute h-11 rounded border flex items-center justify-center px-2 text-center transition-all cursor-pointer shadow-sm select-none ${
+                                isActive
+                                  ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
+                                  : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
+                              }`}
+                              style={{
+                                left: `${startX}px`,
+                                width: `${Math.max(60, width)}px`
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (videoRef.current) {
+                                  videoRef.current.currentTime = lineStart / 1000;
+                                  setCurrentTimeMs(lineStart);
+                                }
+                              }}
+                              title={lineText}
+                            >
+                              <span className="text-[9px] font-black truncate w-full block">
+                                {lineText}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                {/* Playhead vertical cursor */}
-                <div 
-                  className="absolute top-0 bottom-0 w-[2px] bg-[#FFB800] z-20 pointer-events-none"
-                  style={{ left: `${currentTimeMs * 0.15 * zoomLevel}px` }}
-                >
-                  <div className="w-3 h-3 rounded-full bg-[#FFB800] -ml-[5px] -mt-[2px] border border-[#0A0B0D] shadow shadow-[#FFB800]/50 cursor-ew-resize" />
-                </div>
+                    {/* WaveSurfer anchor element */}
+                    <div
+                      ref={waveformRef}
+                      className="absolute inset-x-0 bottom-1 h-[72px] z-0 opacity-80"
+                    />
 
-              </div>
+                    {/* Playhead vertical cursor */}
+                    <div
+                      className="absolute top-0 bottom-0 w-[2px] bg-[#FFB800] z-20 pointer-events-none"
+                      style={{ left: `${currentTimeMs * PX_PER_MS}px` }}
+                    >
+                      <div className="w-3 h-3 rounded-full bg-[#FFB800] -ml-[5px] -mt-[2px] border border-[#0A0B0D] shadow shadow-[#FFB800]/50 cursor-ew-resize" />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </section>
