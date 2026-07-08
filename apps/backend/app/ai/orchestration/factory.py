@@ -51,7 +51,8 @@ def build_stage_registry(
         video_storage_path = getattr(ctx.video, "storage_path", None) or ctx.config.get(
             "video_storage_path"
         )
-        return await speech_provider.transcribe(video_storage_path=video_storage_path)
+        prompt = ctx.config.get("prompt")
+        return await speech_provider.transcribe(video_storage_path=video_storage_path, prompt=prompt)
 
     async def run_creative(ctx: PipelineContext):
         transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]
@@ -173,7 +174,8 @@ def build_intelligence_only_engine(
         video_storage_path = getattr(ctx.video, "storage_path", None) or ctx.config.get(
             "video_storage_path"
         )
-        return await speech_provider_registry.create(speech_provider_name).transcribe(video_storage_path=video_storage_path)
+        prompt = ctx.config.get("prompt")
+        return await speech_provider_registry.create(speech_provider_name).transcribe(video_storage_path=video_storage_path, prompt=prompt)
 
     async def run_creative(ctx: PipelineContext):
         transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]

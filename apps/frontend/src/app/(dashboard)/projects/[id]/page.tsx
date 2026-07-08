@@ -12,38 +12,14 @@ import { uploadService, UploadValidationError } from "@/services/upload";
 import { transcriptService, TranscriptResponse } from "@/services/transcript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
-import { TEMPLATE_PRESETS_LIST, getTemplateStyle, fitFontSizePx, estimateTextWidthPx, lightenHex, darkenHex } from "@/config/captionTemplates";
-import { BoxEditorOverlay, BoxMargins } from "@/components/BoxEditorOverlay";
-import { TemplateSwatch } from "@/components/TemplateSwatch";
+import { TEMPLATE_PRESETS_LIST, getTemplateStyle } from "@/config/captionTemplates";
 
-// Safe-area box every caption template's text must stay inside — matches
-// the max-w-[...] wrappers already used per template, minus a little
-// interior breathing room so a shrunk line doesn't touch the edge.
-const CAPTION_BOX_WIDTH_PX = 300;
-
-// "Trending" = the 5 self-engineered layouts with a real dedicated
-// renderOverlayContent() branch and real export support (4 through the ASS
-// exporter — staggered_3line, glow_stack, cartoon_stack, serif_pop — plus
-// cinematic_emerald through the Remotion exporter). Everything else falls
-// into "Built-in": the generic word_by_word/sentence_highlight/sentence_clean
-// family, which all share the same plain renderer.
-const TRENDING_CAPTION_TEMPLATES = new Set([
-  "staggered_3line",
-  "glow_stack",
-  "cartoon_stack",
-  "serif_pop",
-  "cinematic_emerald",
-]);
-
-// Split once at module scope (TEMPLATE_PRESETS_LIST is a static import),
-// trending group first, built-in group second, preserving each group's
-// original relative order.
-const TRENDING_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter((p) =>
-  TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
-);
-const BUILTIN_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter(
-  (p) => !TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
-);
+// Modular Project Detail Components
+import { WorkspaceHeader } from "@/components/project/WorkspaceHeader";
+import { SidebarControlsSection } from "@/components/project/SidebarControlsSection";
+import { VideoPlayerSection } from "@/components/project/VideoPlayerSection";
+import { TimelineEditorSection } from "@/components/project/TimelineEditorSection";
+import { ExportHistorySection } from "@/components/project/ExportHistorySection";
 
 function describeError(err: unknown): string {
   if (err instanceof NetworkUnavailableError) return err.message;
@@ -51,27 +27,6 @@ function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return "Something went wrong. Please try again.";
 }
-
-const POPULAR_FONTS = [
-  // Modern Sans-serifs
-  "Outfit", "Inter", "Montserrat", "Poppins", "Roboto", "Lato", "Open Sans", "Nunito", "Rubik", "Kanit", "Heebo", "Work Sans", "Quicksand", "Josefin Sans", "Fira Sans", "Barlow", "Cabin", "Manrope", "Albert Sans", "Plus Jakarta Sans", "Urbanist", "Lexend", "DM Sans", "Hanken Grotesk", "Hind", "Arimo", "Assistant", "Bitter", "Dosis", "Ubuntu", "PT Sans", "Karla",
-  // Heavy Display & Comic
-  "Anton", "Bungee", "Dela Gothic One", "Lilita One", "Titan One", "Paytone One", "Carter One", "Black Ops One", "Sigmar", "Rammetto One", "Bowlby One SC", "Passion One", "Alfa Slab One", "Bungee Spice", "Rowdy", "Archivo Black", "Concert One", "Righteous", "Russo One", "Squada One", "Chivo", "Luckiest Guy", "Fredoka One", "Fredoka", "Chewy", "Bangers", "Patua One", "Shrikhand", "Ultra", "Fascinate Inline", "Creepster",
-  // Handwritings & Scripts
-  "Caveat", "Permanent Marker", "Pacifico", "Kalam", "Gochi Hand", "Patrick Hand", "Shadows Into Light", "Amatic SC", "Gloria Hallelujah", "Just Another Hand", "Indie Flower", "Architects Daughter", "Sacramento", "Great Vibes", "Kaushan Script", "Allura", "Courgette", "Alex Brush", "Dancing Script", "Satisfy", "Yellowtail", "Cookie", "Parisienne", "Pinyon Script", "Lobster", "Playball",
-  // Serif & Elegant
-  "Playfair Display", "Lora", "Merriweather", "Georgia", "PT Serif", "Cinzel", "Cormorant Garamond", "EB Garamond", "Libre Baskerville", "Cardo", "Noto Serif", "DM Serif Display", "Prata", "Domine", "Alice", "Castoro", "Unna", "Bodoni Moda", "Newsreader", "Vollkorn", "Cinzel Decorative", "Arapey",
-  // Monospace & Typewriters
-  "JetBrains Mono", "Fira Code", "Source Code Pro", "Space Mono", "Inconsolata", "Share Tech Mono", "VT323", "Cutive Mono", "IBM Plex Mono", "Roboto Mono", "Courier Prime", "Special Elite", "Major Mono Display"
-];
-
-// Picks the heavier of two CSS-style font weights ("400"/"700"/"900" or
-// keywords "bold"/"normal") — used so a template's minimum weight never
-// makes an already-heavier user-chosen weight *lighter*.
-const maxWeight = (a: string, b: string): string => {
-  const toInt = (w: string) => (/^\d+$/.test(w) ? parseInt(w, 10) : w.toLowerCase() === "bold" ? 700 : 400);
-  return toInt(a) >= toInt(b) ? a : b;
-};
 
 const ensureFontLoaded = (fontFamily: string) => {
   if (typeof window === "undefined" || !fontFamily) return;
@@ -93,10 +48,6 @@ export default function ProjectWorkspacePage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
-    // Preload every template preset's font once, up front — the Templates
-    // tab's swatches (TemplateSwatch) need the real font to render an
-    // honest preview, and waiting for a per-card lazy load would show a
-    // fallback font flash on every scroll.
     const seen = new Set<string>();
     for (const tpl of TEMPLATE_PRESETS_LIST) {
       if (!seen.has(tpl.font)) {
@@ -144,9 +95,6 @@ export default function ProjectWorkspacePage() {
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
   const [editingWordText, setEditingWordText] = useState("");
   const [localWords, setLocalWords] = useState<any[]>([]);
-  // Timeline workstation: Word/Line granularity toggle, and a bounded undo
-  // history over localWords edits (text edits + highlight toggles) so the
-  // Undo/Redo buttons in the timeline top bar are real, not decorative.
   const [wordDisplayMode, setWordDisplayMode] = useState<"word" | "line">("word");
   const wordsHistoryRef = useRef<{ past: any[][]; future: any[][] }>({ past: [], future: [] });
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -173,19 +121,14 @@ export default function ProjectWorkspacePage() {
   const [customBackgroundStyle, setCustomBackgroundStyle] = useState<string>("none");
   const [customYPositionPercent, setCustomYPositionPercent] = useState<number>(71.4);
   const [customCaptionTemplate, setCustomCaptionTemplate] = useState<string>("staggered_3line");
-  // staggered_3line layout variant: "splash" (line 1 left, line 3 right,
-  // offset around the keyword — the original look) or "centre" (all three
-  // lines center-aligned).
   const [customStaggeredLayout, setCustomStaggeredLayout] = useState<"splash" | "centre">("splash");
   const [customWordLimit, setCustomWordLimit] = useState<number>(5);
   const [customCaptionSpacingMs, setCustomCaptionSpacingMs] = useState<number>(50);
   const [customWordPacing, setCustomWordPacing] = useState<string>("dynamic");
   const [customPauseHandling, setCustomPauseHandling] = useState<string>("hold");
   const [customAccentPeriodEnabled, setCustomAccentPeriodEnabled] = useState<boolean>(true);
-  const [isSavingStyle, setIsSavingStyle] = useState(false);
-  const [styleError, setStyleError] = useState<string | null>(null);
 
-  // New tab and format/position/spacing/effects styling states
+  // Formatting position/spacing styling states
   const [activeTab, setActiveTab] = useState<"text" | "templates">("text");
   const [customFontFace, setCustomFontFace] = useState<string>("Bold");
   const [customCasing, setCustomCasing] = useState<"none" | "uppercase" | "lowercase" | "capitalize">("none");
@@ -193,16 +136,13 @@ export default function ProjectWorkspacePage() {
   const [customAlignment, setCustomAlignment] = useState<"left" | "center" | "right">("center");
   const [customXPositionPercent, setCustomXPositionPercent] = useState<number>(50);
   const [customColorMode, setCustomColorMode] = useState<"solid" | "gradient">("solid");
-  const [customColor2, setCustomColor2] = useState<string>("#00F5C4"); // Secondary color for gradient
+  const [customColor2, setCustomColor2] = useState<string>("#00F5C4");
   const [customLetterSpacing, setCustomLetterSpacing] = useState<number>(0);
   const [customWordSpacing, setCustomWordSpacing] = useState<number>(6);
   const [customLineSpacing, setCustomLineSpacing] = useState<number>(1.0);
+  const [styleError, setStyleError] = useState<string | null>(null);
 
-  // Phase C: bounding-box editor. These 4 are the project's GLOBAL default
-  // box (GlobalSettings.safe_area) — per-caption overrides live server-side
-  // in Project.fragment_overrides_json and are read back through
-  // motionScript.timeline[i].payload.box (already merged in by the backend),
-  // never fetched or held here as a parallel copy.
+  // Bounding box editor positions
   const [customBoxTop, setCustomBoxTop] = useState<number>(80);
   const [customBoxBottom, setCustomBoxBottom] = useState<number>(120);
   const [customBoxLeft, setCustomBoxLeft] = useState<number>(50);
@@ -212,12 +152,7 @@ export default function ProjectWorkspacePage() {
   const [liveDragBox, setLiveDragBox] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
 
-  // Phase D: independent Primary (body) / Secondary (hero/keyword word)
-  // text styling. Only meaningful for templates with a hero word
-  // (getTemplateStyle(...).keywordFont/keywordSizeScale !== the body's own
-  // values) — editTarget picks which one the Font Settings section below
-  // reads from and writes to, so there is exactly one set of controls, not
-  // two, and never both targets editable at once.
+  // Edit target (primary vs secondary keyword text highlight customization)
   const [editTarget, setEditTarget] = useState<"primary" | "secondary">("primary");
   const [heroFont, setHeroFont] = useState<string>("");
   const [heroFontFace, setHeroFontFace] = useState<string>("Template default");
@@ -235,8 +170,14 @@ export default function ProjectWorkspacePage() {
   const [showSafetyGrid, setShowSafetyGrid] = useState<boolean>(false);
   const [naturalAspectRatio, setNaturalAspectRatio] = useState<number>(9/16);
 
-  // Active template dropdown inside the left panel
+  // Active template dropdown inside left panel
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>("staggered_3line");
+
+  // Renders states
+  const [renderJobStatus, setRenderJobStatus] = useState<JobStatusResponse | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+  const [activeExportId, setActiveExportId] = useState<string | null>(null);
 
   const {
     data: project,
@@ -342,11 +283,6 @@ export default function ProjectWorkspacePage() {
   } = useQuery<any>({
     queryKey: ["projectVideo", projectId],
     queryFn: () => projectsService.getProjectVideo(projectId),
-    // The raw uploaded clip exists as soon as upload finishes ("UPLOADED"),
-    // well before the AI pipeline reaches "COMPLETED" — gating on
-    // COMPLETED left the preview player stuck on "No active video source"
-    // for the entire processing/render duration even though a perfectly
-    // playable video was already available.
     enabled: project?.status === "UPLOADED" || project?.status === "PROCESSING" || project?.status === "COMPLETED",
   });
 
@@ -387,8 +323,6 @@ export default function ProjectWorkspacePage() {
             };
             setCustomFontFace(wMap[res.weight || "800"] || "Bold");
 
-            // Previously reset to defaults on every reload (never actually
-            // persisted) — now round-trips through CustomStyleRequest for real.
             setCustomCasing((res.text_transform || "none") as any);
             setCustomUnderline(Boolean(res.underline));
             setCustomLetterSpacing(res.letter_spacing ?? 0);
@@ -424,7 +358,7 @@ export default function ProjectWorkspacePage() {
     const ws = WaveSurfer.create({
       container: waveformRef.current,
       waveColor: "#23272F",
-      progressColor: "#00F5C4",
+      progressColor: "#FFB800",
       height: 48,
       cursorColor: "transparent",
       barWidth: 2,
@@ -432,10 +366,6 @@ export default function ProjectWorkspacePage() {
       minPxPerSec: 150 * zoomLevel,
     });
 
-    // ws.destroy() (below, and on the next effect run) aborts this load's
-    // in-flight fetch, which rejects this promise with an AbortError — an
-    // expected outcome of an intentional destroy, not a real failure, so it
-    // must be swallowed here rather than left as an unhandled rejection.
     ws.load(videoUrl).catch((err) => {
       if (err?.name !== "AbortError") console.error("Error loading waveform: ", err);
     });
@@ -461,9 +391,6 @@ export default function ProjectWorkspacePage() {
     }
   }, [zoomLevel]);
 
-  // Records the pre-edit words snapshot so handleUndo can restore it, and
-  // clears redo history — a fresh edit invalidates whatever was undone
-  // before it, same as any standard editor undo stack.
   const pushWordsHistory = (snapshot: any[]) => {
     const MAX_HISTORY = 50;
     const hist = wordsHistoryRef.current;
@@ -494,143 +421,10 @@ export default function ProjectWorkspacePage() {
     setHistoryVersion((v) => v + 1);
   };
 
-  const handleWordEditSave = (wordIdx: number) => {
-    if (!editingWordText.trim()) return;
-    pushWordsHistory(localWords);
-    const updated = [...localWords];
-    updated[wordIdx] = {
-      ...updated[wordIdx],
-      text: editingWordText.trim()
-    };
-    setLocalWords(updated);
-    setEditingWordIndex(null);
-    saveTranscriptBackground(updated);
-  };
-
-  const handleToggleHighlight = (wordIdx: number) => {
-    pushWordsHistory(localWords);
-    const updated = [...localWords];
-    updated[wordIdx] = {
-      ...updated[wordIdx],
-      highlighted: !updated[wordIdx].highlighted
-    };
-    setLocalWords(updated);
-    saveTranscriptBackground(updated);
-  };
-
-  // Groups the full transcript into caption-line spans for the timeline's
-  // Line mode — same pause/sentence-boundary heuristic getActiveSegmentAndIndex
-  // uses around the playhead, applied across every word instead of just the
-  // active one.
-  const groupWordsIntoLines = (words: any[]) => {
-    const MAX_GROUP_WORDS = 8;
-    const PAUSE_GAP_MS = 400;
-    const endsSentence = (text: string) => /[.!?]$/.test((text || "").trim());
-
-    const lines: { words: any[]; startIdx: number }[] = [];
-    let current: any[] = [];
-    let currentStartIdx = 0;
-
-    words.forEach((word, idx) => {
-      if (current.length === 0) {
-        currentStartIdx = idx;
-        current.push(word);
-        return;
-      }
-      const prev = current[current.length - 1];
-      const gap = word.start_ms - prev.end_ms;
-      if (endsSentence(prev.text) || gap > PAUSE_GAP_MS || current.length >= MAX_GROUP_WORDS) {
-        lines.push({ words: current, startIdx: currentStartIdx });
-        current = [word];
-        currentStartIdx = idx;
-      } else {
-        current.push(word);
-      }
-    });
-    if (current.length > 0) lines.push({ words: current, startIdx: currentStartIdx });
-
-    return lines;
-  };
- 
-  // Mirrors app.ai.providers.dummy.render_plan.pick_keyword_idx on the backend
-  // (length + capitalization + digit-presence scoring, stopword penalty) so
-  // the preview never disagrees with the export about which word is "the"
-  // hero word when no LLM emphasis/backend keyword flag is available yet.
-  const pickKeywordIndex = (wordsList: any[]) => {
-    let bestIdx = 0;
-    let bestScore = -1;
-    const stopwords = new Set([
-      "the", "a", "an", "is", "are", "was", "were", "of", "to", "and", "in", "on",
-      "at", "it", "this", "that", "i", "you", "he", "she", "we", "they", "but",
-      "or", "so", "be", "as", "for", "with", "my", "your", "do", "does", "did"
-    ]);
-    wordsList.forEach((w, idx) => {
-      const clean = w.text.replace(/[^\w]/g, "");
-      if (!clean) return;
-      let score = clean.length;
-      if (stopwords.has(clean.toLowerCase())) score -= 100;
-      if (clean[0] && clean[0] === clean[0].toUpperCase()) score += 2;
-      if (/\d/.test(w.text.replace(/[^\w.,$%]/g, ""))) score += 1;
-      if (score > bestScore) {
-        bestScore = score;
-        bestIdx = idx;
-      }
-    });
-    return bestIdx;
-  };
-
-  const getActiveSegmentAndIndex = () => {
-    if (localWords.length === 0) return null;
-
-    let activeWordIdx = localWords.findIndex(w => currentTimeMs >= w.start_ms && currentTimeMs <= w.end_ms);
-    if (activeWordIdx === -1) {
-      const nextWordIdx = localWords.findIndex(w => w.start_ms > currentTimeMs);
-      if (nextWordIdx > 0) activeWordIdx = nextWordIdx - 1;
-      else if (nextWordIdx === 0) activeWordIdx = 0;
-      else activeWordIdx = localWords.length - 1;
-    }
-
-    // Used only before the backend's motion_script has loaded (or hasn't
-    // been generated yet) — pause/sentence-aware grouping so this early
-    // preview at least respects natural phrase boundaries instead of
-    // chopping the transcript into arbitrary fixed-size word chunks.
-    // Approximates (doesn't replicate) the backend's group_words() rules.
-    const MAX_GROUP_WORDS = 8;
-    const PAUSE_GAP_MS = 400;
-    const endsSentence = (text: string) => /[.!?]$/.test((text || "").trim());
-
-    let startIndex = activeWordIdx;
-    while (startIndex > 0) {
-      const prev = localWords[startIndex - 1];
-      const gap = localWords[startIndex].start_ms - prev.end_ms;
-      if (endsSentence(prev.text) || gap > PAUSE_GAP_MS || (activeWordIdx - startIndex) >= MAX_GROUP_WORDS - 1) break;
-      startIndex--;
-    }
-
-    let endIndex = activeWordIdx;
-    while (endIndex < localWords.length - 1) {
-      const curr = localWords[endIndex];
-      const gap = localWords[endIndex + 1].start_ms - curr.end_ms;
-      if (endsSentence(curr.text) || gap > PAUSE_GAP_MS || (endIndex - startIndex) >= MAX_GROUP_WORDS - 1) break;
-      endIndex++;
-    }
-
-    const segmentWords = localWords.slice(startIndex, endIndex + 1);
-    const relativeActiveIdx = activeWordIdx - startIndex;
-
-    return {
-      words: segmentWords,
-      absoluteStartIndex: startIndex,
-      relativeActiveIdx,
-    };
-  };
-
   const styleSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const transcriptSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveStyleImmediate = async (styleOverrides?: any) => {
-    // Any style edit is a request to see it live — don't leave the preview
-    // stuck showing a previously rendered export (see handleTemplateClick).
     setActiveExportId(null);
     const wMap: Record<string, string> = {
       "Thin": "100", "Extra Light": "200", "Light": "300", "Regular": "400",
@@ -645,8 +439,6 @@ export default function ProjectWorkspacePage() {
     const resolvedShadow = (styleOverrides?.shadowEnabled ?? shadowEnabled) ? (styleOverrides?.shadow ?? (customShadow || 3.0)) : 0.0;
     const resolvedOutline = (styleOverrides?.strokeEnabled ?? strokeEnabled) ? (styleOverrides?.outline ?? (customOutline || 2.0)) : 0.0;
     const resolvedBgStyle = (styleOverrides?.backgroundEnabled ?? backgroundEnabled) ? (styleOverrides?.backgroundStyle || selectedBackgroundStyle) : "none";
-    // "Template default" means "no override" (null) — anything else resolves
-    // to a numeric weight via the same wMap the body font uses.
     const heroFaceValue = styleOverrides?.heroFontFace ?? heroFontFace;
     const resolvedKeywordWeight = heroFaceValue === "Template default" ? null : (wMap[heroFaceValue] || null);
 
@@ -698,11 +490,6 @@ export default function ProjectWorkspacePage() {
   };
 
   const saveStyleBackground = (styleOverrides?: any) => {
-    // Any style edit is a request to see it live — don't leave the preview
-    // stuck showing a previously rendered export (see handleTemplateClick).
-    // Done synchronously here (not inside the debounced setTimeout below)
-    // so the preview switches back immediately on the first keystroke/drag,
-    // not after the 1s save debounce.
     setActiveExportId(null);
     if (styleSaveTimeoutRef.current) {
       clearTimeout(styleSaveTimeoutRef.current);
@@ -773,13 +560,6 @@ export default function ProjectWorkspacePage() {
     }, 1000);
   };
 
-  // Phase C: applies a just-dragged box either to only the caption card
-  // that was active when the drag ended (fragment override, keyed by its
-  // start_ms — the only anchor stable across MotionScript regenerations)
-  // or to the project's global default box. Either path regenerates the
-  // MotionScript so the merge step (app.api.v1.projects.
-  // apply_fragment_overrides) re-resolves payload.box and the preview
-  // reflects the change immediately.
   const applyBoxToFragment = async (startMs: number, box: { top: number; bottom: number; left: number; right: number }) => {
     setIsSavingBox(true);
     try {
@@ -833,17 +613,100 @@ export default function ProjectWorkspacePage() {
     }, 1200);
   };
 
-  const handleTemplateClick = (presetId: string) => {
+  const handleWordEditSave = (wordIdx: number) => {
+    if (!editingWordText.trim()) return;
+    pushWordsHistory(localWords);
+    const updated = [...localWords];
+    updated[wordIdx] = {
+      ...updated[wordIdx],
+      text: editingWordText.trim()
+    };
+    setLocalWords(updated);
+    setEditingWordIndex(null);
+    saveTranscriptBackground(updated);
+  };
+
+  const handleToggleHighlight = (wordIdx: number) => {
+    pushWordsHistory(localWords);
+    const updated = [...localWords];
+    updated[wordIdx] = {
+      ...updated[wordIdx],
+      highlighted: !updated[wordIdx].highlighted
+    };
+    setLocalWords(updated);
+    saveTranscriptBackground(updated);
+  };
+
+  const pickKeywordIndex = (wordsList: any[]) => {
+    let bestIdx = 0;
+    let bestScore = -1;
+    const stopwords = new Set([
+      "the", "a", "an", "is", "are", "was", "were", "of", "to", "and", "in", "on",
+      "at", "it", "this", "that", "i", "you", "he", "she", "we", "they", "but",
+      "or", "so", "be", "as", "for", "with", "my", "your", "do", "does", "did"
+    ]);
+    wordsList.forEach((w, idx) => {
+      const clean = w.text.replace(/[^\w]/g, "");
+      if (!clean) return;
+      let score = clean.length;
+      if (stopwords.has(clean.toLowerCase())) score -= 100;
+      if (clean[0] && clean[0] === clean[0].toUpperCase()) score += 2;
+      if (/\d/.test(w.text.replace(/[^\w.,$%]/g, ""))) score += 1;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = idx;
+      }
+    });
+    return bestIdx;
+  };
+
+  const getActiveSegmentAndIndex = () => {
+    if (localWords.length === 0) return null;
+
+    let activeWordIdx = localWords.findIndex(w => currentTimeMs >= w.start_ms && currentTimeMs <= w.end_ms);
+    if (activeWordIdx === -1) {
+      const nextWordIdx = localWords.findIndex(w => w.start_ms > currentTimeMs);
+      if (nextWordIdx > 0) activeWordIdx = nextWordIdx - 1;
+      else if (nextWordIdx === 0) activeWordIdx = 0;
+      else activeWordIdx = localWords.length - 1;
+    }
+
+    const MAX_GROUP_WORDS = 8;
+    const PAUSE_GAP_MS = 400;
+    const endsSentence = (text: string) => /[.!?]$/.test((text || "").trim());
+
+    let startIndex = activeWordIdx;
+    while (startIndex > 0) {
+      const prev = localWords[startIndex - 1];
+      const gap = localWords[startIndex].start_ms - prev.end_ms;
+      if (endsSentence(prev.text) || gap > PAUSE_GAP_MS || (activeWordIdx - startIndex) >= MAX_GROUP_WORDS - 1) break;
+      startIndex--;
+    }
+
+    let endIndex = activeWordIdx;
+    while (endIndex < localWords.length - 1) {
+      const curr = localWords[endIndex];
+      const gap = localWords[endIndex + 1].start_ms - curr.end_ms;
+      if (endsSentence(curr.text) || gap > PAUSE_GAP_MS || (endIndex - startIndex) >= MAX_GROUP_WORDS - 1) break;
+      endIndex++;
+    }
+
+    const segmentWords = localWords.slice(startIndex, endIndex + 1);
+    const relativeActiveIdx = activeWordIdx - startIndex;
+
+    return {
+      words: segmentWords,
+      absoluteStartIndex: startIndex,
+      relativeActiveIdx,
+    };
+  };
+
+  const handleTemplateClick = async (presetId: string) => {
     setExpandedTemplateId(presetId);
 
     const preset = TEMPLATE_PRESETS_LIST.find((p) => p.id === presetId);
     if (!preset) return;
 
-    // Selecting a template is a request to see it live — if the preview is
-    // currently locked onto a previously rendered export (see the
-    // activeExportId auto-switch in handleExport), stay stuck showing that
-    // stale export forever, since nothing else ever cleared it. Every
-    // subsequent template click would silently do nothing visible.
     setActiveExportId(null);
 
     setCustomFont(preset.font);
@@ -869,11 +732,6 @@ export default function ProjectWorkspacePage() {
       setSelectedBackgroundStyle(preset.background_style as any);
     }
 
-    // These 9 fields used to never get reset on template switch — harmless
-    // while they were pure decoration (nothing persisted them), but now
-    // that they round-trip through CustomStyleRequest for real, leaving a
-    // stale value from a previous template would leak into the new one's
-    // saved style. No preset defines these, so reset to neutral defaults.
     setCustomCasing("none");
     setCustomUnderline(false);
     setCustomAlignment("center");
@@ -883,20 +741,11 @@ export default function ProjectWorkspacePage() {
     setCustomWordSpacing(6);
     setCustomLineSpacing(1.0);
 
-    // The caption safe-area box is also per-template (see PresetConfig's
-    // box_* fields) — previously left untouched here, so a box dragged (or
-    // inherited) under the old template kept rendering under the new one,
-    // which could look misplaced once the new template's own text size/
-    // layout no longer matched the stale box.
     setCustomBoxTop(preset.box_top);
     setCustomBoxBottom(preset.box_bottom);
     setCustomBoxLeft(preset.box_left);
     setCustomBoxRight(preset.box_right);
 
-    // Phase D: hero/keyword styling is per-template by nature (a hero word
-    // makes no sense on a template without one) — reset to "inherit the
-    // new template's own default" and drop back to editing the body, same
-    // reasoning as the 9 fields above.
     setEditTarget("primary");
     setHeroFont("");
     setHeroFontFace("Template default");
@@ -917,7 +766,7 @@ export default function ProjectWorkspacePage() {
       ensureFontLoaded(templateStyle.baseFont);
     }
 
-    saveStyleImmediate({
+    await saveStyleImmediate({
       font: preset.font,
       size: preset.size,
       weight: preset.weight,
@@ -951,235 +800,6 @@ export default function ProjectWorkspacePage() {
       box_left: preset.box_left,
       box_right: preset.box_right,
     });
-  };
-
-  const getTextStyle = (isHighlighted: boolean) => {
-    let fontStyle = "normal";
-    if (customFontFace.toLowerCase().includes("italic")) {
-      fontStyle = "italic";
-    }
-
-    const wMap: Record<string, string> = {
-      "thin": "100", "extra light": "200", "light": "300", "regular": "400",
-      "medium": "500", "semi bold": "600", "bold": "700", "extra bold": "800", "black": "900"
-    };
-
-    let userWeight = "800";
-    const lowerFace = customFontFace.toLowerCase();
-    for (const key of Object.keys(wMap)) {
-      if (lowerFace.includes(key)) {
-        userWeight = wMap[key];
-        break;
-      }
-    }
-
-    // Highlighted and non-highlighted text now get genuinely different
-    // typographic treatment per-template (app/config/captionTemplates.ts) —
-    // not just a color swap. The template sets a *floor* weight/font; the
-    // user's own manual choice can still push a template's base weight
-    // higher, but never below what the template calls for.
-    const templateStyle = getTemplateStyle(customCaptionTemplate);
-    const resolvedWeight = maxWeight(
-      userWeight,
-      isHighlighted ? templateStyle.keywordWeight : templateStyle.baseWeight
-    );
-    const resolvedFont = isHighlighted && templateStyle.keywordFont ? templateStyle.keywordFont : customFont;
-
-    const baseStyle: any = {
-      fontFamily: `${resolvedFont}, Montserrat, sans-serif`,
-      fontWeight: resolvedWeight,
-      fontStyle,
-      textAlign: customAlignment,
-      textTransform: customCasing === "none" ? "none" : customCasing,
-      textDecoration: customUnderline ? "underline" : "none",
-      letterSpacing: `${customLetterSpacing}px`,
-      wordSpacing: `${customWordSpacing}px`,
-      lineHeight: customLineSpacing,
-      transition: "all 0.1s ease",
-    };
-
-    if (customColorMode === "gradient") {
-      baseStyle.backgroundImage = `linear-gradient(135deg, ${customColor}, ${customHighlightColor})`;
-      baseStyle.WebkitBackgroundClip = "text";
-      baseStyle.WebkitTextFillColor = "transparent";
-    } else {
-      baseStyle.color = isHighlighted ? customHighlightColor : customColor;
-    }
-
-    const textShadowParts = [];
-    if (strokeEnabled && customOutline > 0) {
-      const strokeColor = isHighlighted ? customHighlightColor : "#000000";
-      baseStyle.WebkitTextStroke = `${customOutline * 0.5}px ${strokeColor}`;
-    }
-
-    if (shadowEnabled && customShadow > 0) {
-      textShadowParts.push(`0px ${customShadow}px ${customShadow}px rgba(0,0,0,0.6)`);
-    }
-
-    baseStyle.textShadow = textShadowParts.length > 0 ? textShadowParts.join(", ") : "none";
-
-    return baseStyle;
-  };
-
-  const bgStyleVal = backgroundEnabled ? selectedBackgroundStyle : "none";
-  const containerPadding = bgStyleVal === "pill" ? "10px 20px" : bgStyleVal === "shadow-box" ? "14px 18px" : "0px";
-  const containerBg = bgStyleVal === "pill" ? "rgba(17,19,23,0.85)" : bgStyleVal === "shadow-box" ? "rgba(17,19,23,0.95)" : "transparent";
-  const containerBorderRadius = bgStyleVal === "pill" ? "9999px" : bgStyleVal === "shadow-box" ? "8px" : "0px";
-  const containerBorder = bgStyleVal !== "none" ? "1px solid rgba(255,255,255,0.1)" : "none";
-
-  // Render trigger states
-  const [renderJobStatus, setRenderJobStatus] = useState<JobStatusResponse | null>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
-  const [isRendering, setIsRendering] = useState(false);
-  const [isPipelineDropdownOpen, setIsPipelineDropdownOpen] = useState(true);
-  // Which export (if any) the main player is showing instead of the raw
-  // source video. null = "Live Preview" (original clip + the editable
-  // CSS/DOM caption overlay below). Set automatically once a render
-  // finishes, or manually via "Preview" in Render History — always
-  // reversible via the Live Preview toggle so styling stays editable.
-  const [activeExportId, setActiveExportId] = useState<string | null>(null);
-
-  const AI_PIPELINE_STAGES = [
-    { id: "speech", name: "Speech Transcription" },
-    { id: "creative", name: "Creative Pacing Analysis" },
-    { id: "caption", name: "Subtitle/Caption Planning" },
-    { id: "render_planning", name: "Styling & Motion Script" },
-  ];
-
-  const RENDER_PIPELINE_STAGES = [
-    { id: "preparing", name: "Preparing Media" },
-    { id: "generating ass", name: "Subtitle Generation" },
-    { id: "rendering", name: "Burning Subtitles (GPU/FFmpeg)" },
-    { id: "encoding", name: "Video Encoding" },
-    { id: "uploading", name: "Uploading Output" },
-  ];
-
-  const getAiStageState = (stageId: string) => {
-    if (project?.status === "COMPLETED") return "completed";
-    
-    const activeStage = jobStatus?.stage || "";
-    const isFailed = project?.status === "FAILED" || activeStage.toLowerCase() === "failed" || jobStatus?.error_message;
-    const errMessage = jobStatus?.error_message || processingError || "";
-    
-    const stagesOrder = ["speech", "creative", "caption", "render_planning"];
-    const checkIdx = stagesOrder.indexOf(stageId);
-    
-    let activeIdx = 0;
-    const stageLower = activeStage.toLowerCase();
-    if (stageLower.includes("speech") || stageLower.includes("transcript")) {
-      activeIdx = 0;
-    } else if (stageLower.includes("creative")) {
-      activeIdx = 1;
-    } else if (stageLower.includes("caption")) {
-      activeIdx = 2;
-    } else if (stageLower.includes("render_planning") || stageLower.includes("render_validation")) {
-      activeIdx = 3;
-    } else if (project?.status === "PROCESSING") {
-      activeIdx = 0;
-    } else if (project?.status === "UPLOADED") {
-      return "pending";
-    } else if (project?.status === "CREATED") {
-      return "pending";
-    }
-
-    if (isFailed) {
-      let failedIdx = activeIdx;
-      if (errMessage.includes("SPEECH_RECOGNITION") || errMessage.includes("TRANSCRIPT")) {
-        failedIdx = 0;
-      } else if (errMessage.includes("CREATIVE")) {
-        failedIdx = 1;
-      } else if (errMessage.includes("CAPTION")) {
-        failedIdx = 2;
-      } else if (errMessage.includes("RENDER_PLANNING") || errMessage.includes("RENDER_VALIDATION")) {
-        failedIdx = 3;
-      }
-      
-      if (checkIdx === failedIdx) return "failed";
-      if (checkIdx < failedIdx) return "completed";
-      return "pending";
-    }
-
-    if (project?.status !== "PROCESSING") return "pending";
-
-    if (checkIdx < activeIdx) return "completed";
-    if (checkIdx === activeIdx) return "running";
-    return "pending";
-  };
-
-  const getRenderStageState = (stageId: string) => {
-    if (!isRendering && !renderJobStatus) return "pending";
-    
-    const activeStage = renderJobStatus?.stage || "";
-    const stageLower = activeStage.toLowerCase();
-    const isFailed = stageLower === "failed" || renderError;
-    
-    const stagesOrder = ["preparing", "generating ass", "rendering", "encoding", "uploading"];
-    const checkIdx = stagesOrder.indexOf(stageId);
-    
-    let activeIdx = 0;
-    if (stageLower.includes("preparing")) {
-      activeIdx = 0;
-    } else if (stageLower.includes("generating ass") || stageLower.includes("ass")) {
-      activeIdx = 1;
-    } else if (stageLower.includes("rendering")) {
-      activeIdx = 2;
-    } else if (stageLower.includes("encoding")) {
-      activeIdx = 3;
-    } else if (stageLower.includes("uploading")) {
-      activeIdx = 4;
-    } else if (stageLower === "completed" || renderJobStatus?.progress === 100) {
-      return "completed";
-    } else if (isRendering) {
-      activeIdx = 0;
-    }
-
-    if (isFailed) {
-      if (checkIdx === activeIdx) return "failed";
-      if (checkIdx < activeIdx) return "completed";
-      return "pending";
-    }
-
-    if (stageLower === "completed" || renderJobStatus?.progress === 100) return "completed";
-    if (!isRendering) return "pending";
-
-    if (checkIdx < activeIdx) return "completed";
-    if (checkIdx === activeIdx) return "running";
-    return "pending";
-  };
-
-  const startRendering = async () => {
-    if (isRendering) return;
-    setIsRendering(true);
-    setRenderError(null);
-    setRenderJobStatus(null);
-    
-    try {
-      const { jobId } = await projectsService.startExport(projectId);
-      await jobsService.pollJobStatus(jobId, {
-        onUpdate: (status) => setRenderJobStatus(status),
-      });
-      
-      const finalStatus = await jobsService.getJobStatus(jobId);
-      if (finalStatus.stage.toLowerCase() === "completed" || finalStatus.progress === 100) {
-        const { data: freshExports } = await refetchExports();
-        // Auto-switch the main player to the export that just finished —
-        // this is the actual burned-in-captions file, not the live CSS
-        // overlay, so the user sees exactly what they downloaded instead
-        // of only finding it via a download link in Render History.
-        const latestCompleted = (freshExports || [])
-          .filter((e: any) => e.status === "completed" && e.download_url)
-          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-        if (latestCompleted) {
-          setActiveExportId(latestCompleted.id);
-        }
-      } else {
-        setRenderError(`Rendering failed: ${finalStatus.stage}`);
-      }
-    } catch (err) {
-      setRenderError(describeError(err));
-    } finally {
-      setIsRendering(false);
-    }
   };
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1228,7 +848,7 @@ export default function ProjectWorkspacePage() {
   if (isProjectLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#0A0B0D]">
-        <div className="w-8 h-8 border-2 border-[#00F5C4] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[#FFB800] border-t-transparent rounded-full animate-spin" />
         <p className="text-[10px] uppercase font-bold tracking-widest text-white">Retrieving workspace...</p>
       </div>
     );
@@ -1240,7 +860,7 @@ export default function ProjectWorkspacePage() {
         <h3 className="text-sm font-primary font-black uppercase text-white">Project Not Found</h3>
         <button 
           onClick={() => router.push("/dashboard")}
-          className="border border-[#23272F] bg-[#111317] text-[#00F5C4] font-primary font-black uppercase text-[9px] tracking-wider px-5 py-2 hover:border-[#00F5C4] transition-all cursor-pointer shadow-sm"
+          className="border border-[#23272F] bg-[#111317] text-[#FFB800] font-primary font-black uppercase text-[9px] tracking-wider px-5 py-2 hover:border-[#FFB800] transition-all cursor-pointer shadow-sm"
         >
           Return to Dashboard
         </button>
@@ -1249,2701 +869,235 @@ export default function ProjectWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col h-screen overflow-hidden select-none selection:bg-[#00F5C4]/20 selection:text-[#00F5C4]">
-      
-      {/* Studio Top-bar */}
-      <header className="h-14 bg-[#111317] border-b border-[#23272F] flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.push("/dashboard")}
-            className="hover:text-[#00F5C4] transition-colors cursor-pointer text-white"
-            title="Back to dashboard"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-xs font-primary font-black uppercase text-white tracking-wide inline-flex items-center gap-2">
-              {project.title}
-              <span className="text-[8px] uppercase px-1.5 py-0.5 border border-[#23272F] bg-[#0A0B0D] text-white">
-                {project.status}
-              </span>
-            </h1>
-          </div>
-        </div>
+    <div className="min-h-screen flex flex-col h-screen overflow-hidden select-none bg-[#0E1013] text-white">
+      {/* 1. Header component */}
+      <WorkspaceHeader
+        project={project}
+        processingError={processingError}
+        jobStatus={jobStatus}
+        startProcessing={startProcessing}
+        wordsHistoryRef={wordsHistoryRef}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+        historyVersion={historyVersion}
+        uploadProgress={uploadProgress}
+        handleUploadFile={handleUploadFile}
+      />
 
-        {/* Dynamic header widgets */}
-        <div className="flex items-center gap-4">
-          {project.status === "CREATED" && uploadProgress === null && (
-            <div className="relative">
-              <input
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm"
-                onChange={handleUploadFile}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-              <button className="bg-[#00F5C4] text-[#0A0B0D] font-primary font-black uppercase text-[9px] tracking-wider px-4 py-2 rounded-none transition-colors cursor-pointer shadow-sm hover:bg-[#00C2A0]">
-                Upload MP4 Clip
-              </button>
-            </div>
-          )}
-          {uploadProgress !== null && (
-            <span className="text-[9px] uppercase font-bold text-[#00F5C4] animate-pulse">
-              UPLOADING: {uploadProgress}%
-            </span>
-          )}
-          {project.status === "PROCESSING" && (
-            <span className="text-[9px] uppercase font-bold text-[#00F5C4] animate-pulse">
-              PIPELINE STAGE: {jobStatus?.stage || "TRANSCRIPTION"} ({jobStatus?.progress || 0}%)
-            </span>
-          )}
-        </div>
-      </header>
-
-      {/* Main Workspace */}
+      {/* 2. Main content container */}
       <div className="flex-1 flex overflow-hidden">
-             {/* A. LEFT PANEL: TEXT STYLING AND TEMPLATES TABS */}
-        <section className="w-80 bg-[#111317] border-r border-[#23272F] flex flex-col shrink-0 z-10 shadow-sm overflow-hidden">
-          {/* Global Tab Header */}
-          <div className="flex border-b border-[#23272F] shrink-0">
-            <button
-              onClick={() => setActiveTab("text")}
-              className={`flex-1 py-3 text-center text-[10px] font-primary font-black uppercase tracking-widest transition-all cursor-pointer ${
-                activeTab === "text"
-                  ? "text-[#FFB800] border-b-2 border-[#FFB800] bg-[#181B21]/40"
-                  : "text-white/40 hover:text-white/80"
-              }`}
-            >
-              Text
-            </button>
-            <button
-              onClick={() => setActiveTab("templates")}
-              className={`flex-1 py-3 text-center text-[10px] font-primary font-black uppercase tracking-widest transition-all cursor-pointer ${
-                activeTab === "templates"
-                  ? "text-[#FFB800] border-b-2 border-[#FFB800] bg-[#181B21]/40"
-                  : "text-white/40 hover:text-white/80"
-              }`}
-            >
-              Templates
-            </button>
-          </div>
-
-          {/* Scrollable Tab Content Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
-            {activeTab === "text" ? (
-              <div className="space-y-5 text-left">
-                {/* 1. FONT SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Font Settings
-                  </div>
-
-                  {(() => {
-                    // Templates with a hero/keyword word (its font/weight/
-                    // size genuinely differ from the body's) get a
-                    // Primary/Secondary toggle scoping these same controls
-                    // to one target at a time — never both editable at
-                    // once. Templates without a hero word (word_by_word,
-                    // sentence_clean) skip the toggle entirely since there's
-                    // nothing to switch between.
-                    const activeTplStyle = getTemplateStyle(customCaptionTemplate);
-                    const hasHeroWord = activeTplStyle.keywordFont !== null || activeTplStyle.keywordSizeScale !== activeTplStyle.baseSizeScale;
-                    if (!hasHeroWord) return null;
-                    return (
-                      <div className="flex border border-[#23272F] rounded overflow-hidden">
-                        <button
-                          onClick={() => setEditTarget("primary")}
-                          className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider cursor-pointer transition-colors ${
-                            editTarget === "primary" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60 hover:text-white"
-                          }`}
-                        >
-                          Primary Text
-                        </button>
-                        <button
-                          onClick={() => setEditTarget("secondary")}
-                          className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider cursor-pointer transition-colors ${
-                            editTarget === "secondary" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#111317] text-white/60 hover:text-white"
-                          }`}
-                        >
-                          Hero Word
-                        </button>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="space-y-1">
-                    <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">
-                      Font Family {editTarget === "secondary" && <span className="text-[#FFB800]">(Hero Word)</span>}
-                    </label>
-                    <select
-                      value={editTarget === "secondary" ? (heroFont || "Template default") : customFont}
-                      onChange={(e) => {
-                        if (editTarget === "secondary") {
-                          const val = e.target.value === "Template default" ? "" : e.target.value;
-                          setHeroFont(val);
-                          ensureFontLoaded(val || getTemplateStyle(customCaptionTemplate).keywordFont || customFont);
-                          saveStyleImmediate({ keyword_font: val || null });
-                        } else {
-                          setCustomFont(e.target.value);
-                          saveStyleImmediate({ font: e.target.value });
-                        }
-                      }}
-                      className="w-full bg-[#181B21] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
-                    >
-                      {editTarget === "secondary" && <option value="Template default">Template default</option>}
-                      {POPULAR_FONTS.map((font) => (
-                        <option key={font} value={font}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Font Face</label>
-                    <select
-                      value={editTarget === "secondary" ? heroFontFace : customFontFace}
-                      onChange={(e) => {
-                        if (editTarget === "secondary") {
-                          setHeroFontFace(e.target.value);
-                          saveStyleImmediate({ heroFontFace: e.target.value });
-                        } else {
-                          setCustomFontFace(e.target.value);
-                          saveStyleImmediate({ fontFace: e.target.value });
-                        }
-                      }}
-                      className="w-full bg-[#181B21] border border-[#23272F] text-[10px] font-bold text-white px-2 py-1.5 focus:outline-none rounded"
-                    >
-                      <option value="Template default">Template default</option>
-                      <option value="Thin">Thin</option>
-                      <option value="Extra Light">Extra Light</option>
-                      <option value="Light">Light</option>
-                      <option value="Regular">Regular</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Semi Bold">Semi Bold</option>
-                      <option value="Bold">Bold</option>
-                      <option value="Extra Bold">Extra Bold</option>
-                      <option value="Black">Black</option>
-                      <option value="Thin Italic">Thin Italic</option>
-                      <option value="Light Italic">Light Italic</option>
-                      <option value="Regular Italic">Regular Italic</option>
-                      <option value="Medium Italic">Medium Italic</option>
-                      <option value="Semi Bold Italic">Semi Bold Italic</option>
-                      <option value="Bold Italic">Bold Italic</option>
-                      <option value="Extra Bold Italic">Extra Bold Italic</option>
-                      <option value="Black Italic">Black Italic</option>
-                    </select>
-                  </div>
-
-                  {editTarget === "secondary" ? (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                        <span>Hero Size Scale</span>
-                        <span className="font-mono text-[#FFB800]">{heroSizeScale.toFixed(1)}x</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="3.0"
-                          step="0.1"
-                          value={heroSizeScale}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            setHeroSizeScale(v);
-                            saveStyleBackground({ keyword_size_scale: v });
-                          }}
-                          className="flex-1 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                        />
-                        <button
-                          onClick={() => {
-                            const def = getTemplateStyle(customCaptionTemplate).keywordSizeScale;
-                            setHeroSizeScale(def);
-                            saveStyleImmediate({ keyword_size_scale: def });
-                          }}
-                          className="text-[9px] text-white/40 hover:text-white transition-colors cursor-pointer"
-                          title="Reset to template default"
-                        >
-                          ↺
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                        <span>Subtitle Size</span>
-                        <span className="font-mono text-[#FFB800]">{customSize}px</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min="24"
-                          max="80"
-                          step="2"
-                          value={customSize}
-                          onChange={(e) => {
-                            setCustomSize(parseInt(e.target.value));
-                            saveStyleBackground({ size: parseInt(e.target.value) });
-                          }}
-                          className="flex-1 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                        />
-                        <button
-                          onClick={() => {
-                            setCustomSize(48);
-                            saveStyleImmediate({ size: 48 });
-                          }}
-                          className="text-[9px] text-white/40 hover:text-white transition-colors cursor-pointer"
-                          title="Reset font size"
-                        >
-                          ↺
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 1b. TEMPLATE-SPECIFIC OPTIONS — layout/timing knobs that
-                    only make sense for one particular caption_template
-                    (staggered_3line's splash/centre layout, word_by_word's
-                    per-word timing). Used to be duplicated inside every
-                    Templates-tab card, keyed off that card's own template
-                    (tpl.caption_template) rather than the active one — now
-                    lives once here, keyed off customCaptionTemplate. */}
-                {customCaptionTemplate === "staggered_3line" && (
-                  <div className="space-y-2 border-t border-[#23272F]/50 pt-3">
-                    <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Staggered Layout Options</label>
-
-                    <div className="grid grid-cols-2 gap-2 h-[26px]">
-                      {(["splash", "centre"] as const).map((layout) => (
-                        <button
-                          key={layout}
-                          onClick={() => {
-                            setCustomStaggeredLayout(layout);
-                            saveStyleImmediate({ staggered_layout: layout });
-                          }}
-                          className={`text-[8px] font-bold uppercase transition-colors border border-[#23272F] rounded cursor-pointer ${
-                            customStaggeredLayout === layout ? "bg-[#FFB800]/10 border-[#FFB800] text-[#FFB800]" : "bg-[#111317] text-white/60"
-                          }`}
-                        >
-                          {layout} Layout
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[8px] text-white/60 uppercase">Accent Period Emphasis</span>
-                      <button
-                        onClick={() => {
-                          const enabled = !customAccentPeriodEnabled;
-                          setCustomAccentPeriodEnabled(enabled);
-                          saveStyleImmediate({ accent_period_enabled: enabled });
-                        }}
-                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer focus:outline-none ${
-                          customAccentPeriodEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                        }`}
-                      >
-                        <div
-                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                            customAccentPeriodEnabled ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {customCaptionTemplate === "word_by_word" && (
-                  <div className="space-y-2 border-t border-[#23272F]/50 pt-3">
-                    <label className="block text-[8px] font-black uppercase tracking-wider text-[#FFB800]">Word-by-Word Timing Settings</label>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                          <span>Words per card</span>
-                          <span className="font-mono text-[#FFB800]">{customWordLimit}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="5"
-                          step="1"
-                          value={customWordLimit}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setCustomWordLimit(val);
-                            saveStyleImmediate({ word_limit: val });
-                          }}
-                          className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                          <span>Word Delay (ms)</span>
-                          <span className="font-mono text-[#FFB800]">{customCaptionSpacingMs}ms</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="10"
-                          max="300"
-                          step="10"
-                          value={customCaptionSpacingMs}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setCustomCaptionSpacingMs(val);
-                            saveStyleBackground({ caption_spacing_ms: val });
-                          }}
-                          className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pacing</label>
-                        <select
-                          value={customWordPacing}
-                          onChange={(e) => {
-                            setCustomWordPacing(e.target.value);
-                            saveStyleImmediate({ word_pacing: e.target.value });
-                          }}
-                          className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
-                        >
-                          <option value="dynamic">Dynamic</option>
-                          <option value="even">Even</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pause Handling</label>
-                        <select
-                          value={customPauseHandling}
-                          onChange={(e) => {
-                            setCustomPauseHandling(e.target.value);
-                            saveStyleImmediate({ pause_handling: e.target.value });
-                          }}
-                          className="w-full bg-[#111317] border border-[#23272F] text-[8px] font-bold text-white px-2 py-1 focus:outline-none rounded"
-                        >
-                          <option value="hold">Hold text</option>
-                          <option value="clear">Clear text</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. FORMAT SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Format
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-white/60">Styles</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          const c = customCasing === "capitalize" ? "none" : "capitalize";
-                          setCustomCasing(c);
-                          saveStyleImmediate({ textTransform: c });
-                        }}
-                        className={`px-3 py-1 border text-[10px] font-black uppercase transition-all rounded cursor-pointer ${
-                          customCasing === "capitalize"
-                            ? "border-[#FFB800] text-[#FFB800] bg-[#FFB800]/10"
-                            : "border-[#23272F] text-white bg-[#181B21] hover:border-white/20"
-                        }`}
-                        title="Capitalize"
-                      >
-                        Tt
-                      </button>
-                      <button
-                        onClick={() => {
-                          const c = customCasing === "uppercase" ? "none" : "uppercase";
-                          setCustomCasing(c);
-                          saveStyleImmediate({ textTransform: c });
-                        }}
-                        className={`px-3 py-1 border text-[10px] font-black uppercase transition-all rounded cursor-pointer ${
-                          customCasing === "uppercase"
-                            ? "border-[#FFB800] text-[#FFB800] bg-[#FFB800]/10"
-                            : "border-[#23272F] text-white bg-[#181B21] hover:border-white/20"
-                        }`}
-                        title="Uppercase"
-                      >
-                        T
-                      </button>
-                      <button
-                        onClick={() => {
-                          const c = customCasing === "lowercase" ? "none" : "lowercase";
-                          setCustomCasing(c);
-                          saveStyleImmediate({ textTransform: c });
-                        }}
-                        className={`px-3 py-1 border text-[10px] font-black uppercase transition-all rounded cursor-pointer ${
-                          customCasing === "lowercase"
-                            ? "border-[#FFB800] text-[#FFB800] bg-[#FFB800]/10"
-                            : "border-[#23272F] text-white bg-[#181B21] hover:border-white/20"
-                        }`}
-                        title="Lowercase"
-                      >
-                        t
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCustomUnderline(!customUnderline);
-                          saveStyleImmediate({ underline: !customUnderline });
-                        }}
-                        className={`px-3 py-1 border text-[10px] font-black uppercase underline transition-all rounded cursor-pointer ${
-                          customUnderline
-                            ? "border-[#FFB800] text-[#FFB800] bg-[#FFB800]/10"
-                            : "border-[#23272F] text-white bg-[#181B21] hover:border-white/20"
-                        }`}
-                        title="Underline"
-                      >
-                        U
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-white/60">Text Alignment</span>
-                    <div className="flex border border-[#23272F] rounded overflow-hidden">
-                      <button
-                        onClick={() => {
-                          setCustomAlignment("left");
-                          saveStyleImmediate({ alignment: "left" });
-                        }}
-                        className={`px-3 py-1.5 text-[9px] font-bold transition-all cursor-pointer ${
-                          customAlignment === "left" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70 hover:bg-[#1C2027]"
-                        }`}
-                        title="Align Left"
-                      >
-                        Left
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCustomAlignment("center");
-                          saveStyleImmediate({ alignment: "center" });
-                        }}
-                        className={`px-3 py-1.5 text-[9px] font-bold transition-all cursor-pointer ${
-                          customAlignment === "center" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70 hover:bg-[#1C2027]"
-                        }`}
-                        title="Align Center"
-                      >
-                        Center
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCustomAlignment("right");
-                          saveStyleImmediate({ alignment: "right" });
-                        }}
-                        className={`px-3 py-1.5 text-[9px] font-bold transition-all cursor-pointer ${
-                          customAlignment === "right" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70 hover:bg-[#1C2027]"
-                        }`}
-                        title="Align Right"
-                      >
-                        Right
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. POSITION SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Position
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">X position %</label>
-                      <div className="flex items-center bg-[#181B21] border border-[#23272F] p-1.5 rounded">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={customXPositionPercent}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 50;
-                            setCustomXPositionPercent(val);
-                            saveStyleBackground({ x_position_percent: val });
-                          }}
-                          className="w-full bg-transparent text-[10px] text-white font-bold focus:outline-none text-center"
-                        />
-                        <span className="text-[9px] text-white/40 font-bold ml-1">%</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Y position %</label>
-                      <div className="flex items-center bg-[#181B21] border border-[#23272F] p-1.5 rounded">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={customYPositionPercent}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 85;
-                            setCustomYPositionPercent(val);
-                            saveStyleBackground({ y_position_percent: val });
-                          }}
-                          className="w-full bg-transparent text-[10px] text-white font-bold focus:outline-none text-center"
-                        />
-                        <span className="text-[9px] text-white/40 font-bold ml-1">%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. COLOR SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Color Settings
-                  </div>
-
-                  <div className="flex border border-[#23272F] rounded overflow-hidden">
-                    <button
-                      onClick={() => {
-                        setCustomColorMode("solid");
-                        saveStyleImmediate({ colorMode: "solid" });
-                      }}
-                      className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        customColorMode === "solid" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70 hover:bg-[#1C2027]"
-                      }`}
-                    >
-                      Solid
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCustomColorMode("gradient");
-                        saveStyleImmediate({ colorMode: "gradient" });
-                      }}
-                      className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        customColorMode === "gradient" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70 hover:bg-[#1C2027]"
-                      }`}
-                    >
-                      Gradient
-                    </button>
-                  </div>
-
-                  {customColorMode === "solid" ? (
-                    <div className="space-y-1">
-                      <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Primary Color</label>
-                      <div className="flex items-center gap-2 bg-[#181B21] border border-[#23272F] p-1.5 rounded">
-                        <input
-                          type="color"
-                          value={customColor}
-                          onChange={(e) => {
-                            setCustomColor(e.target.value);
-                            saveStyleBackground({ color: e.target.value });
-                          }}
-                          className="w-6 h-6 bg-transparent cursor-pointer shrink-0 rounded border-0"
-                        />
-                        <span className="text-[10px] text-white font-mono uppercase">{customColor}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Color 1</label>
-                        <div className="flex items-center gap-1.5 bg-[#181B21] border border-[#23272F] p-1.5 rounded">
-                          <input
-                            type="color"
-                            value={customColor}
-                            onChange={(e) => {
-                              setCustomColor(e.target.value);
-                              saveStyleBackground({ color: e.target.value });
-                            }}
-                            className="w-5 h-5 bg-transparent cursor-pointer shrink-0 rounded border-0"
-                          />
-                          <span className="text-[9px] text-white font-mono uppercase truncate">{customColor}</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Color 2</label>
-                        <div className="flex items-center gap-1.5 bg-[#181B21] border border-[#23272F] p-1.5 rounded">
-                          <input
-                            type="color"
-                            value={customColor2}
-                            onChange={(e) => {
-                              setCustomColor2(e.target.value);
-                              saveStyleBackground({ color2: e.target.value });
-                            }}
-                            className="w-5 h-5 bg-transparent cursor-pointer shrink-0 rounded border-0"
-                          />
-                          <span className="text-[9px] text-white font-mono uppercase truncate">{customColor2}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 5. SPACING SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Spacing
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                      <span>Letter Spacing</span>
-                      <span className="font-mono text-[#FFB800]">{customLetterSpacing}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-5"
-                      max="15"
-                      step="1"
-                      value={customLetterSpacing}
-                      onChange={(e) => {
-                        setCustomLetterSpacing(parseInt(e.target.value));
-                        saveStyleBackground({ letter_spacing: parseInt(e.target.value) });
-                      }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                      <span>Word Spacing</span>
-                      <span className="font-mono text-[#FFB800]">{customWordSpacing}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="30"
-                      step="1"
-                      value={customWordSpacing}
-                      onChange={(e) => {
-                        setCustomWordSpacing(parseInt(e.target.value));
-                        saveStyleBackground({ word_spacing: parseInt(e.target.value) });
-                      }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white/60">
-                      <span>Line Spacing</span>
-                      <span className="font-mono text-[#FFB800]">{customLineSpacing}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.8"
-                      max="2.5"
-                      step="0.1"
-                      value={customLineSpacing}
-                      onChange={(e) => {
-                        setCustomLineSpacing(parseFloat(e.target.value));
-                        saveStyleBackground({ line_spacing: parseFloat(e.target.value) });
-                      }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                    />
-                  </div>
-                </div>
-
-                {/* 6. EFFECTS SECTION */}
-                <div className="space-y-3">
-                  <div className="text-[9px] font-bold text-white uppercase tracking-widest border-b border-[#23272F]/50 pb-1">
-                    Effects
-                  </div>
-
-                  {/* Drop Shadow Switch */}
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white">Drop Shadow</span>
-                      <span className="text-[7px] text-white/40 uppercase tracking-wider">Subtle offset shadow</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShadowEnabled(!shadowEnabled);
-                        saveStyleImmediate({ shadowEnabled: !shadowEnabled });
-                      }}
-                      className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                        shadowEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                      }`}
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${
-                          shadowEnabled ? "translate-x-4" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Text Stroke Switch */}
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white">Text Stroke</span>
-                      <span className="text-[7px] text-white/40 uppercase tracking-wider">Outer outline stroke</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setStrokeEnabled(!strokeEnabled);
-                        saveStyleImmediate({ strokeEnabled: !strokeEnabled });
-                      }}
-                      className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                        strokeEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                      }`}
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${
-                          strokeEnabled ? "translate-x-4" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {strokeEnabled && (
-                    <div className="bg-[#181B21]/30 p-2.5 border border-[#23272F] rounded space-y-3">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[7px] font-bold uppercase tracking-wider text-white/60">
-                          <span>Stroke Thickness</span>
-                          <span className="font-mono text-[#FFB800]">{customOutline}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="5"
-                          step="0.5"
-                          value={customOutline}
-                          onChange={(e) => {
-                            setCustomOutline(parseFloat(e.target.value));
-                            saveStyleBackground({ outline: parseFloat(e.target.value) });
-                          }}
-                          className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Background Switch */}
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-white">Background Box</span>
-                      <span className="text-[7px] text-white/40 uppercase tracking-wider">Highlight backing container</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setBackgroundEnabled(!backgroundEnabled);
-                        saveStyleImmediate({ backgroundEnabled: !backgroundEnabled });
-                      }}
-                      className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                        backgroundEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
-                      }`}
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${
-                          backgroundEnabled ? "translate-x-4" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {backgroundEnabled && (
-                    <div className="bg-[#181B21]/30 p-2.5 border border-[#23272F] rounded space-y-3">
-                      <div className="space-y-1">
-                        <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Box Type</label>
-                        <div className="flex border border-[#23272F] rounded overflow-hidden">
-                          <button
-                            onClick={() => {
-                              setSelectedBackgroundStyle("pill");
-                              saveStyleImmediate({ backgroundStyle: "pill" });
-                            }}
-                            className={`flex-1 py-1 text-[8px] font-bold cursor-pointer ${
-                              selectedBackgroundStyle === "pill" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70"
-                            }`}
-                          >
-                            Pill
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedBackgroundStyle("shadow-box");
-                              saveStyleImmediate({ backgroundStyle: "shadow-box" });
-                            }}
-                            className={`flex-1 py-1 text-[8px] font-bold cursor-pointer ${
-                              selectedBackgroundStyle === "shadow-box" ? "bg-[#FFB800] text-[#0A0B0D]" : "bg-[#181B21] text-white/70"
-                            }`}
-                          >
-                            Shadow Box
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // TEMPLATES TAB CONTENT
-              <div className="space-y-4 text-left">
-                <div className="grid grid-cols-2 gap-3">
-                  {(() => {
-                    // Trending group first, Built-in group second — a single
-                    // ordered list lets one .map() render both sections'
-                    // headers inline without duplicating the (large)
-                    // per-card JSX below.
-                    const groupedPresets = [...TRENDING_TEMPLATE_PRESETS, ...BUILTIN_TEMPLATE_PRESETS];
-                    return groupedPresets.map((tpl, presetIdx) => {
-                    const isSelected = expandedTemplateId === tpl.id;
-                    const sectionHeader =
-                      presetIdx === 0
-                        ? "Trending"
-                        : presetIdx === TRENDING_TEMPLATE_PRESETS.length
-                        ? "Built-in"
-                        : null;
-
-                    return (
-                      <React.Fragment key={tpl.id}>
-                      {sectionHeader && (
-                        <div className={`col-span-2 pb-1 border-b border-[#23272F]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
-                          <span className="text-[9px] font-bold text-white uppercase tracking-widest">
-                            {sectionHeader}
-                          </span>
-                        </div>
-                      )}
-                      <div
-                        className={`border rounded p-2.5 transition-all duration-200 ${isSelected ? "col-span-2" : ""} ${
-                          isSelected ? "border-[#FFB800] bg-[#181B21]" : "border-[#23272F] bg-[#111317] hover:border-white/20"
-                        }`}
-                      >
-                        <button
-                          onClick={() => handleTemplateClick(tpl.id)}
-                          className="w-full text-left flex flex-col justify-between cursor-pointer focus:outline-none"
-                        >
-                          <TemplateSwatch preset={tpl} />
-                          <div className="flex justify-between items-start w-full mt-2">
-                            <span className="text-[11px] font-primary font-black uppercase text-white tracking-wide block">
-                              {tpl.name}
-                            </span>
-                            {isSelected && (
-                              <span className="w-2 h-2 rounded-full bg-[#FFB800] shrink-0 mt-0.5" />
-                            )}
-                          </div>
-                          <span className="text-[9px] text-white/50 uppercase tracking-wide leading-relaxed block mt-1">
-                            {tpl.desc}
-                          </span>
-                        </button>
-
-                        {/* Fine-tuning lives in one place (the Text tab),
-                            not duplicated per-card here — this used to be a
-                            few hundred lines of the same font/size/color/
-                            spacing controls the Text tab already has,
-                            editing the exact same state through a second,
-                            inconsistent UI. Selecting a card applies the
-                            preset immediately (see handleTemplateClick); a
-                            short hint plus a jump-to-Text-tab link replaces
-                            the old inline panel. */}
-                        {isSelected && (
-                          <div className="mt-3 pt-3 border-t border-[#23272F] flex items-center justify-between">
-                            <span className="text-[8px] text-white/50 uppercase tracking-wide">Applied — fine-tune font, size, color, spacing in the Text tab</span>
-                            <button
-                              onClick={() => setActiveTab("text")}
-                              className="text-[8px] font-bold uppercase tracking-wider text-[#FFB800] hover:text-white cursor-pointer whitespace-nowrap ml-2"
-                            >
-                              Edit Style →
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      </React.Fragment>
-                    );
-                    });
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Sync Button & Style Save Status */}
-          <div className="p-4 border-t border-[#23272F] bg-[#0E1013] shrink-0">
-            <button
-              onClick={() => saveStyleImmediate()}
-              className="w-full bg-[#FFB800] text-[#0A0B0D] font-primary font-black uppercase text-[10px] tracking-wider py-2.5 rounded transition-all cursor-pointer text-center hover:bg-[#E5A500]"
-            >
-              Sync Settings
-            </button>
-
-            {styleError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[8px] uppercase font-bold tracking-wider p-2 mt-2 rounded">
-                {styleError}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* B. MIDDLE PLAYER & TIMELINE */}
-        <section className="flex-1 flex flex-col bg-[#0A0B0D] overflow-hidden relative min-h-0">
-          
-          {/* 1. Media Control Bar (Aspect Ratio, Zoom, Safety Grid, Fullscreen) */}
-          <div className="h-10 bg-[#111317] border-b border-[#23272F] px-4 flex items-center justify-between shrink-0">
-            {/* Aspect Ratio Selector */}
-            <div className="flex items-center gap-1 bg-[#0A0B0D] border border-[#23272F] p-0.5 rounded-full">
-              {(["original", "9:16", "16:9", "1:1", "4:5"] as const).map((r) => {
-                const isActive = selectedRatio === r;
-                const displayLabel = r === "original" ? "Original" : r;
-                return (
-                  <button
-                    key={r}
-                    onClick={() => setSelectedRatio(r)}
-                    className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#FFB800] text-[#0A0B0D] shadow-sm"
-                        : "text-white/40 hover:text-white/80"
-                    }`}
-                  >
-                    {displayLabel}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Zoom / Grid / Fullscreen Tools */}
-            <div className="flex items-center gap-3">
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPlayerZoom(Math.max(50, playerZoom - 10))}
-                  className="p-1 text-white/50 hover:text-white transition-colors cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setPlayerZoom(100)}
-                  className="text-[9px] font-mono font-bold text-[#FFB800] bg-[#0A0B0D] border border-[#23272F] px-2 py-0.5 rounded"
-                  title="Reset Zoom"
-                >
-                  {playerZoom}%
-                </button>
-                <button
-                  onClick={() => setPlayerZoom(Math.min(200, playerZoom + 10))}
-                  className="p-1 text-white/50 hover:text-white transition-colors cursor-pointer"
-                  title="Zoom In"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="h-4 w-[1px] bg-[#23272F]" />
-
-              {/* Safety Grid Guideline Toggle */}
-              <button
-                onClick={() => setShowSafetyGrid(!showSafetyGrid)}
-                className={`p-1.5 transition-colors rounded cursor-pointer ${
-                  showSafetyGrid ? "text-[#FFB800] bg-[#FFB800]/10" : "text-white/50 hover:text-white"
-                }`}
-                title="Toggle Safe Area Grid"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                </svg>
-              </button>
-
-              {/* Fullscreen Player Toggle */}
-              <button
-                onClick={() => {
-                  if (videoRef.current) {
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen();
-                    } else {
-                      videoRef.current.requestFullscreen().catch((err) => console.error(err));
-                    }
-                  }
-                }}
-                className="p-1.5 text-white/50 hover:text-white transition-colors cursor-pointer"
-                title="Fullscreen Toggle"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0l-5.25-5.25" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* 2. Top Video Preview Player Container */}
-          <div className="flex-1 flex items-center justify-center p-6 relative bg-[#0E1013] min-h-0 overflow-hidden">
-            
-            <div 
-              ref={playerContainerRef}
-              className="relative h-full max-h-[calc(100vh-420px)] w-auto max-w-full bg-[#111317] border border-[#23272F] shadow-2xl flex flex-col justify-center items-center overflow-hidden transition-all duration-200"
-              style={{
-                aspectRatio: selectedRatio === "original" ? naturalAspectRatio : selectedRatio === "9:16" ? 9/16 : selectedRatio === "16:9" ? 16/9 : selectedRatio === "1:1" ? 1 : 4/5,
-                transform: `scale(${playerZoom / 100})`,
-              }}
-            >
-              {/* Safety Title Grid Lines */}
-              {showSafetyGrid && (
-                <div className="absolute inset-0 border border-dashed border-[#FFB800]/25 pointer-events-none z-10 m-[10%]">
-                  <div className="absolute inset-0 border border-dashed border-[#FFB800]/15 m-[5%]" />
-                  <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-[#FFB800]/10" />
-                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#FFB800]/10" />
-                </div>
-              )}
-              
-              {/* HTML5 Video Element */}
-              {(() => {
-                const completedExports = (exports || []).filter((e: any) => e.status === "completed" && e.download_url);
-                const activeExport = activeExportId ? completedExports.find((e: any) => e.id === activeExportId) : null;
-                // Viewing a real export (burned-in captions) takes priority
-                // over the raw source once one is selected/just finished —
-                // falls back to the raw clip, then to the latest export if
-                // that's literally all that exists (e.g. source deleted).
-                const previewSrc = activeExport?.download_url || projectVideo?.download_url || completedExports[0]?.download_url;
-                const isViewingExport = Boolean(activeExport);
-
-                if (!previewSrc) {
-                  return (
-                    <label className="flex flex-col items-center justify-center p-6 text-center space-y-4 cursor-pointer hover:bg-[#181B21]/50 transition-colors w-full h-full absolute inset-0">
-                      <input
-                        type="file"
-                        accept="video/mp4,video/quicktime,video/webm"
-                        onChange={handleUploadFile}
-                        className="hidden"
-                      />
-                      <div className="w-10 h-10 rounded-full border border-dashed border-[#FFB800] flex items-center justify-center text-[#FFB800] hover:scale-105 transition-transform duration-200">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
-                        </svg>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-white uppercase font-black tracking-wider block">
-                          Upload Media
-                        </span>
-                        <span className="text-[7px] text-white/40 uppercase tracking-widest block">
-                          Drag & drop or click to upload
-                        </span>
-                      </div>
-                    </label>
-                  );
-                }
-
-                return (
-                  <>
-                    {isViewingExport && (
-                      <div className="absolute top-2 left-2 z-20 flex items-center gap-2 bg-[#0A0B0D]/80 border border-[#FFB800]/40 rounded-full pl-3 pr-1 py-1">
-                        <span className="text-[8px] font-black uppercase tracking-wider text-[#FFB800]">
-                          Viewing Rendered Export
-                        </span>
-                        <button
-                          onClick={() => setActiveExportId(null)}
-                          className="text-[8px] font-bold uppercase tracking-wider text-white/80 bg-white/10 hover:bg-white/20 rounded-full px-2 py-0.5 cursor-pointer"
-                        >
-                          Back to Live Preview
-                        </button>
-                      </div>
-                    )}
-                    <video
-                      key={previewSrc}
-                      ref={videoRef}
-                      src={previewSrc}
-                      className="w-full h-full object-cover"
-                      poster={project.thumbnail_url || undefined}
-                  onClick={() => {
-                    if (videoRef.current) {
-                      if (isPlaying) {
-                        videoRef.current.pause();
-                        setIsPlaying(false);
-                      } else {
-                        videoRef.current.play().then(() => setIsPlaying(true));
-                      }
-                    }
-                  }}
-                  onTimeUpdate={() => {
-                    if (videoRef.current) {
-                      const timeMs = videoRef.current.currentTime * 1000;
-                      setCurrentTimeMs(timeMs);
-                      if (wavesurfer.current && videoRef.current.duration) {
-                        wavesurfer.current.setTime(videoRef.current.currentTime);
-                      }
-                    }
-                  }}
-                  onLoadedMetadata={() => {
-                    if (videoRef.current) {
-                      setDurationMs(videoRef.current.duration * 1000);
-                      if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
-                        setNaturalAspectRatio(videoRef.current.videoWidth / videoRef.current.videoHeight);
-                      }
-                    }
-                  }}
-                  onEnded={() => setIsPlaying(false)}
-                    />
-                  </>
-                );
-              })()}
-
-              {/* Subtitle Preview Overlay — only for Live Preview: a real
-                  export already has captions burned into the file, so
-                  drawing the CSS overlay on top would show them twice. */}
-              {!activeExportId && (() => {
-                // Normalize data to a consistent format
-                let wordsObj: { text: string }[] = [];
-                let revealedMax = 0;
-                let k = 0;
-
-                if (motionScript?.timeline) {
-                  const activeCaption = motionScript.timeline.find(
-                    (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                  );
-                  if (!activeCaption) return null;
-
-                  const capHighlights = motionScript.timeline.filter(
-                    (e: any) => e.type === "highlight" && e.start_ms >= activeCaption.start_ms && e.start_ms < activeCaption.end_ms
-                  );
-                  const backendKeywordHighlight = capHighlights.find((h: any) => h.payload?.is_keyword);
-
-                  const capText = activeCaption.payload.text || "";
-                  const segmentWords = localWords.filter(
-                    (w: any) => w.start_ms >= activeCaption.start_ms && w.end_ms <= activeCaption.end_ms
-                  );
-
-                  wordsObj = segmentWords.length > 0
-                    ? segmentWords.map((w: any) => ({ text: w.text }))
-                    : capText.split(" ").map((t: string) => ({ text: t }));
-
-                  revealedMax = segmentWords.findIndex(
-                    (w: any) => currentTimeMs >= w.start_ms && currentTimeMs <= w.end_ms
-                  );
-                  if (revealedMax === -1) {
-                    const activeHighlight = motionScript.timeline.find(
-                      (e: any) => e.type === "highlight" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                    );
-                    if (activeHighlight?.payload?.indices?.length > 0) {
-                      revealedMax = activeHighlight.payload.indices[0];
-                    } else {
-                      revealedMax = 0;
-                    }
-                  }
-
-                  k = backendKeywordHighlight?.payload?.indices?.[0] ?? pickKeywordIndex(wordsObj);
-                } else {
-                  const activeSegment = getActiveSegmentAndIndex();
-                  if (!activeSegment) return null;
-
-                  wordsObj = activeSegment.words.map((w: any) => ({ text: w.text }));
-                  revealedMax = activeSegment.relativeActiveIdx;
-                  k = pickKeywordIndex(wordsObj);
-                }
-
-                const getCanvasDimensions = () => {
-                  if (motionScript?.global_settings?.canvas) {
-                    return {
-                      width: motionScript.global_settings.canvas.width,
-                      height: motionScript.global_settings.canvas.height,
-                    };
-                  }
-                  const width = 1080;
-                  const ratio = selectedRatio === "original"
-                    ? naturalAspectRatio
-                    : selectedRatio === "9:16"
-                    ? 9 / 16
-                    : selectedRatio === "16:9"
-                    ? 16 / 9
-                    : selectedRatio === "1:1"
-                    ? 1
-                    : 4 / 5;
-                  return {
-                    width,
-                    height: width / ratio,
-                  };
-                };
-
-                const { width: canvasWidth, height: canvasHeight } = getCanvasDimensions();
-                const S = playerWidth / canvasWidth;
-
-                const renderOverlayContent = () => {
-                  const templateStyle = getTemplateStyle(customCaptionTemplate);
-                  const safeAreaLeft = 50;
-                  const safeAreaRight = 50;
-                  const boxWidth = canvasWidth - safeAreaLeft - safeAreaRight; // 980
-
-                  const getWordStyle = (isHighlighted: boolean) => {
-                    return getTextStyle(isHighlighted);
-                  };
-
-                  if (customCaptionTemplate === "staggered_3line") {
-                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
-                    const line2Word = wordsObj[k]?.text || "";
-                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
-
-                    let sizeL1 = customSize * templateStyle.baseSizeScale;
-                    let sizeL3 = customSize * templateStyle.baseSizeScale;
-                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
-
-                    let X_l1 = 540;
-                    let an_l1 = 5;
-                    let X_l3 = 540;
-                    let an_l3 = 5;
-
-                    const isCentre = customStaggeredLayout === "centre";
-
-                    if (!isCentre) {
-                      const W2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
-                      X_l1 = 540 - W2 / 2;
-                      an_l1 = 4; // left-aligned
-                      if (X_l1 < safeAreaLeft) {
-                        X_l1 = safeAreaLeft;
-                      }
-                      const fullL1Text = line1Words.join(" ");
-                      if (fullL1Text) {
-                        const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
-                        const availableL1 = (canvasWidth - safeAreaRight) - X_l1;
-                        if (availableL1 > 0 && availableL1 < fullL1Width) {
-                          sizeL1 = sizeL1 * (availableL1 / fullL1Width);
-                        }
-                      }
-
-                      X_l3 = 540 + W2 / 2;
-                      an_l3 = 6; // right-aligned
-                      if (X_l3 > (canvasWidth - safeAreaRight)) {
-                        X_l3 = canvasWidth - safeAreaRight;
-                      }
-                      const fullL3Text = line3Words.join(" ");
-                      if (fullL3Text) {
-                        const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
-                        const availableL3 = X_l3 - safeAreaLeft;
-                        if (availableL3 > 0 && availableL3 < fullL3Width) {
-                          sizeL3 = sizeL3 * (availableL3 / fullL3Width);
-                        }
-                      }
-                    } else {
-                      // Center-aligned: scale each line independently to fit boxWidth if it overflows
-                      const fullL1Text = line1Words.join(" ");
-                      if (fullL1Text) {
-                        const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
-                        if (fullL1Width > boxWidth) {
-                          sizeL1 = sizeL1 * (boxWidth / fullL1Width);
-                        }
-                      }
-                      const fullL3Text = line3Words.join(" ");
-                      if (fullL3Text) {
-                        const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
-                        if (fullL3Width > boxWidth) {
-                          sizeL3 = sizeL3 * (boxWidth / fullL3Width);
-                        }
-                      }
-                      if (line2Word) {
-                        const fullL2Width = estimateTextWidthPx(line2Word.toUpperCase(), sizeL2);
-                        if (fullL2Width > boxWidth) {
-                          sizeL2 = sizeL2 * (boxWidth / fullL2Width);
-                        }
-                      }
-                    }
-
-                    // Y positions
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    const lineGap = customSize * 1.1;
-
-                    let Y_l1 = baseY - lineGap;
-                    let Y_l2 = baseY;
-                    let Y_l3 = baseY + lineGap;
-
-                    if (line1Words.length === 0) {
-                      Y_l2 = baseY - lineGap / 2;
-                      Y_l3 = baseY + lineGap / 2;
-                      Y_l1 = Y_l2 - lineGap;
-                    } else if (line3Words.length === 0) {
-                      Y_l1 = baseY - lineGap / 2;
-                      Y_l2 = baseY + lineGap / 2;
-                      Y_l3 = Y_l2 + lineGap;
-                    }
-
-                    return (
-                      <>
-                        {line1Words.length > 0 && (
-                          <div
-                            className="absolute tracking-wide transition-all duration-100 uppercase"
-                            style={{
-                              ...getWordStyle(false),
-                              left: `${X_l1}px`,
-                              top: `${Y_l1}px`,
-                              transform: an_l1 === 4 ? "translateY(-50%)" : "translate(-50%, -50%)",
-                              fontSize: `${sizeL1}px`,
-                              opacity: 0.96,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {line1Words.map((w, i) => (
-                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                {w}{i < line1Words.length - 1 ? " " : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {line2Word && (
-                          <div
-                            className="absolute tracking-tight leading-none select-none transition-all duration-100 uppercase"
-                            style={{
-                              ...getWordStyle(true),
-                              left: "540px",
-                              top: `${Y_l2}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL2}px`,
-                              visibility: visibleL2 ? "visible" : "hidden",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {line2Word}
-                          </div>
-                        )}
-                        {line3Words.length > 0 && (
-                          <div
-                            className="absolute tracking-wide transition-all duration-100 uppercase"
-                            style={{
-                              ...getWordStyle(false),
-                              left: `${X_l3}px`,
-                              top: `${Y_l3}px`,
-                              transform: an_l3 === 6 ? "translate(-100%, -50%)" : "translate(-50%, -50%)",
-                              fontSize: `${sizeL3}px`,
-                              opacity: 0.96,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {line3Words.map((w, i) => (
-                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                {i > 0 ? " " : ""}{w}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  } else if (customCaptionTemplate === "word_by_word") {
-                    const activeWord = wordsObj[revealedMax]?.text || wordsObj[0]?.text || "";
-                    if (!activeWord) return null;
-
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    let sizeLarge = customSize * templateStyle.keywordSizeScale;
-                    
-                    sizeLarge = fitFontSizePx(sizeLarge, activeWord.toUpperCase(), boxWidth);
-
-                    return (
-                      <div
-                        className="absolute uppercase tracking-wide transition-all duration-100 text-center whitespace-nowrap"
-                        style={{
-                          ...getWordStyle(true),
-                          left: "540px",
-                          top: `${baseY}px`,
-                          transform: "translate(-50%, -50%)",
-                          fontSize: `${sizeLarge}px`,
-                        }}
-                      >
-                        {activeWord}
-                      </div>
-                    );
-                  } else if (customCaptionTemplate === "glow_stack") {
-                    // Splash-anchored (line1 left edge / line3 right edge
-                    // sync to the hero's own edges — same algorithm as
-                    // staggered_3line), flat deep-blue hero + plain white
-                    // body. Mirrors apps/remotion-pipeline/src/Subtitles.tsx's
-                    // glow_stack branch after two gradient/emboss passes
-                    // didn't match the reference — flat was the right call.
-                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
-                    const line2Word = wordsObj[k]?.text || "";
-                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
-
-                    const bodyFont = `"${templateStyle.baseFont}", ${customFont}, sans-serif`;
-                    const bodyShadow = "0px 3px 6px rgba(0,0,0,0.45)";
-
-                    const baseSizePx = customSize * templateStyle.baseSizeScale;
-                    const keywordSizePx = customSize * templateStyle.keywordSizeScale;
-                    let sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
-                    let sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
-                    const sizeL2 = fitFontSizePx(keywordSizePx, (line2Word || "").toUpperCase(), boxWidth);
-
-                    const W2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
-                    let X_l1 = 540 - W2 / 2;
-                    if (X_l1 < safeAreaLeft) X_l1 = safeAreaLeft;
-                    const fullL1Text = line1Words.join(" ");
-                    if (fullL1Text) {
-                      const fullL1Width = estimateTextWidthPx(fullL1Text, sizeL1);
-                      const availableL1 = (canvasWidth - safeAreaRight) - X_l1;
-                      if (availableL1 > 0 && availableL1 < fullL1Width) {
-                        sizeL1 = sizeL1 * (availableL1 / fullL1Width);
-                      }
-                    }
-
-                    let X_l3 = 540 + W2 / 2;
-                    if (X_l3 > (canvasWidth - safeAreaRight)) X_l3 = canvasWidth - safeAreaRight;
-                    const fullL3Text = line3Words.join(" ");
-                    if (fullL3Text) {
-                      const fullL3Width = estimateTextWidthPx(fullL3Text, sizeL3);
-                      const availableL3 = X_l3 - safeAreaLeft;
-                      if (availableL3 > 0 && availableL3 < fullL3Width) {
-                        sizeL3 = sizeL3 * (availableL3 / fullL3Width);
-                      }
-                    }
-
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    const lineGap = baseSizePx * 1.15;
-
-                    let Y_l1 = baseY - lineGap;
-                    let Y_l2 = baseY;
-                    let Y_l3 = baseY + lineGap;
-
-                    if (line1Words.length === 0) {
-                      Y_l2 = baseY - lineGap / 2;
-                      Y_l3 = baseY + lineGap / 2;
-                      Y_l1 = Y_l2 - lineGap;
-                    } else if (line3Words.length === 0) {
-                      Y_l1 = baseY - lineGap / 2;
-                      Y_l2 = baseY + lineGap / 2;
-                      Y_l3 = Y_l2 + lineGap;
-                    }
-
-                    const widthL2 = estimateTextWidthPx((line2Word || "").toUpperCase(), sizeL2);
-                    const blobHalfW = Math.min(boxWidth, widthL2 * 1.8 + 60) / 2;
-                    const blobHalfH = lineGap * 1.7;
-                    const blobLeft = 540 - blobHalfW;
-                    const blobTop = Y_l2 - blobHalfH;
-
-                    return (
-                      <>
-                        <div
-                          className="absolute pointer-events-none"
-                          style={{
-                            left: `${blobLeft}px`,
-                            top: `${blobTop}px`,
-                            width: `${blobHalfW * 2}px`,
-                            height: `${blobHalfH * 2}px`,
-                            borderRadius: "40px",
-                            filter: "blur(28px)",
-                            background: "radial-gradient(ellipse 62% 58% at 50% 50%, rgba(10,16,32,0.55), rgba(10,16,32,0.28) 55%, transparent 78%)",
-                          }}
-                        />
-
-                        {line1Words.length > 0 && (
-                          <div
-                            className="absolute whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 800,
-                              color: "#FFFFFF",
-                              left: `${X_l1}px`,
-                              top: `${Y_l1}px`,
-                              transform: "translateY(-50%)",
-                              fontSize: `${sizeL1}px`,
-                              textShadow: bodyShadow,
-                              textAlign: "left",
-                            }}
-                          >
-                            {line1Words.map((w, i) => (
-                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                {w}{i < line1Words.length - 1 ? " " : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {line2Word && (
-                          <div
-                            className="absolute uppercase leading-none whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: `"${templateStyle.keywordFont}", ${customFont}, sans-serif`,
-                              fontWeight: 900,
-                              color: customHighlightColor,
-                              left: "540px",
-                              top: `${Y_l2}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL2}px`,
-                              textShadow: "0px 4px 8px rgba(0,0,0,0.45)",
-                              visibility: visibleL2 ? "visible" : "hidden",
-                            }}
-                          >
-                            {line2Word}
-                          </div>
-                        )}
-
-                        {line3Words.length > 0 && (
-                          <div
-                            className="absolute whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 800,
-                              color: "#FFFFFF",
-                              left: `${X_l3}px`,
-                              top: `${Y_l3}px`,
-                              transform: "translate(-100%, -50%)",
-                              fontSize: `${sizeL3}px`,
-                              textShadow: bodyShadow,
-                              textAlign: "right",
-                            }}
-                          >
-                            {line3Words.map((w, i) => (
-                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                {i > 0 ? " " : ""}{w}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  } else if (customCaptionTemplate === "cartoon_stack") {
-                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
-                    const line2Word = wordsObj[k]?.text || "";
-                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
-
-                    const bodyFont = `"${templateStyle.baseFont}", cursive`;
-                    const keywordFont = `"${templateStyle.keywordFont}", sans-serif`;
-
-                    let sizeL1 = customSize * templateStyle.baseSizeScale;
-                    let sizeL3 = customSize * templateStyle.baseSizeScale;
-                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
-
-                    sizeL1 = fitFontSizePx(sizeL1, line1Words.join(" "), boxWidth);
-                    sizeL3 = fitFontSizePx(sizeL3, line3Words.join(" "), boxWidth);
-                    sizeL2 = fitFontSizePx(sizeL2, line2Word || "", boxWidth);
-
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    const lineGap = customSize * 0.8;
-
-                    let Y_l1 = baseY - lineGap;
-                    let Y_l2 = baseY;
-                    let Y_l3 = baseY + lineGap;
-
-                    if (line1Words.length === 0) {
-                      Y_l2 = baseY - lineGap / 2;
-                      Y_l3 = baseY + lineGap / 2;
-                      Y_l1 = Y_l2 - lineGap;
-                    } else if (line3Words.length === 0) {
-                      Y_l1 = baseY - lineGap / 2;
-                      Y_l2 = baseY + lineGap / 2;
-                      Y_l3 = Y_l2 + lineGap;
-                    }
-
-                    return (
-                      <>
-                        {line1Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 700,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l1}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL1}px`,
-                              textShadow: "none",
-                              textTransform: "none",
-                            }}
-                          >
-                            {line1Words.map((w, i) => (
-                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                {w}{i < line1Words.length - 1 ? " " : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {line2Word && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100 lowercase"
-                            style={{
-                              fontFamily: keywordFont,
-                              fontWeight: 700,
-                              color: "#EDE0A6",
-                              left: "540px",
-                              top: `${Y_l2}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL2}px`,
-                              WebkitTextStroke: "8px #4E2D1F",
-                              paintOrder: "stroke fill",
-                              strokeLinejoin: "round",
-                              textShadow: "0 5px 0 rgba(0,0,0,0.44)",
-                              visibility: visibleL2 ? "visible" : "hidden",
-                            }}
-                          >
-                            {line2Word}
-                          </div>
-                        )}
-                        {line3Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 700,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l3}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL3}px`,
-                              textShadow: "none",
-                              textTransform: "none",
-                            }}
-                          >
-                            {line3Words.map((w, i) => (
-                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                {i > 0 ? " " : ""}{w}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  } else if (customCaptionTemplate === "serif_pop") {
-                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
-                    const line2Word = wordsObj[k]?.text || "";
-                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
-
-                    const bodyFont = `${customFont}, sans-serif`;
-                    const keywordFont = `"${templateStyle.keywordFont}", Georgia, serif`;
-
-                    let sizeL1 = customSize * templateStyle.baseSizeScale;
-                    let sizeL3 = customSize * templateStyle.baseSizeScale;
-                    let sizeL2 = customSize * templateStyle.keywordSizeScale;
-
-                    sizeL1 = fitFontSizePx(sizeL1, line1Words.join(" "), boxWidth);
-                    sizeL3 = fitFontSizePx(sizeL3, line3Words.join(" "), boxWidth);
-                    sizeL2 = fitFontSizePx(sizeL2, line2Word || "", boxWidth);
-
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    const lineGap = customSize * 1.15;
-
-                    let Y_l1 = baseY - lineGap;
-                    let Y_l2 = baseY;
-                    let Y_l3 = baseY + lineGap;
-
-                    if (line1Words.length === 0) {
-                      Y_l2 = baseY - lineGap / 2;
-                      Y_l3 = baseY + lineGap / 2;
-                      Y_l1 = Y_l2 - lineGap;
-                    } else if (line3Words.length === 0) {
-                      Y_l1 = baseY - lineGap / 2;
-                      Y_l2 = baseY + lineGap / 2;
-                      Y_l3 = Y_l2 + lineGap;
-                    }
-
-                    const dropShadowStyle = "0px 4px 8px rgba(0,0,0,0.5)";
-
-                    return (
-                      <>
-                        {line1Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 800,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l1}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL1}px`,
-                              textShadow: dropShadowStyle,
-                            }}
-                          >
-                            {line1Words.map((w, i) => {
-                              const isActive = i <= revealedMax;
-                              const isCurrent = i === revealedMax;
-                              return (
-                                <span 
-                                  key={i} 
-                                  style={{ 
-                                    visibility: isActive ? "visible" : "hidden",
-                                    color: isCurrent ? customHighlightColor : "#FFFFFF" 
-                                  }}
-                                >
-                                  {w}{i < line1Words.length - 1 ? " " : ""}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {line2Word && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: keywordFont,
-                              fontWeight: 400,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l2}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL2}px`,
-                              textShadow: dropShadowStyle,
-                              visibility: visibleL2 ? "visible" : "hidden",
-                            }}
-                          >
-                            <span>{line2Word}</span>
-                            <span style={{ color: customHighlightColor }}>.</span>
-                          </div>
-                        )}
-                        {line3Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 800,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l3}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL3}px`,
-                              textShadow: dropShadowStyle,
-                            }}
-                          >
-                            {line3Words.map((w, i) => {
-                              const absIdx = k + 1 + i;
-                              const isActive = absIdx <= revealedMax;
-                              const isCurrent = absIdx === revealedMax;
-                              return (
-                                <span 
-                                  key={i} 
-                                  style={{ 
-                                    visibility: isActive ? "visible" : "hidden",
-                                    color: isCurrent ? customHighlightColor : "#FFFFFF"
-                                  }}
-                                >
-                                  {i > 0 ? " " : ""}{w}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </>
-                    );
-                  } else if (customCaptionTemplate === "sentence_highlight") {
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-
-                    return (
-                      <div
-                        className="absolute flex flex-wrap justify-center items-center gap-x-[15px] gap-y-[10px] tracking-wide text-center"
-                        style={{
-                          left: `${safeAreaLeft}px`,
-                          width: `${boxWidth}px`,
-                          top: `${baseY}px`,
-                          transform: "translateY(-50%)",
-                          padding: bgStyleVal === "pill" ? "20px 40px" : bgStyleVal === "shadow-box" ? "28px 36px" : "0px",
-                          backgroundColor: containerBg,
-                          borderRadius: bgStyleVal === "pill" ? "9999px" : bgStyleVal === "shadow-box" ? "16px" : "0px",
-                          border: containerBorder === "none" ? "none" : "4px solid rgba(255,255,255,0.1)",
-                        }}
-                      >
-                        {wordsObj.map((word, idx) => {
-                          const isActive = idx === revealedMax;
-                          return (
-                            <span
-                              key={idx}
-                              className="transition-all duration-100"
-                              style={{
-                                ...getWordStyle(isActive),
-                                fontSize: `${customSize * (isActive ? templateStyle.keywordSizeScale : templateStyle.baseSizeScale)}px`,
-                                transform: isActive ? "scale(1.05)" : "scale(1)",
-                              }}
-                            >
-                              {word.text}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    );
-                  } else if (customCaptionTemplate === "cinematic_emerald") {
-                    // Mirrors apps/remotion-pipeline/src/Subtitles.tsx's
-                    // cinematic_emerald branch: fixed hero word (k, computed
-                    // upstream from the backend's is_keyword highlight —
-                    // never re-derived from "whichever word is currently
-                    // active", which is what made the Remotion export
-                    // reshuffle itself before that was fixed), progressive
-                    // reveal via revealedMax, parrot-green glow gradient
-                    // that defaults from — but still follows —
-                    // customHighlightColor.
-                    const line1Words = wordsObj.slice(0, k).map(w => w.text);
-                    const line2Word = wordsObj[k]?.text || "";
-                    const line3Words = wordsObj[k + 1]?.text ? wordsObj.slice(k + 1).map(w => w.text) : [];
-                    const visibleL2 = k <= revealedMax ? line2Word : null;
-
-                    const bodyFont = `"${templateStyle.baseFont}", ${customFont}, sans-serif`;
-                    const bodyShadow = "0px 1px 0px rgba(255,255,255,0.55), 0px -1px 0px rgba(0,0,0,0.18), 0px 6px 16px rgba(0,0,0,0.4)";
-
-                    const baseSizePx = customSize * templateStyle.baseSizeScale;
-                    const keywordSizePx = customSize * templateStyle.keywordSizeScale;
-                    const sizeL1 = fitFontSizePx(baseSizePx, line1Words.join(" "), boxWidth);
-                    const sizeL3 = fitFontSizePx(baseSizePx, line3Words.join(" "), boxWidth);
-                    const sizeL2 = fitFontSizePx(keywordSizePx, line2Word, boxWidth * 1.05);
-
-                    const glossDark = darkenHex(customHighlightColor, 0.3);
-                    const glossLight = lightenHex(customHighlightColor, 0.45);
-
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-                    const lineGap = baseSizePx * 1.1;
-
-                    let Y_l1 = baseY - lineGap;
-                    let Y_l2 = baseY;
-                    let Y_l3 = baseY + lineGap;
-
-                    if (line1Words.length === 0) {
-                      Y_l2 = baseY - lineGap / 2;
-                      Y_l3 = baseY + lineGap / 2;
-                      Y_l1 = Y_l2 - lineGap;
-                    } else if (line3Words.length === 0) {
-                      Y_l1 = baseY - lineGap / 2;
-                      Y_l2 = baseY + lineGap / 2;
-                      Y_l3 = Y_l2 + lineGap;
-                    }
-
-                    return (
-                      <>
-                        {/* Soft ambient halo behind the hero word */}
-                        <div
-                          className="absolute pointer-events-none"
-                          style={{
-                            left: "540px",
-                            top: `${Y_l2}px`,
-                            width: `${sizeL2 * 4}px`,
-                            height: `${sizeL2 * 2.2}px`,
-                            transform: "translate(-50%, -50%)",
-                            background: `radial-gradient(ellipse at center, ${glossLight}66 0%, ${customHighlightColor}33 45%, transparent 75%)`,
-                            filter: "blur(18px)",
-                          }}
-                        />
-
-                        {line1Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 600,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l1}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL1}px`,
-                              textShadow: bodyShadow,
-                            }}
-                          >
-                            {line1Words.map((w, i) => (
-                              <span key={i} style={{ visibility: i <= revealedMax ? "visible" : "hidden" }}>
-                                {w}{i < line1Words.length - 1 ? " " : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {line2Word && (
-                          <div
-                            className="absolute italic leading-none whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: `"${templateStyle.keywordFont}", ${customFont}, serif`,
-                              fontWeight: 900,
-                              left: "540px",
-                              top: `${Y_l2}px`,
-                              transform: "translate(-50%, -50%) rotate(-4deg)",
-                              fontSize: `${sizeL2}px`,
-                              letterSpacing: "-0.01em",
-                              backgroundImage: `linear-gradient(160deg, ${glossDark} 0%, ${customHighlightColor} 45%, ${glossLight} 100%)`,
-                              WebkitBackgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                              filter: `drop-shadow(0 0 18px ${glossLight}) drop-shadow(0 0 8px ${customHighlightColor}) drop-shadow(0 8px 12px rgba(0,0,0,0.3))`,
-                              visibility: visibleL2 ? "visible" : "hidden",
-                            }}
-                          >
-                            {line2Word}
-                          </div>
-                        )}
-
-                        {line3Words.length > 0 && (
-                          <div
-                            className="absolute text-center whitespace-nowrap transition-all duration-100"
-                            style={{
-                              fontFamily: bodyFont,
-                              fontWeight: 600,
-                              color: "#FFFFFF",
-                              left: "540px",
-                              top: `${Y_l3}px`,
-                              transform: "translate(-50%, -50%)",
-                              fontSize: `${sizeL3}px`,
-                              textShadow: bodyShadow,
-                            }}
-                          >
-                            {line3Words.map((w, i) => (
-                              <span key={i} style={{ visibility: (k + 1 + i) <= revealedMax ? "visible" : "hidden" }}>
-                                {i > 0 ? " " : ""}{w}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  } else {
-                    const yPct = customYPositionPercent || 71.4;
-                    const baseY = canvasHeight * yPct / 100.0;
-
-                    return (
-                      <div
-                        className="absolute flex flex-wrap justify-center items-center gap-x-[15px] gap-y-[10px] tracking-wide text-center"
-                        style={{
-                          left: `${safeAreaLeft}px`,
-                          width: `${boxWidth}px`,
-                          top: `${baseY}px`,
-                          transform: "translateY(-50%)",
-                          padding: bgStyleVal === "pill" ? "20px 40px" : bgStyleVal === "shadow-box" ? "28px 36px" : "0px",
-                          backgroundColor: containerBg,
-                          borderRadius: bgStyleVal === "pill" ? "9999px" : bgStyleVal === "shadow-box" ? "16px" : "0px",
-                          border: containerBorder === "none" ? "none" : "4px solid rgba(255,255,255,0.1)",
-                        }}
-                      >
-                        {wordsObj.map((word, idx) => {
-                          return (
-                            <span
-                              key={idx}
-                              className="transition-all duration-105"
-                              style={{
-                                ...getWordStyle(false),
-                                fontSize: `${customSize * templateStyle.baseSizeScale}px`,
-                              }}
-                            >
-                              {word.text}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-                };
-
-                return (
-                  <div 
-                    className="absolute inset-0 pointer-events-none overflow-hidden select-none"
-                    style={{
-                      width: `${canvasWidth}px`,
-                      height: `${canvasHeight}px`,
-                      transform: `scale(${S})`,
-                      transformOrigin: "top left",
-                    }}
-                  >
-                    {renderOverlayContent()}
-                  </div>
-                );
-              })()}
-
-              {/* Phase C: bounding-box editor overlay — a separate block
-                  (not nested inside the subtitle-preview IIFE above) so it
-                  keeps working even at a timestamp with no active caption,
-                  and so it can't be affected by that block's early
-                  `if (!activeCaption) return null` returns. */}
-              {boxEditMode && !activeExportId && (() => {
-                const getCanvasDims = () => {
-                  if (motionScript?.global_settings?.canvas) {
-                    return {
-                      width: motionScript.global_settings.canvas.width,
-                      height: motionScript.global_settings.canvas.height,
-                    };
-                  }
-                  const width = 1080;
-                  const ratio = selectedRatio === "original"
-                    ? naturalAspectRatio
-                    : selectedRatio === "9:16" ? 9 / 16
-                    : selectedRatio === "16:9" ? 16 / 9
-                    : selectedRatio === "1:1" ? 1
-                    : 4 / 5;
-                  return { width, height: width / ratio };
-                };
-                const { width: canvasWidth, height: canvasHeight } = getCanvasDims();
-                const S = playerWidth / canvasWidth;
-
-                const activeCaption = motionScript?.timeline?.find(
-                  (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                );
-                // A per-caption override, if the backend's merge step
-                // (apply_fragment_overrides) already resolved one for this
-                // exact card — falls back to the project's global default
-                // box otherwise, same priority order as every renderer.
-                const resolvedBox: BoxMargins = activeCaption?.payload?.box ?? {
-                  top: customBoxTop, bottom: customBoxBottom, left: customBoxLeft, right: customBoxRight,
-                };
-                const displayBox = liveDragBox ?? resolvedBox;
-
-                return (
-                  <BoxEditorOverlay
-                    box={displayBox}
-                    canvasWidth={canvasWidth}
-                    canvasHeight={canvasHeight}
-                    scale={S}
-                    onChange={setLiveDragBox}
-                    onCommit={(box) => {
-                      setLiveDragBox(null);
-                      setPendingBoxCommit(box);
-                    }}
-                  />
-                );
-              })()}
-
-              {/* Scrubber progress indicator */}
-              <div className="absolute bottom-0 inset-x-0 h-1 bg-[#23272F]">
-                <div
-                  className="h-full bg-[#00F5C4] transition-all duration-75"
-                  style={{ width: `${durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0}%` }}
-                />
-              </div>
-
-              {/* Phase C: apply-choice bar, shown once a box drag ends —
-                  user explicitly wants a per-fragment-vs-global choice
-                  here rather than always applying globally. */}
-              {pendingBoxCommit && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-[#0A0B0D]/95 border border-[#00F5C4]/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-xl">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-white/70">Apply box to</span>
-                  <button
-                    disabled={isSavingBox}
-                    onClick={() => {
-                      const activeCaption = motionScript?.timeline?.find(
-                        (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                      );
-                      if (activeCaption && pendingBoxCommit) {
-                        applyBoxToFragment(activeCaption.start_ms, pendingBoxCommit);
-                      } else {
-                        setPendingBoxCommit(null);
-                      }
-                    }}
-                    className="text-[9px] font-bold uppercase tracking-wider text-[#0A0B0D] bg-[#00F5C4] hover:bg-[#00D9AC] rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
-                  >
-                    This Caption
-                  </button>
-                  <button
-                    disabled={isSavingBox}
-                    onClick={() => pendingBoxCommit && applyBoxToAll(pendingBoxCommit)}
-                    className="text-[9px] font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
-                  >
-                    All Captions
-                  </button>
-                  <button
-                    disabled={isSavingBox}
-                    onClick={() => setPendingBoxCommit(null)}
-                    className="text-[9px] font-bold uppercase tracking-wider text-white/50 hover:text-white/80 rounded-full px-2 py-1 cursor-pointer disabled:opacity-50"
-                    title="Discard"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* Scrubber control panel */}
-          <div className="h-12 bg-[#111317] border-t border-[#23272F] px-4 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => {
-                  if (videoRef.current) {
-                    if (isPlaying) {
-                      videoRef.current.pause();
-                      setIsPlaying(false);
-                    } else {
-                      videoRef.current.play().then(() => setIsPlaying(true));
-                    }
-                  }
-                }}
-                className="p-1 text-white hover:text-[#00F5C4] transition-colors cursor-pointer"
-              >
-                {isPlaying ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                )}
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      const newMute = !isMuted;
-                      videoRef.current.muted = newMute;
-                      setIsMuted(newMute);
-                    }
-                  }}
-                  className="text-white hover:text-[#00F5C4] transition-colors cursor-pointer"
-                >
-                  {isMuted ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                  )}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    setVolume(v);
-                    if (videoRef.current) {
-                      videoRef.current.volume = v;
-                      videoRef.current.muted = v === 0;
-                      setIsMuted(v === 0);
-                    }
-                  }}
-                  className="w-16 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div className="text-[10px] font-mono text-white">
-              {(() => {
-                const formatTime = (ms: number) => {
-                  const sec = Math.floor(ms / 1000) % 60;
-                  const min = Math.floor(ms / 60000);
-                  return `${min}:${sec < 10 ? "0" : ""}${sec}`;
-                };
-                return `${formatTime(currentTimeMs)} / ${formatTime(durationMs)}`;
-              })()}
-            </div>
-
-            {/* Phase C: bounding-box editor toggle. Only meaningful once
-                there's a live preview to drag a box on top of. */}
-            <button
-              onClick={() => {
-                setBoxEditMode((v) => !v);
-                setPendingBoxCommit(null);
-                setLiveDragBox(null);
-                // The box overlay only renders over the live CSS preview,
-                // same as every other style edit — see the activeExportId
-                // fix earlier (handleTemplateClick/saveStyleImmediate).
-                setActiveExportId(null);
-              }}
-              className={`text-[9px] font-black uppercase tracking-wider rounded-full px-3 py-1.5 cursor-pointer transition-colors ${
-                boxEditMode
-                  ? "bg-[#00F5C4] text-[#0A0B0D]"
-                  : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-              }`}
-              title="Drag/resize the caption's bounding box"
-            >
-              {boxEditMode ? "Editing Box" : "Edit Box"}
-            </button>
-          </div>
-
-          {/* C. BOTTOM TIMELINE WORKSTATION */}
-          <div className="h-56 bg-[#111317] border-t border-[#23272F] flex flex-col shrink-0 overflow-hidden shadow-md">
-            {/* 1. Timeline Top Control Bar */}
-            <div className="h-12 border-b border-[#23272F] px-4 flex items-center justify-between bg-[#0E1013]/60 shrink-0">
-              
-              {/* Playback & Frame Buttons */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 0.1);
-                      setCurrentTimeMs(videoRef.current.currentTime * 1000);
-                    }
-                  }}
-                  className="p-1.5 bg-[#1C2027] border border-[#23272F] text-white hover:text-[#FFB800] transition-colors rounded cursor-pointer"
-                  title="Previous frame"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                  </svg>
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      if (isPlaying) {
-                        videoRef.current.pause();
-                        setIsPlaying(false);
-                      } else {
-                        videoRef.current.play().then(() => setIsPlaying(true));
-                      }
-                    }
-                  }}
-                  className="w-7 h-7 bg-[#FFB800] hover:bg-[#DE9E00] text-[#0A0B0D] rounded-full flex items-center justify-center transition-all cursor-pointer shadow hover:scale-105"
-                  title={isPlaying ? "Pause" : "Play"}
-                >
-                  {isPlaying ? (
-                    <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                  ) : (
-                    <svg className="w-3 h-3 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (videoRef.current) {
-                      videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 0.1);
-                      setCurrentTimeMs(videoRef.current.currentTime * 1000);
-                    }
-                  }}
-                  className="p-1.5 bg-[#1C2027] border border-[#23272F] text-white hover:text-[#FFB800] transition-colors rounded cursor-pointer"
-                  title="Next frame"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Undo / Redo / Toggles */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleUndo}
-                    disabled={wordsHistoryRef.current.past.length === 0}
-                    className="p-1.5 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors cursor-pointer disabled:cursor-not-allowed text-[10px] uppercase font-bold"
-                    title="Undo"
-                  >
-                    ↰
-                  </button>
-                  <button
-                    onClick={handleRedo}
-                    disabled={wordsHistoryRef.current.future.length === 0}
-                    className="p-1.5 text-white/50 hover:text-white disabled:opacity-30 disabled:hover:text-white/50 transition-colors cursor-pointer disabled:cursor-not-allowed text-[10px] uppercase font-bold"
-                    title="Redo"
-                  >
-                    ↱
-                  </button>
-                </div>
-
-                <div className="h-4 w-[1px] bg-[#23272F]" />
-
-                {/* WORD / LINE Mode Selector Toggle */}
-                <div className="flex border border-[#23272F] rounded bg-[#181B21] overflow-hidden">
-                  <button
-                    onClick={() => setWordDisplayMode("word")}
-                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                      wordDisplayMode === "word" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
-                    }`}
-                  >
-                    Word
-                  </button>
-                  <button
-                    onClick={() => setWordDisplayMode("line")}
-                    className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                      wordDisplayMode === "line" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
-                    }`}
-                  >
-                    Line
-                  </button>
-                </div>
-              </div>
-
-              {/* Time display & Zoom */}
-              <div className="flex items-center gap-4">
-                {/* Time Display */}
-                <div className="text-[10px] font-mono font-bold text-[#FFB800] bg-[#181B21] px-2.5 py-1 rounded border border-[#23272F]">
-                  {(() => {
-                    const formatTime = (ms: number) => {
-                      const sec = Math.floor(ms / 1000) % 60;
-                      const min = Math.floor(ms / 60000);
-                      const millis = Math.floor((ms % 1000) / 10);
-                      return `${min < 10 ? "0" : ""}${min}:${sec < 10 ? "0" : ""}${sec}:${millis < 10 ? "0" : ""}${millis}`;
-                    };
-                    return `${formatTime(currentTimeMs)} / ${formatTime(durationMs)}`;
-                  })()}
-                </div>
-
-                <div className="h-4 w-[1px] bg-[#23272F]" />
-
-                {/* Zoom control */}
-                <div className="flex items-center gap-2">
-                  <svg className="w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-                  </svg>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="2.5"
-                    step="0.1"
-                    value={zoomLevel}
-                    onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-                    className="w-20 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
-                  />
-                  <span className="text-[8px] font-mono text-white/40">{Math.round(zoomLevel * 100)}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Timeline Track Area (Word Boxes & Waveform) */}
-            <div 
-              className="flex-1 overflow-x-auto relative py-3 px-4 scrollbar-thin bg-[#0A0B0D]"
-              onWheel={(e) => {
-                const container = e.currentTarget;
-                if (e.deltaY !== 0) {
-                  container.scrollLeft += e.deltaY;
-                  e.preventDefault();
-                }
-              }}
-            >
-              {(() => {
-                // Matches WaveSurfer's own minPxPerSec (150 * zoomLevel, see
-                // the "Initialize WaveSurfer" effect above) so word/line
-                // blocks always line up with the waveform beneath them —
-                // this constant must never drift from that one.
-                const PX_PER_MS = 0.15 * zoomLevel;
-                const lineGroups = wordDisplayMode === "line" ? groupWordsIntoLines(localWords) : null;
-
-                return (
-                  <div
-                    className="h-full relative"
-                    style={{ width: `${(durationMs || 10000) * PX_PER_MS}px` }}
-                  >
-                    {wordDisplayMode === "word" ? (
-                      <div className="absolute top-1 inset-x-0 h-14 z-10">
-                        {localWords.map((word, idx) => {
-                          const startX = word.start_ms * PX_PER_MS;
-                          const width = (word.end_ms - word.start_ms) * PX_PER_MS;
-                          const isActive = currentTimeMs >= word.start_ms && currentTimeMs <= word.end_ms;
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
-                                isActive
-                                  ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
-                                  : word.highlighted
-                                  ? "bg-[#FFEAA7]/80 border-[#FFB800]/50 text-[#2D3436]"
-                                  : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
-                              }`}
-                              style={{
-                                left: `${startX}px`,
-                                width: `${Math.max(28, width)}px`
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (videoRef.current) {
-                                  videoRef.current.currentTime = word.start_ms / 1000;
-                                  setCurrentTimeMs(word.start_ms);
-                                }
-                              }}
-                              onDoubleClick={(e) => {
-                                e.stopPropagation();
-                                setEditingWordIndex(idx);
-                                setEditingWordText(word.text);
-                              }}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                handleToggleHighlight(idx);
-                              }}
-                              title="Double-click to edit, right-click to highlight"
-                            >
-                              {editingWordIndex === idx ? (
-                                <input
-                                  type="text"
-                                  value={editingWordText}
-                                  onChange={(e) => setEditingWordText(e.target.value)}
-                                  onBlur={() => handleWordEditSave(idx)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleWordEditSave(idx);
-                                    if (e.key === "Escape") setEditingWordIndex(null);
-                                  }}
-                                  autoFocus
-                                  className="bg-[#111317] border border-[#FFB800] text-[9px] font-bold text-center w-full focus:outline-none text-white rounded p-0.5"
-                                />
-                              ) : (
-                                <>
-                                  <span className="text-[9px] font-black truncate w-full block">
-                                    {word.text}
-                                  </span>
-                                  <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#0A0B0D]/80" : "text-[#2E2514]/70"}`}>
-                                    ♩ Text
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="absolute top-1 inset-x-0 h-14 z-10">
-                        {(lineGroups || []).map((line, lineIdx) => {
-                          const lineStart = line.words[0].start_ms;
-                          const lineEnd = line.words[line.words.length - 1].end_ms;
-                          const startX = lineStart * PX_PER_MS;
-                          const width = (lineEnd - lineStart) * PX_PER_MS;
-                          const isActive = currentTimeMs >= lineStart && currentTimeMs <= lineEnd;
-                          const lineText = line.words.map((w: any) => w.text).join(" ");
-
-                          return (
-                            <div
-                              key={lineIdx}
-                              className={`absolute h-11 rounded border flex items-center justify-center px-2 text-center transition-all cursor-pointer shadow-sm select-none ${
-                                isActive
-                                  ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
-                                  : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
-                              }`}
-                              style={{
-                                left: `${startX}px`,
-                                width: `${Math.max(60, width)}px`
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (videoRef.current) {
-                                  videoRef.current.currentTime = lineStart / 1000;
-                                  setCurrentTimeMs(lineStart);
-                                }
-                              }}
-                              title={lineText}
-                            >
-                              <span className="text-[9px] font-black truncate w-full block">
-                                {lineText}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* WaveSurfer anchor element */}
-                    <div
-                      ref={waveformRef}
-                      className="absolute inset-x-0 bottom-1 h-[72px] z-0 opacity-80"
-                    />
-
-                    {/* Playhead vertical cursor */}
-                    <div
-                      className="absolute top-0 bottom-0 w-[2px] bg-[#FFB800] z-20 pointer-events-none"
-                      style={{ left: `${currentTimeMs * PX_PER_MS}px` }}
-                    >
-                      <div className="w-3 h-3 rounded-full bg-[#FFB800] -ml-[5px] -mt-[2px] border border-[#0A0B0D] shadow shadow-[#FFB800]/50 cursor-ew-resize" />
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </section>
-
-        {/* C. RIGHT SIDEBAR: EXPORT SETTINGS */}
-        <section className="w-72 bg-[#111317] border-l border-[#23272F] p-4 flex flex-col justify-between shrink-0 overflow-y-auto shadow-sm">
-          
-          <div className="space-y-6">
-            <div className="pb-2 border-b border-[#23272F]">
-              <span className="text-[9px] font-bold text-white uppercase tracking-widest">Export Config</span>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
-                <span>Output Format</span>
-                <span className="text-white">MP4 (H.264)</span>
-              </div>
-              <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
-                <span>Target Resolution</span>
-                <span className="text-white">1080x1920 (Vertical)</span>
-              </div>
-              <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
-                <span>Layout Applied</span>
-                <span className="text-[#00F5C4] font-mono">{customCaptionTemplate}</span>
-              </div>
-            </div>
-
-            {/* RENDER OPTION ON TOP */}
-            <div className="space-y-3 pt-2">
-              {isRendering ? (
-                <div className="space-y-2 p-3 bg-[#181B21] border border-[#23272F]">
-                  <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white">
-                    <span>Rendering Video...</span>
-                    <span className="text-[#00F5C4]">{renderJobStatus?.progress || 0}%</span>
-                  </div>
-                  <div className="w-full bg-[#23272F] h-1">
-                    <div 
-                      className="bg-[#00F5C4] h-1 transition-all"
-                      style={{ width: `${renderJobStatus?.progress || 0}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  onClick={startRendering}
-                  disabled={project?.status !== "COMPLETED"}
-                  className={`w-full font-primary font-black uppercase text-[10px] tracking-wider py-3.5 transition-all text-center shadow-sm ${
-                    project?.status === "COMPLETED" 
-                      ? "bg-[#00F5C4] text-[#0A0B0D] hover:bg-[#00C2A0] cursor-pointer" 
-                      : "bg-[#23272F] text-white/30 cursor-not-allowed border border-[#111317]"
-                  }`}
-                >
-                  Render & Export Video
-                </button>
-              )}
-            </div>
-
-            {/* COLLAPSIBLE PIPELINE DETAILS ACCORDION */}
-            <div className="border border-[#23272F] bg-[#181B21]/50 rounded-none overflow-hidden">
-              <button
-                onClick={() => setIsPipelineDropdownOpen(!isPipelineDropdownOpen)}
-                className="w-full px-3 py-2.5 flex justify-between items-center bg-[#181B21] border-b border-[#23272F] text-[9px] font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-[#1C2027] transition-all"
-              >
-                <span>Pipeline Activity</span>
-                <span className="text-white/60 text-[10px]">
-                  {isPipelineDropdownOpen ? "▲" : "▼"}
-                </span>
-              </button>
-              
-              {isPipelineDropdownOpen && (
-                <div className="p-3 space-y-4">
-                  {/* AI PIPELINE STAGES SECTION */}
-                  <div className="space-y-2">
-                    <div className="text-[8px] font-bold uppercase text-white/50 tracking-wider">
-                      AI Analysis Stages
-                    </div>
-                    <div className="space-y-1.5 pl-1">
-                      {AI_PIPELINE_STAGES.map((stage) => {
-                        const state = getAiStageState(stage.id);
-                        return (
-                          <div key={stage.id} className="flex items-center justify-between text-[9px]">
-                            <span className={`font-medium ${
-                              state === "completed" ? "text-white/80" : 
-                              state === "running" ? "text-[#FFB800] font-bold animate-pulse" : 
-                              state === "failed" ? "text-red-400 font-bold" : 
-                              "text-white/30"
-                            }`}>
-                              {stage.name}
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              {state === "completed" && (
-                                <span className="text-[#00F5C4] font-bold">✓</span>
-                              )}
-                              {state === "running" && (
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFB800] opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FFB800]"></span>
-                                </span>
-                              )}
-                              {state === "failed" && (
-                                <span className="text-red-500 font-bold">✗</span>
-                              )}
-                              {state === "pending" && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-white/10"></span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* RENDER PIPELINE STAGES SECTION */}
-                  {(isRendering || renderJobStatus || (exports || []).length > 0) && (
-                    <div className="space-y-2 pt-2 border-t border-[#23272F]/50">
-                      <div className="text-[8px] font-bold uppercase text-white/50 tracking-wider">
-                        Render Pipeline Stages
-                      </div>
-                      <div className="space-y-1.5 pl-1">
-                        {RENDER_PIPELINE_STAGES.map((stage) => {
-                          const state = getRenderStageState(stage.id);
-                          return (
-                            <div key={stage.id} className="flex items-center justify-between text-[9px]">
-                              <span className={`font-medium ${
-                                state === "completed" ? "text-white/80" : 
-                                state === "running" ? "text-[#00F5C4] font-bold animate-pulse" : 
-                                state === "failed" ? "text-red-400 font-bold" : 
-                                "text-white/30"
-                              }`}>
-                                {stage.name}
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                {state === "completed" && (
-                                  <span className="text-[#00F5C4] font-bold">✓</span>
-                                )}
-                                {state === "running" && (
-                                  <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00F5C4] opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00F5C4]"></span>
-                                  </span>
-                                )}
-                                {state === "failed" && (
-                                  <span className="text-red-500 font-bold">✗</span>
-                                )}
-                                {state === "pending" && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-white/10"></span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* FAILED JOB/PROCESSING ALERTS */}
-                  {project?.status === "FAILED" && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[8px] font-bold p-2.5 space-y-1.5 text-left">
-                      <div className="uppercase tracking-wider">AI Pipeline Failed</div>
-                      <div className="font-mono text-[7px] leading-relaxed break-words opacity-80">
-                        {jobStatus?.error_message || processingError || "Unknown processing error"}
-                      </div>
-                      <button
-                        onClick={() => {
-                          processingStartedRef.current = false;
-                          startProcessing();
-                        }}
-                        className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-primary font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 cursor-pointer text-center transition-colors"
-                      >
-                        Retry AI Processing
-                      </button>
-                    </div>
-                  )}
-
-                  {/* RENDERING ERROR ALERTS */}
-                  {renderError && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[8px] font-bold p-2.5 space-y-1 text-left">
-                      <div className="uppercase tracking-wider">Rendering Failed</div>
-                      <div className="font-mono text-[7px] leading-relaxed break-words opacity-80">
-                        {renderError}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-          </div>
-
-          <div className="space-y-4 pt-6 border-t border-[#23272F]">
-            <span className="block text-[9px] font-bold text-white uppercase tracking-widest">Render History</span>
-            
-            <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-              {(exports || []).length === 0 ? (
-                <span className="block text-[8px] font-bold uppercase text-white italic">No exports generated.</span>
-              ) : (
-                (exports || []).map((exp, idx) => (
-                  <div key={idx} className="bg-[#181B21] border border-[#23272F] p-2.5 flex flex-col justify-between gap-2 text-left shadow-sm">
-                    <div className="flex justify-between items-center text-[7px] font-mono text-white uppercase">
-                      <span>EXPORT #{idx + 1}</span>
-                      <span className={exp.status === "completed" ? "text-[#00F5C4]" : "text-yellow-500"}>
-                        {exp.status}
-                      </span>
-                    </div>
-                    {exp.status === "completed" && exp.download_url && (
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => setActiveExportId(exp.id)}
-                          className={`text-[9px] font-bold uppercase tracking-wider transition-colors text-center flex-1 py-1 border block cursor-pointer ${
-                            activeExportId === exp.id
-                              ? "text-[#0A0B0D] bg-[#FFB800] border-[#FFB800]"
-                              : "text-white/80 bg-[#0A0B0D] border-[#23272F] hover:text-white"
-                          }`}
-                        >
-                          {activeExportId === exp.id ? "Now Previewing" : "Preview"}
-                        </button>
-                        <a
-                          href={exp.download_url}
-                          download
-                          className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4] hover:text-[#00C2A0] transition-colors text-center flex-1 py-1 bg-[#0A0B0D] border border-[#23272F] block"
-                        >
-                          Download
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-        </section>
+        {/* Left Control Column (Styles and Presets) */}
+        <SidebarControlsSection
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          customCaptionTemplate={customCaptionTemplate}
+          setCustomCaptionTemplate={setCustomCaptionTemplate}
+          customFont={customFont}
+          setCustomFont={setCustomFont}
+          customSize={customSize}
+          setCustomSize={setCustomSize}
+          customWeight={customWeight}
+          setCustomWeight={setCustomWeight}
+          customFontFace={customFontFace}
+          setCustomFontFace={setCustomFontFace}
+          customColorMode={customColorMode}
+          setCustomColorMode={setCustomColorMode}
+          customColor={customColor}
+          setCustomColor={setCustomColor}
+          customColor2={customColor2}
+          setCustomColor2={setCustomColor2}
+          customHighlightColor={customHighlightColor}
+          setCustomHighlightColor={setCustomHighlightColor}
+          customAlignment={customAlignment}
+          setCustomAlignment={setCustomAlignment}
+          customCasing={customCasing}
+          setCustomCasing={setCustomCasing}
+          customUnderline={customUnderline}
+          setCustomUnderline={setCustomUnderline}
+          customLetterSpacing={customLetterSpacing}
+          setCustomLetterSpacing={setCustomLetterSpacing}
+          customWordSpacing={customWordSpacing}
+          setCustomWordSpacing={setCustomWordSpacing}
+          customLineSpacing={customLineSpacing}
+          setCustomLineSpacing={setCustomLineSpacing}
+          shadowEnabled={shadowEnabled}
+          setShadowEnabled={setShadowEnabled}
+          customShadow={customShadow}
+          setCustomShadow={setCustomShadow}
+          strokeEnabled={strokeEnabled}
+          setStrokeEnabled={setStrokeEnabled}
+          customOutline={customOutline}
+          setCustomOutline={setCustomOutline}
+          backgroundEnabled={backgroundEnabled}
+          setBackgroundEnabled={setBackgroundEnabled}
+          selectedBackgroundStyle={selectedBackgroundStyle}
+          setSelectedBackgroundStyle={setSelectedBackgroundStyle}
+          customBackgroundStyle={customBackgroundStyle}
+          setCustomBackgroundStyle={setCustomBackgroundStyle}
+          customXPositionPercent={customXPositionPercent}
+          setCustomXPositionPercent={setCustomXPositionPercent}
+          customYPositionPercent={customYPositionPercent}
+          setCustomYPositionPercent={setCustomYPositionPercent}
+          customStaggeredLayout={customStaggeredLayout}
+          setCustomStaggeredLayout={setCustomStaggeredLayout}
+          customWordLimit={customWordLimit}
+          setCustomWordLimit={setCustomWordLimit}
+          customCaptionSpacingMs={customCaptionSpacingMs}
+          setCustomCaptionSpacingMs={setCustomCaptionSpacingMs}
+          customWordPacing={customWordPacing}
+          setCustomWordPacing={setCustomWordPacing}
+          customPauseHandling={customPauseHandling}
+          setCustomPauseHandling={setCustomPauseHandling}
+          customAccentPeriodEnabled={customAccentPeriodEnabled}
+          setCustomAccentPeriodEnabled={setCustomAccentPeriodEnabled}
+          expandedTemplateId={expandedTemplateId}
+          setExpandedTemplateId={setExpandedTemplateId}
+          editTarget={editTarget}
+          setEditTarget={setEditTarget}
+          heroFont={heroFont}
+          setHeroFont={setHeroFont}
+          heroFontFace={heroFontFace}
+          setHeroFontFace={setHeroFontFace}
+          heroSizeScale={heroSizeScale}
+          setHeroSizeScale={setHeroSizeScale}
+          saveStyleImmediate={saveStyleImmediate}
+          saveStyleBackground={saveStyleBackground}
+          handleTemplateClick={handleTemplateClick}
+          styleError={styleError}
+          customBoxTop={customBoxTop}
+          customBoxBottom={customBoxBottom}
+          customBoxLeft={customBoxLeft}
+          customBoxRight={customBoxRight}
+          setCustomBoxTop={setCustomBoxTop}
+          setCustomBoxBottom={setCustomBoxBottom}
+          setCustomBoxLeft={setCustomBoxLeft}
+          setCustomBoxRight={setCustomBoxRight}
+          boxEditMode={boxEditMode}
+          setBoxEditMode={setBoxEditMode}
+        />
+
+        {/* Middle Canvas & Scrubber Workspace */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <VideoPlayerSection
+            selectedRatio={selectedRatio}
+            setSelectedRatio={setSelectedRatio}
+            playerZoom={playerZoom}
+            setPlayerZoom={setPlayerZoom}
+            showSafetyGrid={showSafetyGrid}
+            setShowSafetyGrid={setShowSafetyGrid}
+            naturalAspectRatio={naturalAspectRatio}
+            setNaturalAspectRatio={setNaturalAspectRatio}
+            isPlaying={isPlaying}
+            setIsPlaying={setIsPlaying}
+            currentTimeMs={currentTimeMs}
+            setCurrentTimeMs={setCurrentTimeMs}
+            durationMs={durationMs}
+            setDurationMs={setDurationMs}
+            volume={volume}
+            setVolume={setVolume}
+            isMuted={isMuted}
+            setIsMuted={setIsMuted}
+            activeExportId={activeExportId}
+            setActiveExportId={setActiveExportId}
+            boxEditMode={boxEditMode}
+            setBoxEditMode={setBoxEditMode}
+            pendingBoxCommit={pendingBoxCommit}
+            setPendingBoxCommit={setPendingBoxCommit}
+            liveDragBox={liveDragBox}
+            setLiveDragBox={setLiveDragBox}
+            isSavingBox={isSavingBox}
+            videoRef={videoRef}
+            playerContainerRef={playerContainerRef}
+            playerWidth={playerWidth}
+            setPlayerWidth={setPlayerWidth}
+            wavesurfer={wavesurfer}
+            project={project}
+            projectVideo={projectVideo}
+            exports={exports}
+            motionScript={motionScript}
+            localWords={localWords}
+            customCaptionTemplate={customCaptionTemplate}
+            customSize={customSize}
+            customFont={customFont}
+            customFontFace={customFontFace}
+            customColor={customColor}
+            customColor2={customColor2}
+            customColorMode={customColorMode}
+            customHighlightColor={customHighlightColor}
+            customAlignment={customAlignment}
+            customCasing={customCasing}
+            customUnderline={customUnderline}
+            customLetterSpacing={customLetterSpacing}
+            customWordSpacing={customWordSpacing}
+            customLineSpacing={customLineSpacing}
+            shadowEnabled={shadowEnabled}
+            strokeEnabled={strokeEnabled}
+            backgroundEnabled={backgroundEnabled}
+            selectedBackgroundStyle={selectedBackgroundStyle}
+            customShadow={customShadow}
+            customOutline={customOutline}
+            customYPositionPercent={customYPositionPercent}
+            customXPositionPercent={customXPositionPercent}
+            customStaggeredLayout={customStaggeredLayout}
+            customBoxTop={customBoxTop}
+            customBoxBottom={customBoxBottom}
+            customBoxLeft={customBoxLeft}
+            customBoxRight={customBoxRight}
+            applyBoxToFragment={applyBoxToFragment}
+            applyBoxToAll={applyBoxToAll}
+            handleUploadFile={handleUploadFile}
+            pickKeywordIndex={pickKeywordIndex}
+            getActiveSegmentAndIndex={getActiveSegmentAndIndex}
+          />
+
+          <TimelineEditorSection
+            currentTimeMs={currentTimeMs}
+            setCurrentTimeMs={setCurrentTimeMs}
+            durationMs={durationMs}
+            zoomLevel={zoomLevel}
+            setZoomLevel={setZoomLevel}
+            wordDisplayMode={wordDisplayMode}
+            setWordDisplayMode={setWordDisplayMode}
+            localWords={localWords}
+            editingWordIndex={editingWordIndex}
+            setEditingWordIndex={setEditingWordIndex}
+            editingWordText={editingWordText}
+            setEditingWordText={setEditingWordText}
+            isPlaying={isPlaying}
+            setIsPlaying={setIsPlaying}
+            videoRef={videoRef}
+            waveformRef={waveformRef}
+            wordsHistoryRef={wordsHistoryRef}
+            handleUndo={handleUndo}
+            handleRedo={handleRedo}
+            handleWordEditSave={handleWordEditSave}
+            handleToggleHighlight={handleToggleHighlight}
+          />
+        </div>
+
+        {/* Right Sidebar Export & Pipeline History column */}
+        <ExportHistorySection
+          projectId={projectId}
+          project={project}
+          refetchProject={refetchProject}
+          exports={exports}
+          refetchExports={refetchExports}
+          activeExportId={activeExportId}
+          setActiveExportId={setActiveExportId}
+          customCaptionTemplate={customCaptionTemplate}
+          jobStatus={jobStatus}
+          setJobStatus={setJobStatus}
+          processingError={processingError}
+          startProcessing={startProcessing}
+          isRendering={isRendering}
+          setIsRendering={setIsRendering}
+          renderJobStatus={renderJobStatus}
+          setRenderJobStatus={setRenderJobStatus}
+          renderError={renderError}
+          setRenderError={setRenderError}
+        />
 
       </div>
-
     </div>
   );
 }

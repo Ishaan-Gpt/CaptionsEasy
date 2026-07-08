@@ -57,7 +57,13 @@ class GroqSpeechProvider(SpeechProvider):
         self._audio_extractor = audio_extractor or FfmpegAudioExtractor()
         self._http_client = http_client
 
-    async def transcribe(self, *, video_storage_path: str) -> ProviderOutput:
+    async def transcribe(
+        self,
+        *,
+        video_storage_path: str,
+        prompt: str | None = None,
+        language: str | None = None,
+    ) -> ProviderOutput:
         content_type = _content_type_for_path(video_storage_path)
 
         video_bytes = await self._storage_client.download(path=video_storage_path)
@@ -66,7 +72,7 @@ class GroqSpeechProvider(SpeechProvider):
         )
 
         start = time.monotonic()
-        response_json = await self._call_groq(audio_bytes)
+        response_json = await self._call_groq(audio_bytes, prompt=prompt, language=language)
         latency_ms = (time.monotonic() - start) * 1000
 
         data = _map_response_to_transcript(response_json)
@@ -79,7 +85,12 @@ class GroqSpeechProvider(SpeechProvider):
         )
         return ProviderOutput(data=data, usage=usage)
 
-    async def _call_groq(self, audio_bytes: bytes) -> dict[str, Any]:
+    async def _call_groq(
+        self,
+        audio_bytes: bytes,
+        prompt: str | None = None,
+        language: str | None = None,
+    ) -> dict[str, Any]:
         url = f"{self._settings.groq_base_url}/audio/transcriptions"
         
         keys_to_try = [self._settings.groq_api_key]
@@ -97,6 +108,10 @@ class GroqSpeechProvider(SpeechProvider):
                 "response_format": "verbose_json",
                 "timestamp_granularities[]": "word",
             }
+            if prompt:
+                data["prompt"] = prompt
+            if language:
+                data["language"] = language
 
             client = self._http_client
             owns_client = client is None
@@ -144,14 +159,14 @@ def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]
         confidence = _confidence_for_word(start_ms / 1000, segment_confidence_by_range)
         words.append(
             {
-                "text": word["word"],
+                "text": word["word"].strip(),
                 "start_ms": start_ms,
                 "end_ms": end_ms,
                 "confidence": confidence,
             }
         )
 
-    # Robust overlap resolver
+    # Robust overlap resolver (non-cascading: pulls back previous end_ms instead of delaying subsequent start_ms)
     if words:
         for w in words:
             w["start_ms"] = max(0, w["start_ms"])
@@ -161,10 +176,14 @@ def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]
         for i in range(1, len(words)):
             prev = words[i - 1]
             curr = words[i]
-            if curr["start_ms"] < prev["end_ms"]:
-                curr["start_ms"] = prev["end_ms"]
-                if curr["end_ms"] <= curr["start_ms"]:
-                    curr["end_ms"] = curr["start_ms"] + 100
+            if prev["end_ms"] > curr["start_ms"]:
+                if curr["start_ms"] > prev["start_ms"]:
+                    prev["end_ms"] = curr["start_ms"]
+                else:
+                    prev["end_ms"] = prev["start_ms"] + 50
+                    curr["start_ms"] = prev["end_ms"]
+                    if curr["end_ms"] <= curr["start_ms"]:
+                        curr["end_ms"] = curr["start_ms"] + 100
 
     return {
         "version": TRANSCRIPT_VERSION,

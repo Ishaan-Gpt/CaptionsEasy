@@ -82,9 +82,19 @@ def build_ai_pipeline_stages(
             ).scalar_one_or_none()
             style_name = (project_row.style if project_row else None) or "kalakar"
             caption_template = project_row.caption_template if project_row else None
+            
+            title = project_row.title if project_row else ""
+            desc = project_row.description if project_row else ""
+            prompt_parts = []
+            if title:
+                prompt_parts.append(f"Title: {title}")
+            if desc:
+                prompt_parts.append(f"Description: {desc}")
+            prompt = ". ".join(prompt_parts) if prompt_parts else None
         except AttributeError:
             style_name = "kalakar"
             caption_template = None
+            prompt = None
 
         engine, _recorder = build_default_engine(
             speech_provider_name=settings.speech_provider_name,
@@ -104,6 +114,7 @@ def build_ai_pipeline_stages(
                 "render_plan_provider_name": settings.render_plan_provider_name,
                 "style": style_name,
                 "caption_template": caption_template,
+                "prompt": prompt,
             },
             extra={"on_stage_complete": _on_stage_complete},
         )
