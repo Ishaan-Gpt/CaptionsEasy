@@ -61,6 +61,13 @@ def _build_stages(session, job_id: str, settings, *, progress=None, repo=None):
     elif job_row.job_type == "render":
         from app.worker.render_stage import build_render_stages
         return build_render_stages(session, job_id, settings)
+    elif job_row.job_type == "video_metadata_extraction":
+        # Enqueued by UploadService for every upload, but no consumer ever
+        # existed — width/height/duration are probed by the AI pipeline and
+        # the render engine themselves. Completing it as an explicit no-op
+        # stops the retry loop that used to burn worker cycles after every
+        # single upload (UnroutableJobError x max-retries).
+        return []
 
     raise UnroutableJobError(f"Unrecognized job_type={job_row.job_type!r} for job_id={job_id!r}")
 

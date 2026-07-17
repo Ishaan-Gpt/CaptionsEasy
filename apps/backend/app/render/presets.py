@@ -31,6 +31,11 @@ class TypographyPreset(BaseModel):
     keyword_font: Optional[str] = None
     keyword_weight: Optional[str] = None
     keyword_size_scale: Optional[float] = None
+    # Motion + effect controls rendered by the shared CaptionEngine.
+    entrance_anim: Optional[str] = "rise"
+    highlight_anim: Optional[str] = "pop"
+    outline_color: Optional[str] = "#000000"
+    shadow_color: Optional[str] = "#000000"
 
 class AnimationPreset(BaseModel):
     caption_animation: str

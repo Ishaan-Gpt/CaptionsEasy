@@ -132,6 +132,12 @@ class CaptionPayload(StrictModel):
     shadow: float = 0.0
     outline: float = 0.0
     background_style: str = "none"  # "none" | "pill" | "shadow-box"
+    # Motion + effect controls rendered by the shared CaptionEngine (both
+    # the studio preview and the Remotion export read these).
+    entrance_anim: str = "rise"  # "none" | "rise" | "pop" | "fade"
+    highlight_anim: str = "pop"  # "pop" | "flash" | "underline" | "glow"
+    outline_color: str = "#000000"
+    shadow_color: str = "#000000"
     # Per-caption-card bounding-box override (pixel margins from each canvas
     # edge, same convention as GlobalSettings.safe_area — the box's own
     # width/height are derived by subtracting these from canvas dims, not

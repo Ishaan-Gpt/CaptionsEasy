@@ -95,7 +95,26 @@ interface SidebarControlsSectionProps {
   saveStyleImmediate: (overrides?: any) => Promise<void>;
   saveStyleBackground: (overrides?: any) => void;
   handleTemplateClick: (tplId: string) => Promise<void>;
+
+  // Motion + effect controls rendered by the shared CaptionEngine
+  customEntranceAnim: "none" | "rise" | "pop" | "fade";
+  setCustomEntranceAnim: (v: "none" | "rise" | "pop" | "fade") => void;
+  customHighlightAnim: "pop" | "flash" | "underline" | "glow";
+  setCustomHighlightAnim: (v: "pop" | "flash" | "underline" | "glow") => void;
+  customOutlineColor: string; setCustomOutlineColor: (v: string) => void;
+  customShadowColor: string; setCustomShadowColor: (v: string) => void;
 }
+
+/** What each template locks by design — shown as a hint so the controls
+ * that a template overrides don't feel broken when they have no effect. */
+const TEMPLATE_LOCK_HINTS: Record<string, string> = {
+  glow_stack: "Body font is fixed to Baloo 2 — hero font, colors, and motion stay editable.",
+  cartoon_stack: "Body font is fixed to Caveat handwriting; the bubble outline color follows the highlight color.",
+  serif_pop: "Body is always white with the spoken word flashing the highlight color; the hero pop-dot uses the highlight color.",
+  cinematic_emerald: "Hero word is always an italic gradient of the highlight color with a glow halo.",
+  staggered_3line: "Body and hero both carry the outline; the splash layout anchors lines to the hero's edges.",
+  sentence_clean: "Uniform by design — no hero word or per-word highlight.",
+};
 
 export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   activeTab, setActiveTab,
@@ -141,17 +160,21 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   expandedTemplateId, setExpandedTemplateId,
   styleError,
   saveStyleImmediate, saveStyleBackground,
+  customEntranceAnim, setCustomEntranceAnim,
+  customHighlightAnim, setCustomHighlightAnim,
+  customOutlineColor, setCustomOutlineColor,
+  customShadowColor, setCustomShadowColor,
   handleTemplateClick,
 }) => {
   return (
-    <section className="w-80 bg-[#111317] border-r border-[#23272F] flex flex-col shrink-0">
+    <section className="w-80 bg-[#1E170D] border-r border-[#3B301C] flex flex-col shrink-0">
       {/* Sidebar Tabs Header */}
-      <div className="flex border-b border-[#23272F] bg-[#0E1013]/60 shrink-0">
+      <div className="flex border-b border-[#3B301C] bg-[#1A140B]/60 shrink-0">
         <button
           onClick={() => setActiveTab("text")}
-          className={`flex-1 py-3 text-[10px] font-primary font-black uppercase tracking-wider transition-colors duration-200 cursor-pointer ${
+          className={`flex-1 py-3 text-[10px] font-sora font-black uppercase tracking-wider transition-colors duration-200 cursor-pointer ${
             activeTab === "text"
-              ? "text-[#FFB800] border-b-2 border-[#FFB800] bg-[#111317]"
+              ? "text-[#DCC8A4] border-b-2 border-[#DCC8A4] bg-[#1E170D]"
               : "text-white/40 hover:text-white/80"
           }`}
         >
@@ -159,9 +182,9 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
         </button>
         <button
           onClick={() => setActiveTab("templates")}
-          className={`flex-1 py-3 text-[10px] font-primary font-black uppercase tracking-wider transition-colors duration-200 cursor-pointer ${
+          className={`flex-1 py-3 text-[10px] font-sora font-black uppercase tracking-wider transition-colors duration-200 cursor-pointer ${
             activeTab === "templates"
-              ? "text-[#FFB800] border-b-2 border-[#FFB800] bg-[#111317]"
+              ? "text-[#DCC8A4] border-b-2 border-[#DCC8A4] bg-[#1E170D]"
               : "text-white/40 hover:text-white/80"
           }`}
         >
@@ -179,11 +202,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             {customCaptionTemplate !== "sentence_clean" && (
               <div className="space-y-1">
                 <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Editing Target</label>
-                <div className="flex border border-[#23272F] rounded overflow-hidden p-0.5 bg-[#0A0B0D]">
+                <div className="flex border border-[#3B301C] rounded overflow-hidden p-0.5 bg-[#171208]">
                   <button
                     onClick={() => setEditTarget("primary")}
                     className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
-                      editTarget === "primary" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/60 hover:text-white"
+                      editTarget === "primary" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
                     }`}
                   >
                     Primary / Body Text
@@ -191,7 +214,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   <button
                     onClick={() => setEditTarget("secondary")}
                     className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
-                      editTarget === "secondary" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/60 hover:text-white"
+                      editTarget === "secondary" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
                     }`}
                   >
                     Hero / Highlight Word
@@ -201,8 +224,8 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             )}
 
             {/* FONT CONFIG */}
-            <div className="space-y-3.5 border-b border-[#23272F]/50 pb-4">
-              <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Font & Typography</span>
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Font & Typography</span>
               
               {editTarget === "primary" ? (
                 <>
@@ -215,7 +238,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           setCustomFont(e.target.value);
                           saveStyleImmediate({ font: e.target.value });
                         }}
-                        className="w-full bg-[#181B21] border border-[#23272F] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#FFB800] cursor-pointer text-white"
+                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
                       >
                         {POPULAR_FONTS.map((f) => (
                           <option key={f} value={f}>{f}</option>
@@ -231,7 +254,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           setCustomFontFace(e.target.value);
                           saveStyleImmediate({ fontFace: e.target.value });
                         }}
-                        className="w-full bg-[#181B21] border border-[#23272F] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#FFB800] cursor-pointer text-white"
+                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
                       >
                         {["Thin", "Extra Light", "Light", "Regular", "Medium", "Semi Bold", "Bold", "Extra Bold", "Black"].map((style) => (
                           <option key={style} value={style}>{style}</option>
@@ -243,7 +266,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                       <span>Font Size</span>
-                      <span className="font-mono text-[#FFB800]">{customSize}px</span>
+                      <span className="font-mono text-[#DCC8A4]">{customSize}px</span>
                     </div>
                     <input
                       type="range"
@@ -254,7 +277,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         setCustomSize(parseInt(e.target.value, 10));
                         saveStyleBackground({ size: parseInt(e.target.value, 10) });
                       }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                      className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                     />
                   </div>
                 </>
@@ -270,7 +293,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           setHeroFont(e.target.value);
                           saveStyleImmediate({ keyword_font: e.target.value || null });
                         }}
-                        className="w-full bg-[#181B21] border border-[#23272F] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#FFB800] cursor-pointer text-white"
+                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
                       >
                         <option value="">(Inherit Base Font)</option>
                         {POPULAR_FONTS.map((f) => (
@@ -287,7 +310,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           setHeroFontFace(e.target.value);
                           saveStyleImmediate({ heroFontFace: e.target.value });
                         }}
-                        className="w-full bg-[#181B21] border border-[#23272F] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#FFB800] cursor-pointer text-white"
+                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
                       >
                         <option value="Template default">Template default</option>
                         {["Thin", "Extra Light", "Light", "Regular", "Medium", "Semi Bold", "Bold", "Extra Bold", "Black"].map((style) => (
@@ -300,7 +323,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                       <span>Hero Size Scale</span>
-                      <span className="font-mono text-[#FFB800]">{heroSizeScale}x</span>
+                      <span className="font-mono text-[#DCC8A4]">{heroSizeScale}x</span>
                     </div>
                     <input
                       type="range"
@@ -312,7 +335,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         setHeroSizeScale(parseFloat(e.target.value));
                         saveStyleBackground({ keyword_size_scale: parseFloat(e.target.value) });
                       }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                      className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                     />
                   </div>
                 </>
@@ -320,8 +343,8 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             </div>
 
             {/* FORMAT OPTIONS */}
-            <div className="space-y-3.5 border-b border-[#23272F]/50 pb-4">
-              <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Format & Case</span>
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Format & Case</span>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Casing</label>
@@ -331,7 +354,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomCasing(e.target.value as any);
                       saveStyleImmediate({ text_transform: e.target.value });
                     }}
-                    className="w-full bg-[#181B21] border border-[#23272F] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#FFB800] cursor-pointer text-white"
+                    className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
                   >
                     <option value="none">As Transcribed</option>
                     <option value="uppercase">ALL CAPS</option>
@@ -342,7 +365,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
-                  <div className="flex border border-[#23272F] rounded overflow-hidden bg-[#0A0B0D] p-0.5">
+                  <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
                     {(["left", "center", "right"] as const).map((align) => (
                       <button
                         key={align}
@@ -351,7 +374,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           saveStyleImmediate({ alignment: align });
                         }}
                         className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
-                          customAlignment === align ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/60 hover:text-white"
+                          customAlignment === align ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
                         }`}
                       >
                         {align}
@@ -373,7 +396,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                     saveStyleImmediate({ underline: !customUnderline });
                   }}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                    customUnderline ? "bg-[#FFB800]" : "bg-[#23272F]"
+                    customUnderline ? "bg-[#DCC8A4]" : "bg-[#3B301C]"
                   }`}
                 >
                   <div
@@ -386,18 +409,18 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             </div>
 
             {/* COLOR CONFIG */}
-            <div className="space-y-3.5 border-b border-[#23272F]/50 pb-4">
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
               <div className="flex justify-between items-center">
-                <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Colors & Fill Mode</span>
+                <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Colors & Fill Mode</span>
                 
-                <div className="flex bg-[#0A0B0D] border border-[#23272F] p-0.5 rounded-full">
+                <div className="flex bg-[#171208] border border-[#3B301C] p-0.5 rounded-full">
                   <button
                     onClick={() => {
                       setCustomColorMode("solid");
                       saveStyleImmediate({ color_mode: "solid" });
                     }}
                     className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all cursor-pointer ${
-                      customColorMode === "solid" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                      customColorMode === "solid" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
                     }`}
                   >
                     Solid
@@ -408,7 +431,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       saveStyleImmediate({ color_mode: "gradient" });
                     }}
                     className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all cursor-pointer ${
-                      customColorMode === "gradient" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                      customColorMode === "gradient" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
                     }`}
                   >
                     Gradient
@@ -419,7 +442,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               <div className="grid grid-cols-3 gap-2.5 items-end">
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Body Color</label>
-                  <div className="flex gap-1.5 items-center bg-[#181B21] border border-[#23272F] p-1 rounded">
+                  <div className="flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded">
                     <input
                       type="color"
                       value={customColor}
@@ -436,7 +459,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                 {customColorMode === "gradient" && (
                   <div className="space-y-1">
                     <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Gradient Color 2</label>
-                    <div className="flex gap-1.5 items-center bg-[#181B21] border border-[#23272F] p-1 rounded">
+                    <div className="flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded">
                       <input
                         type="color"
                         value={customColor2}
@@ -453,7 +476,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Highlight Color</label>
-                  <div className="flex gap-1.5 items-center bg-[#181B21] border border-[#23272F] p-1 rounded">
+                  <div className="flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded">
                     <input
                       type="color"
                       value={customHighlightColor}
@@ -470,14 +493,14 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             </div>
 
             {/* POSITION & BOUNDING BOX */}
-            <div className="space-y-3.5 border-b border-[#23272F]/50 pb-4">
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
               <div className="flex justify-between items-center">
-                <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Layout Position & Box</span>
+                <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Layout Position & Box</span>
                 
                 <button
                   onClick={() => setBoxEditMode(!boxEditMode)}
                   className={`text-[8px] font-bold uppercase border px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    boxEditMode ? "bg-[#FFB800] text-[#0A0B0D] border-[#FFB800]" : "border-[#23272F] text-white/60 hover:text-white"
+                    boxEditMode ? "bg-[#DCC8A4] text-[#171208] border-[#DCC8A4]" : "border-[#3B301C] text-white/60 hover:text-white"
                   }`}
                 >
                   {boxEditMode ? "Exit Box Edit" : "Edit Safe Box"}
@@ -488,7 +511,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                     <span>Vertical position</span>
-                    <span className="font-mono text-[#FFB800]">{customYPositionPercent}%</span>
+                    <span className="font-mono text-[#DCC8A4]">{customYPositionPercent}%</span>
                   </div>
                   <input
                     type="range"
@@ -500,14 +523,14 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomYPositionPercent(parseFloat(e.target.value));
                       saveStyleBackground({ y_position_percent: parseFloat(e.target.value) });
                     }}
-                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                     <span>Horizontal position</span>
-                    <span className="font-mono text-[#FFB800]">{customXPositionPercent}%</span>
+                    <span className="font-mono text-[#DCC8A4]">{customXPositionPercent}%</span>
                   </div>
                   <input
                     type="range"
@@ -519,20 +542,20 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomXPositionPercent(parseInt(e.target.value, 10));
                       saveStyleBackground({ x_position_percent: parseInt(e.target.value, 10) });
                     }}
-                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
                 </div>
               </div>
             </div>
 
             {/* SPACINGS */}
-            <div className="space-y-3.5 border-b border-[#23272F]/50 pb-4">
-              <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Spacing Adjustments</span>
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Spacing Adjustments</span>
               <div className="grid grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                     <span>Letter</span>
-                    <span className="font-mono text-[#FFB800]">{customLetterSpacing}</span>
+                    <span className="font-mono text-[#DCC8A4]">{customLetterSpacing}</span>
                   </div>
                   <input
                     type="range"
@@ -543,14 +566,14 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomLetterSpacing(parseInt(e.target.value, 10));
                       saveStyleBackground({ letter_spacing: parseInt(e.target.value, 10) });
                     }}
-                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                     <span>Word</span>
-                    <span className="font-mono text-[#FFB800]">{customWordSpacing}</span>
+                    <span className="font-mono text-[#DCC8A4]">{customWordSpacing}</span>
                   </div>
                   <input
                     type="range"
@@ -561,14 +584,14 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomWordSpacing(parseInt(e.target.value, 10));
                       saveStyleBackground({ word_spacing: parseInt(e.target.value, 10) });
                     }}
-                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                     <span>Line Gap</span>
-                    <span className="font-mono text-[#FFB800]">{customLineSpacing}</span>
+                    <span className="font-mono text-[#DCC8A4]">{customLineSpacing}</span>
                   </div>
                   <input
                     type="range"
@@ -580,15 +603,65 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       setCustomLineSpacing(parseFloat(e.target.value));
                       saveStyleBackground({ line_spacing: parseFloat(e.target.value) });
                     }}
-                    className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* MOTION PANEL — how cards enter and how the live word reacts */}
+            <div className="space-y-3.5 pb-2">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Motion</span>
+              {TEMPLATE_LOCK_HINTS[customCaptionTemplate] && (
+                <p className="text-[8px] leading-relaxed text-white/40 bg-[#281F10]/40 border border-[#3B301C] rounded p-2">
+                  {TEMPLATE_LOCK_HINTS[customCaptionTemplate]}
+                </p>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Caption Entrance</label>
+                <div className="grid grid-cols-4 border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5 gap-0.5">
+                  {(["rise", "pop", "fade", "none"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        setCustomEntranceAnim(mode);
+                        saveStyleBackground({ entrance_anim: mode });
+                      }}
+                      className={`py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
+                        customEntranceAnim === mode ? "bg-[#DCC8A4] text-[#171208]" : "text-white/70 hover:text-white"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Spoken-Word Highlight</label>
+                <div className="grid grid-cols-4 border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5 gap-0.5">
+                  {(["pop", "flash", "underline", "glow"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        setCustomHighlightAnim(mode);
+                        saveStyleBackground({ highlight_anim: mode });
+                      }}
+                      className={`py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
+                        customHighlightAnim === mode ? "bg-[#DCC8A4] text-[#171208]" : "text-white/70 hover:text-white"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
             {/* EFFECTS PANEL (SHADOW, OUTLINE, BACKING BOX) */}
             <div className="space-y-3.5 pb-2">
-              <span className="text-[8px] font-bold uppercase tracking-widest text-[#FFB800]">Text Effects</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Text Effects</span>
               
               {/* Shadow Switch */}
               <div className="flex items-center justify-between py-1">
@@ -602,7 +675,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                     saveStyleImmediate({ shadowEnabled: !shadowEnabled });
                   }}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                    shadowEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                    shadowEnabled ? "bg-[#DCC8A4]" : "bg-[#3B301C]"
                   }`}
                 >
                   <div
@@ -614,11 +687,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               </div>
 
               {shadowEnabled && (
-                <div className="bg-[#181B21]/30 p-2.5 border border-[#23272F] rounded space-y-3">
+                <div className="bg-[#281F10]/30 p-2.5 border border-[#3B301C] rounded space-y-3">
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                       <span>Shadow Blur Depth</span>
-                      <span className="font-mono text-[#FFB800]">{customShadow}</span>
+                      <span className="font-mono text-[#DCC8A4]">{customShadow}</span>
                     </div>
                     <input
                       type="range"
@@ -630,8 +703,23 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         setCustomShadow(parseFloat(e.target.value));
                         saveStyleBackground({ shadow: parseFloat(e.target.value) });
                       }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                      className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                     />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7px] font-bold uppercase tracking-wider text-white/60">Shadow Color</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="color"
+                        value={customShadowColor}
+                        onChange={(e) => {
+                          setCustomShadowColor(e.target.value);
+                          saveStyleBackground({ shadow_color: e.target.value });
+                        }}
+                        className="w-6 h-5 rounded cursor-pointer bg-transparent border border-[#3B301C]"
+                      />
+                      <span className="font-mono text-[8px] text-[#DCC8A4]">{customShadowColor.replace("#", "").toUpperCase()}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -648,7 +736,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                     saveStyleImmediate({ strokeEnabled: !strokeEnabled });
                   }}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                    strokeEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                    strokeEnabled ? "bg-[#DCC8A4]" : "bg-[#3B301C]"
                   }`}
                 >
                   <div
@@ -660,11 +748,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               </div>
 
               {strokeEnabled && (
-                <div className="bg-[#181B21]/30 p-2.5 border border-[#23272F] rounded space-y-3">
+                <div className="bg-[#281F10]/30 p-2.5 border border-[#3B301C] rounded space-y-3">
                   <div className="space-y-1">
                     <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
                       <span>Stroke Thickness</span>
-                      <span className="font-mono text-[#FFB800]">{customOutline}</span>
+                      <span className="font-mono text-[#DCC8A4]">{customOutline}</span>
                     </div>
                     <input
                       type="range"
@@ -676,8 +764,23 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         setCustomOutline(parseFloat(e.target.value));
                         saveStyleBackground({ outline: parseFloat(e.target.value) });
                       }}
-                      className="w-full h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+                      className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                     />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[7px] font-bold uppercase tracking-wider text-white/60">Stroke Color</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="color"
+                        value={customOutlineColor}
+                        onChange={(e) => {
+                          setCustomOutlineColor(e.target.value);
+                          saveStyleBackground({ outline_color: e.target.value });
+                        }}
+                        className="w-6 h-5 rounded cursor-pointer bg-transparent border border-[#3B301C]"
+                      />
+                      <span className="font-mono text-[8px] text-[#DCC8A4]">{customOutlineColor.replace("#", "").toUpperCase()}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -694,7 +797,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                     saveStyleImmediate({ backgroundEnabled: !backgroundEnabled });
                   }}
                   className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
-                    backgroundEnabled ? "bg-[#FFB800]" : "bg-[#23272F]"
+                    backgroundEnabled ? "bg-[#DCC8A4]" : "bg-[#3B301C]"
                   }`}
                 >
                   <div
@@ -706,17 +809,17 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               </div>
 
               {backgroundEnabled && (
-                <div className="bg-[#181B21]/30 p-2.5 border border-[#23272F] rounded space-y-3">
+                <div className="bg-[#281F10]/30 p-2.5 border border-[#3B301C] rounded space-y-3">
                   <div className="space-y-1">
                     <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Box Type</label>
-                    <div className="flex border border-[#23272F] rounded overflow-hidden bg-[#0A0B0D] p-0.5">
+                    <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
                       <button
                         onClick={() => {
                           setSelectedBackgroundStyle("pill");
                           saveStyleImmediate({ backgroundStyle: "pill" });
                         }}
                         className={`flex-1 py-1 text-[8px] font-bold cursor-pointer rounded transition-all ${
-                          selectedBackgroundStyle === "pill" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/70 hover:text-white"
+                          selectedBackgroundStyle === "pill" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/70 hover:text-white"
                         }`}
                       >
                         Pill
@@ -727,7 +830,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                           saveStyleImmediate({ backgroundStyle: "shadow-box" });
                         }}
                         className={`flex-1 py-1 text-[8px] font-bold cursor-pointer rounded transition-all ${
-                          selectedBackgroundStyle === "shadow-box" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/70 hover:text-white"
+                          selectedBackgroundStyle === "shadow-box" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/70 hover:text-white"
                         }`}
                       >
                         Shadow Box
@@ -757,7 +860,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   return (
                     <React.Fragment key={tpl.id}>
                       {sectionHeader && (
-                        <div className={`col-span-2 pb-1 border-b border-[#23272F]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
+                        <div className={`col-span-2 pb-1 border-b border-[#3B301C]/50 ${presetIdx === 0 ? "" : "pt-2"}`}>
                           <span className="text-[9px] font-bold text-white uppercase tracking-widest">
                             {sectionHeader}
                           </span>
@@ -765,7 +868,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       )}
                       <div
                         className={`border rounded p-2.5 transition-all duration-200 ${isSelected ? "col-span-2" : ""} ${
-                          isSelected ? "border-[#FFB800] bg-[#181B21]" : "border-[#23272F] bg-[#111317] hover:border-white/20"
+                          isSelected ? "border-[#DCC8A4] bg-[#281F10]" : "border-[#3B301C] bg-[#1E170D] hover:border-white/20"
                         }`}
                       >
                         <button
@@ -774,11 +877,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         >
                           <TemplateSwatch preset={tpl} />
                           <div className="flex justify-between items-start w-full mt-2">
-                            <span className="text-[11px] font-primary font-black uppercase text-white tracking-wide block">
+                            <span className="text-[11px] font-sora font-black uppercase text-white tracking-wide block">
                               {tpl.name}
                             </span>
                             {isSelected && (
-                              <span className="w-2 h-2 rounded-full bg-[#FFB800] shrink-0 mt-0.5" />
+                              <span className="w-2 h-2 rounded-full bg-[#DCC8A4] shrink-0 mt-0.5" />
                             )}
                           </div>
                           <span className="text-[9px] text-white/50 uppercase tracking-wide leading-relaxed block mt-1">
@@ -787,11 +890,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                         </button>
 
                         {isSelected && (
-                          <div className="mt-3 pt-3 border-t border-[#23272F] flex items-center justify-between">
+                          <div className="mt-3 pt-3 border-t border-[#3B301C] flex items-center justify-between">
                             <span className="text-[8px] text-white/50 uppercase tracking-wide">Applied — fine-tune styling in the Text Settings tab</span>
                             <button
                               onClick={() => setActiveTab("text")}
-                              className="text-[8px] font-bold uppercase tracking-wider text-[#FFB800] hover:text-white cursor-pointer whitespace-nowrap ml-2"
+                              className="text-[8px] font-bold uppercase tracking-wider text-[#DCC8A4] hover:text-white cursor-pointer whitespace-nowrap ml-2"
                             >
                               Edit Style →
                             </button>
@@ -808,10 +911,10 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
       </div>
 
       {/* Sync Button & Style Save Status */}
-      <div className="p-4 border-t border-[#23272F] bg-[#0E1013] shrink-0">
+      <div className="p-4 border-t border-[#3B301C] bg-[#1A140B] shrink-0">
         <button
           onClick={() => saveStyleImmediate()}
-          className="w-full bg-[#FFB800] text-[#0A0B0D] font-primary font-black uppercase text-[10px] tracking-wider py-2.5 rounded transition-all cursor-pointer text-center hover:bg-[#E5A500]"
+          className="w-full bg-[#DCC8A4] text-[#171208] font-sora font-black uppercase text-[10px] tracking-wider py-2.5 rounded transition-all cursor-pointer text-center hover:bg-[#C9AF83]"
         >
           Sync Settings
         </button>

@@ -55,7 +55,7 @@ export function TemplateSwatch({ preset }: Props) {
     <div
       className="w-full aspect-video rounded-md overflow-hidden flex items-center justify-center relative"
       style={{
-        background: "radial-gradient(circle at 50% 35%, #1c2028 0%, #0A0B0D 75%)",
+        background: "radial-gradient(circle at 50% 35%, #2C2314 0%, #171208 75%)",
       }}
     >
       {isWordByWord ? (

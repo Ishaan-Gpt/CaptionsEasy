@@ -196,6 +196,12 @@ class CustomStyleRequest(BaseModel):
     keyword_font: str | None = None
     keyword_weight: str | None = None
     keyword_size_scale: float | None = None
+    # Motion + effect controls rendered by the shared CaptionEngine
+    # (frontend preview and the Remotion export read the same fields).
+    entrance_anim: str = "rise"
+    highlight_anim: str = "pop"
+    outline_color: str = "#000000"
+    shadow_color: str = "#000000"
 
 
 @router.post("/projects/{project_id}/custom-style")
@@ -260,6 +266,10 @@ async def save_custom_style(
             "keyword_font": body.keyword_font,
             "keyword_weight": body.keyword_weight,
             "keyword_size_scale": body.keyword_size_scale,
+            "entrance_anim": body.entrance_anim,
+            "highlight_anim": body.highlight_anim,
+            "outline_color": body.outline_color,
+            "shadow_color": body.shadow_color,
         },
         "animation": base_preset.get("animation", {
             "caption_animation": "pop",
@@ -354,6 +364,10 @@ async def get_custom_style(
             "keyword_font": topo.get("keyword_font"),
             "keyword_weight": topo.get("keyword_weight"),
             "keyword_size_scale": topo.get("keyword_size_scale"),
+            "entrance_anim": topo.get("entrance_anim", "rise"),
+            "highlight_anim": topo.get("highlight_anim", "pop"),
+            "outline_color": topo.get("outline_color", "#000000"),
+            "shadow_color": topo.get("shadow_color", "#000000"),
         })
     else:
         # Fall back to base Kalakar template values

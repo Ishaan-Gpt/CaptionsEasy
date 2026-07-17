@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import WaveSurfer from "wavesurfer.js";
@@ -13,6 +13,7 @@ import { transcriptService, TranscriptResponse } from "@/services/transcript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
 import { TEMPLATE_PRESETS_LIST, getTemplateStyle } from "@/config/captionTemplates";
+import { CaptionStyle } from "@/remotion/CaptionEngine";
 
 // Modular Project Detail Components
 import { WorkspaceHeader } from "@/components/project/WorkspaceHeader";
@@ -152,6 +153,12 @@ export default function ProjectWorkspacePage() {
   const [liveDragBox, setLiveDragBox] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
   const [isSavingBox, setIsSavingBox] = useState(false);
 
+  // Motion controls rendered by the shared CaptionEngine (preview + export).
+  const [customEntranceAnim, setCustomEntranceAnim] = useState<"none" | "rise" | "pop" | "fade">("rise");
+  const [customHighlightAnim, setCustomHighlightAnim] = useState<"pop" | "flash" | "underline" | "glow">("pop");
+  const [customOutlineColor, setCustomOutlineColor] = useState<string>("#000000");
+  const [customShadowColor, setCustomShadowColor] = useState<string>("#000000");
+
   // Edit target (primary vs secondary keyword text highlight customization)
   const [editTarget, setEditTarget] = useState<"primary" | "secondary">("primary");
   const [heroFont, setHeroFont] = useState<string>("");
@@ -188,6 +195,9 @@ export default function ProjectWorkspacePage() {
     queryKey: ["project", projectId],
     queryFn: () => projectsService.getProjectById(projectId),
     enabled: authService.isAuthenticated(),
+    // One retry is enough to smooth over a blip; failing fast matters more
+    // when the backend is down than a fourth identical attempt.
+    retry: 1,
   });
 
   const startProcessing = async () => {
@@ -338,6 +348,10 @@ export default function ProjectWorkspacePage() {
             if (res.keyword_font) setHeroFont(res.keyword_font);
             if (res.keyword_weight) setHeroFontFace(wMap[res.keyword_weight] || "Template default");
             if (res.keyword_size_scale != null) setHeroSizeScale(res.keyword_size_scale);
+            if (res.entrance_anim) setCustomEntranceAnim(res.entrance_anim);
+            if (res.highlight_anim) setCustomHighlightAnim(res.highlight_anim);
+            if (res.outline_color) setCustomOutlineColor(res.outline_color);
+            if (res.shadow_color) setCustomShadowColor(res.shadow_color);
           }
         })
         .catch((err) => console.error("Error loading custom style: ", err));
@@ -357,8 +371,8 @@ export default function ProjectWorkspacePage() {
 
     const ws = WaveSurfer.create({
       container: waveformRef.current,
-      waveColor: "#23272F",
-      progressColor: "#FFB800",
+      waveColor: "#3B301C",
+      progressColor: "#DCC8A4",
       height: 48,
       cursorColor: "transparent",
       barWidth: 2,
@@ -475,6 +489,10 @@ export default function ProjectWorkspacePage() {
       keyword_font: heroFont || null,
       keyword_weight: resolvedKeywordWeight,
       keyword_size_scale: heroSizeScale,
+      entrance_anim: customEntranceAnim,
+      highlight_anim: customHighlightAnim,
+      outline_color: customOutlineColor,
+      shadow_color: customShadowColor,
       ...styleOverrides
     };
 
@@ -545,6 +563,10 @@ export default function ProjectWorkspacePage() {
         keyword_font: heroFont || null,
         keyword_weight: resolvedKeywordWeight,
         keyword_size_scale: heroSizeScale,
+        entrance_anim: customEntranceAnim,
+        highlight_anim: customHighlightAnim,
+        outline_color: customOutlineColor,
+        shadow_color: customShadowColor,
         ...styleOverrides
       };
 
@@ -701,6 +723,58 @@ export default function ProjectWorkspacePage() {
     };
   };
 
+  // The one style object the shared CaptionEngine renders. Rebuilt from
+  // live control state on every change — the preview reacts on the next
+  // animation frame, no save round-trip needed.
+  const captionStyle: CaptionStyle = useMemo(() => {
+    const wMap: Record<string, string> = {
+      "Thin": "100", "Extra Light": "200", "Light": "300", "Regular": "400",
+      "Medium": "500", "Semi Bold": "600", "Bold": "700", "Extra Bold": "800", "Black": "900",
+    };
+    const heroWeight = heroFontFace === "Template default" ? null : wMap[heroFontFace.replace(" Italic", "")] || null;
+    return {
+      template: customCaptionTemplate,
+      font: customFont,
+      size: customSize,
+      weight: wMap[customFontFace.replace(" Italic", "")] || "800",
+      color: customColor,
+      highlightColor: customHighlightColor,
+      color2: customColorMode === "gradient" ? customColor2 : null,
+      colorMode: customColorMode,
+      alignment: customAlignment,
+      casing: customCasing,
+      underline: customUnderline,
+      letterSpacing: customLetterSpacing,
+      wordSpacing: customWordSpacing,
+      lineSpacing: customLineSpacing,
+      shadow: shadowEnabled ? (customShadow || 3) : 0,
+      shadowColor: customShadowColor,
+      outline: strokeEnabled ? (customOutline || 2) : 0,
+      outlineColor: customOutlineColor,
+      backgroundStyle: backgroundEnabled ? selectedBackgroundStyle : "none",
+      xPercent: customXPositionPercent,
+      yPercent: customYPositionPercent,
+      staggeredLayout: customStaggeredLayout,
+      heroFont: heroFont || null,
+      heroWeight,
+      heroSizeScale,
+      entranceAnim: customEntranceAnim,
+      highlightAnim: customHighlightAnim,
+      box: { top: customBoxTop, bottom: customBoxBottom, left: customBoxLeft, right: customBoxRight },
+      accentPeriod: customAccentPeriodEnabled,
+    };
+  }, [
+    customCaptionTemplate, customFont, customSize, customFontFace, customColor,
+    customHighlightColor, customColorMode, customColor2, customAlignment,
+    customCasing, customUnderline, customLetterSpacing, customWordSpacing,
+    customLineSpacing, shadowEnabled, customShadow, customShadowColor,
+    strokeEnabled, customOutline, customOutlineColor, backgroundEnabled,
+    selectedBackgroundStyle, customXPositionPercent, customYPositionPercent,
+    customStaggeredLayout, heroFont, heroFontFace, heroSizeScale,
+    customEntranceAnim, customHighlightAnim, customBoxTop, customBoxBottom,
+    customBoxLeft, customBoxRight, customAccentPeriodEnabled,
+  ]);
+
   const handleTemplateClick = async (presetId: string) => {
     setExpandedTemplateId(presetId);
 
@@ -838,8 +912,8 @@ export default function ProjectWorkspacePage() {
 
   if (!mounted) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#0A0B0D]">
-        <div className="w-8 h-8 border-2 border-[#00F5C4] border-t-transparent rounded-full animate-spin" />
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#171208]">
+        <div className="w-8 h-8 border-2 border-[#3B301C] border-t-[#DCC8A4] rounded-full animate-spin" />
         <p className="text-[10px] uppercase font-bold tracking-widest text-white">Initializing client app...</p>
       </div>
     );
@@ -847,29 +921,43 @@ export default function ProjectWorkspacePage() {
 
   if (isProjectLoading) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#0A0B0D]">
-        <div className="w-8 h-8 border-2 border-[#FFB800] border-t-transparent rounded-full animate-spin" />
-        <p className="text-[10px] uppercase font-bold tracking-widest text-white">Retrieving workspace...</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#171208]">
+        <div className="w-8 h-8 border-2 border-[#3B301C] border-t-[#DCC8A4] rounded-full animate-spin" />
+        <p className="font-sora text-[13px] font-semibold text-sand-300">Opening your workspace…</p>
       </div>
     );
   }
 
   if (isProjectError || !project) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center gap-4 bg-[#0A0B0D]">
-        <h3 className="text-sm font-primary font-black uppercase text-white">Project Not Found</h3>
-        <button 
-          onClick={() => router.push("/dashboard")}
-          className="border border-[#23272F] bg-[#111317] text-[#FFB800] font-primary font-black uppercase text-[9px] tracking-wider px-5 py-2 hover:border-[#FFB800] transition-all cursor-pointer shadow-sm"
-        >
-          Return to Dashboard
-        </button>
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-5 bg-[#171208] px-6 text-center">
+        <h3 className="font-serif text-2xl font-semibold text-sand-100">
+          Couldn&rsquo;t open this project
+        </h3>
+        <p className="max-w-[44ch] text-[14px] leading-relaxed text-sand-400">
+          Either the project doesn&rsquo;t exist anymore, or the render backend is
+          offline. If you just started the backend, retry in a few seconds.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => refetchProject()}
+            className="rounded-full bg-sand-300 px-6 py-2.5 font-sora text-[12px] font-semibold text-sand-900 hover:bg-sand-400 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="rounded-full border border-[#3B301C] px-6 py-2.5 font-sora text-[12px] font-semibold text-sand-300 hover:border-sand-400 hover:text-sand-100 transition-colors cursor-pointer"
+          >
+            Back to projects
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col h-screen overflow-hidden select-none bg-[#0E1013] text-white">
+    <div className="min-h-screen flex flex-col h-screen overflow-hidden select-none bg-[#1A140B] text-white">
       {/* 1. Header component */}
       <WorkspaceHeader
         project={project}
@@ -974,6 +1062,14 @@ export default function ProjectWorkspacePage() {
           setCustomBoxRight={setCustomBoxRight}
           boxEditMode={boxEditMode}
           setBoxEditMode={setBoxEditMode}
+          customEntranceAnim={customEntranceAnim}
+          setCustomEntranceAnim={setCustomEntranceAnim}
+          customHighlightAnim={customHighlightAnim}
+          setCustomHighlightAnim={setCustomHighlightAnim}
+          customOutlineColor={customOutlineColor}
+          setCustomOutlineColor={setCustomOutlineColor}
+          customShadowColor={customShadowColor}
+          setCustomShadowColor={setCustomShadowColor}
         />
 
         {/* Middle Canvas & Scrubber Workspace */}
@@ -1048,6 +1144,8 @@ export default function ProjectWorkspacePage() {
             handleUploadFile={handleUploadFile}
             pickKeywordIndex={pickKeywordIndex}
             getActiveSegmentAndIndex={getActiveSegmentAndIndex}
+            captionStyle={captionStyle}
+            captionWordLimit={customWordLimit}
           />
 
           <TimelineEditorSection

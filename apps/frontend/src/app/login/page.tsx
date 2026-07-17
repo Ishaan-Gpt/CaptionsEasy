@@ -1,245 +1,250 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth";
 import { supabase } from "@/services/auth/supabaseClient";
+import AuthShell, {
+  Field,
+  PasswordField,
+  SubmitButton,
+  ErrorNote,
+  friendlyAuthError,
+  validEmail,
+} from "@/components/auth/AuthShell";
+
+const GoogleMark = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden>
+    <path
+      fill="#4285F4"
+      d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.86c2.26-2.09 3.56-5.17 3.56-8.87z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A11.99 11.99 0 0 0 12 24z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.27 14.29A7.16 7.16 0 0 1 4.89 12c0-.8.14-1.57.38-2.29V6.62H1.29a11.99 11.99 0 0 0 0 10.76l3.98-3.09z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+    />
+  </svg>
+);
+
+type Mode = "signin" | "signup" | "verify-sent";
 
 export default function LoginPage() {
   const router = useRouter();
-  
-  // Auth state toggles
-  const [isSignUp, setIsSignUp] = useState(false);
+
+  const [mode, setMode] = useState<Mode>("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
 
-  // Redirect on mount if authenticated, and listen for active session updates (OAuth redirect)
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; name?: string }>({});
+  const [resent, setResent] = useState(false);
+
+  // Redirect if already authenticated; also catches the OAuth return.
   useEffect(() => {
     if (authService.isAuthenticated()) {
       router.push("/dashboard");
       return;
     }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        router.push("/dashboard");
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) router.push("/dashboard");
     });
+    return () => subscription.unsubscribe();
+  }, [router]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-  
-  // Loading & error handling
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [verificationSent, setVerificationSent] = useState(false);
+  const validate = () => {
+    const errs: typeof fieldErrors = {};
+    if (!validEmail(email)) errs.email = "Enter a valid email address.";
+    if (password.length < 6) errs.password = "Password must be at least 6 characters.";
+    if (mode === "signup" && !name.trim()) errs.name = "Tell us what to call you.";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
-    setLoading(true);
     setError(null);
+    if (!validate()) return;
+    setLoading(true);
     try {
-      if (isSignUp) {
-        if (!name) {
-          setError("Name is required to sign up.");
-          setLoading(false);
-          return;
-        }
-        await authService.register(name, email, password);
-        setVerificationSent(true);
+      if (mode === "signup") {
+        await authService.register(name.trim(), email, password);
+        setMode("verify-sent");
       } else {
         await authService.login(email, password);
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+      setError(friendlyAuthError(err.message || "Authentication failed."));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogle = async () => {
     setError(null);
     setLoading(true);
     try {
       await authService.loginWithGoogle();
+      // Redirect happens via Supabase; the listener above covers the return.
     } catch (err: any) {
-      setError(err.message || "Failed to trigger Google sign-in.");
+      setError(friendlyAuthError(err.message || "Google sign-in failed."));
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#0A0B0D] text-white flex flex-col justify-center items-center px-4 relative selection:bg-[#00F5C4]/20 selection:text-[#00F5C4]">
-      {/* Background glow lines */}
-      <div className="absolute top-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00F5C4]/20 to-transparent" />
-      <div className="absolute bottom-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00F5C4]/10 to-transparent" />
+  const handleResend = async () => {
+    setResent(false);
+    setError(null);
+    try {
+      const { error: rErr } = await supabase.auth.resend({ type: "signup", email });
+      if (rErr) throw new Error(rErr.message);
+      setResent(true);
+    } catch (err: any) {
+      setError(friendlyAuthError(err.message || "Couldn't resend the email."));
+    }
+  };
 
-      {/* Main card panel */}
-      <div className="w-full max-w-md dense-panel p-8 border-[#23272F] space-y-6 shadow-sm">
-        
-        {/* Title / Logo */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center gap-1.5 mb-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#00F5C4]" />
-            <span className="font-primary font-black uppercase text-[10px] tracking-widest text-white">
-              CAPITIONS<span className="text-[#00F5C4] font-accent italic lowercase text-xs font-light">easy</span>
-            </span>
-          </div>
-          <h2 className="text-2xl font-primary font-black uppercase tracking-tight text-white">
-            {verificationSent ? "Check your email" : isSignUp ? "Create your account" : "Access the studio portal"}
-          </h2>
-          <p className="text-[10px] text-white uppercase tracking-wider">
-            {verificationSent 
-              ? "We sent a verification link to confirm your account."
-              : isSignUp 
-              ? "Sign up for a real Supabase creator profile."
-              : "Sign in using your account details or Google."}
-          </p>
+  if (mode === "verify-sent") {
+    return (
+      <AuthShell
+        title="Check your inbox"
+        subtitle={
+          <>
+            We sent a confirmation link to <strong className="text-ink">{email}</strong>.
+            Open it to activate your account, then come back and sign in.
+          </>
+        }
+      >
+        <div className="space-y-5">
+          {error && <ErrorNote>{error}</ErrorNote>}
+          {resent && (
+            <div className="rounded-lg border border-sand-300 bg-sand-50 px-4 py-3 text-[13px] text-sand-800">
+              Sent again — give it a minute and check spam too.
+            </div>
+          )}
+          <button
+            onClick={handleResend}
+            className="w-full rounded-full border border-sand-400 px-6 py-3 font-sora text-[13px] font-semibold text-sand-800 hover:border-ink hover:text-ink transition-colors cursor-pointer"
+          >
+            Resend the email
+          </button>
+          <button
+            onClick={() => { setMode("signin"); setError(null); setResent(false); }}
+            className="w-full text-center font-sora text-[13px] font-semibold text-sand-700 hover:text-ink transition-colors cursor-pointer"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  const isSignUp = mode === "signup";
+
+  return (
+    <AuthShell
+      title={isSignUp ? "Create your studio" : "Welcome back"}
+      subtitle={
+        isSignUp
+          ? "One account, every template. Free to start."
+          : "Sign in to your projects, templates, and exports."
+      }
+    >
+      <div className="space-y-5">
+        {error && <ErrorNote>{error}</ErrorNote>}
+
+        <button
+          type="button"
+          onClick={handleGoogle}
+          disabled={loading}
+          className="w-full rounded-full border border-sand-300 bg-white px-6 py-3 font-sora text-[13px] font-semibold text-ink hover:border-sand-600 transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-3"
+        >
+          <GoogleMark />
+          Continue with Google
+        </button>
+
+        <div className="flex items-center gap-4" aria-hidden>
+          <span className="h-px flex-1 bg-sand-200" />
+          <span className="font-mono text-[11px] text-sand-600">or with email</span>
+          <span className="h-px flex-1 bg-sand-200" />
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] uppercase font-bold tracking-wider p-3 text-center">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {isSignUp && (
+            <Field
+              label="Name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Creator Chris"
+              autoComplete="name"
+              error={fieldErrors.name}
+              disabled={loading}
+            />
+          )}
+          <Field
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@studio.com"
+            autoComplete="email"
+            autoFocus
+            error={fieldErrors.email}
+            disabled={loading}
+          />
+          <PasswordField
+            label="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={isSignUp ? "At least 6 characters" : "Your password"}
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+            error={fieldErrors.password}
+            disabled={loading}
+          />
 
-        {verificationSent ? (
-          <div className="space-y-4 pt-2 text-center">
-            <div className="p-4 border border-[#23272F] bg-[#111317] space-y-2">
-              <span className="block text-[10px] uppercase font-bold tracking-wider text-[#00F5C4]">Verification email sent</span>
-              <p className="text-[11px] text-white uppercase tracking-wide leading-relaxed">
-                Click the confirmation link sent to <strong className="text-[#00F5C4]">{email}</strong> to activate your workspace profile and log in.
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setVerificationSent(false);
-                setIsSignUp(false);
-              }}
-              className="text-[9px] font-bold uppercase tracking-wider text-white hover:text-[#00F5C4] transition-colors"
-            >
-              Return to Sign In
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {isSignUp && (
-              <div className="space-y-1">
-                <label className="block text-[8px] font-bold uppercase tracking-wider text-white">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Creator Chris"
-                  className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white px-3.5 py-2.5 focus:outline-none focus:border-[#00F5C4] transition-colors"
-                  disabled={loading}
-                  required
-                />
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="block text-[8px] font-bold uppercase tracking-wider text-white">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. creator@captionseasy.com"
-                className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white px-3.5 py-2.5 focus:outline-none focus:border-[#00F5C4] transition-colors"
-                disabled={loading}
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[8px] font-bold uppercase tracking-wider text-white">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white px-3.5 py-2.5 focus:outline-none focus:border-[#00F5C4] transition-colors"
-                disabled={loading}
-                required
-              />
-            </div>
-
-            <div className="pt-2 space-y-3">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#00F5C4] text-[#0A0B0D] font-primary font-black uppercase text-[10px] tracking-wider py-3.5 rounded-none hover:bg-[#00C2A0] disabled:bg-[#00A383]/50 disabled:text-[#0A0B0D]/50 transition-colors cursor-pointer flex items-center justify-center gap-2"
+          {!isSignUp && (
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                className="font-sora text-[12px] font-semibold text-sand-700 hover:text-ink transition-colors"
               >
-                {loading ? "Authenticating..." : isSignUp ? "Send Verification Email" : "Sign In"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                className="w-full border border-[#23272F] bg-[#111317] text-white hover:text-[#00F5C4] hover:border-[#00F5C4] font-primary font-black uppercase text-[9px] tracking-wider py-2.5 rounded-none transition-colors cursor-pointer flex items-center justify-center gap-2"
-              >
-                {/* Custom Google SVG Path */}
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                  <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.08-5.136 4.08-3.418 0-6.208-2.774-6.208-6.195 0-3.42 2.79-6.195 6.208-6.195 1.488 0 2.851.527 3.921 1.401l3.056-3.056C18.99 1.954 15.82 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.207 0 10.74-4.364 10.74-10.925 0-.726-.065-1.427-.181-2.27H12.24z"/>
-                </svg>
-                Sign In with Google
-              </button>
+                Forgot password?
+              </Link>
             </div>
+          )}
 
-          </form>
-        )}
+          <SubmitButton loading={loading}>
+            {isSignUp ? "Create account" : "Sign in"}
+          </SubmitButton>
+        </form>
 
-        {!verificationSent && (
-          <div className="text-center pt-2 space-y-3">
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError(null);
-                }}
-                className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4] hover:underline cursor-pointer"
-              >
-                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
-              </button>
-            </div>
-            {!isSignUp && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => router.push("/forgot-password")}
-                  className="text-[9px] font-bold uppercase tracking-wider text-white hover:text-[#00F5C4] transition-colors"
-                >
-                  Forgot your password?
-                </button>
-              </div>
-            )}
-            <div>
-              <button 
-                type="button"
-                onClick={() => router.push("/")}
-                className="text-[9px] font-bold uppercase tracking-wider text-white hover:text-[#00F5C4] transition-colors"
-              >
-                &larr; Back to Landing Page
-              </button>
-            </div>
-          </div>
-        )}
-
+        <p className="text-center text-[13px] text-sand-800">
+          {isSignUp ? "Already have an account?" : "New to CaptionsEasy?"}{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setMode(isSignUp ? "signin" : "signup");
+              setError(null);
+              setFieldErrors({});
+            }}
+            className="font-sora font-semibold text-ink underline underline-offset-4 decoration-sand-400 hover:decoration-ink transition-colors cursor-pointer"
+          >
+            {isSignUp ? "Sign in" : "Create an account"}
+          </button>
+        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

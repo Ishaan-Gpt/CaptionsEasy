@@ -545,6 +545,10 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                         "shadow": preset.typography.shadow,
                         "outline": preset.typography.outline,
                         "background_style": preset.typography.background_style or "none",
+                        "entrance_anim": preset.typography.entrance_anim or "rise",
+                        "highlight_anim": preset.typography.highlight_anim or "pop",
+                        "outline_color": preset.typography.outline_color or "#000000",
+                        "shadow_color": preset.typography.shadow_color or "#000000",
                     },
                 })
                 event_counter += 1

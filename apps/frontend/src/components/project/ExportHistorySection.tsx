@@ -197,62 +197,110 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
   };
 
   return (
-    <section className="w-72 bg-[#111317] border-l border-[#23272F] p-4 flex flex-col justify-between shrink-0 overflow-y-auto shadow-sm text-left">
+    <section className="w-72 bg-[#1E170D] border-l border-[#3B301C] p-4 flex flex-col justify-between shrink-0 overflow-y-auto shadow-sm text-left">
       <div className="space-y-6">
-        <div className="pb-2 border-b border-[#23272F]">
+        <div className="pb-2 border-b border-[#3B301C]">
           <span className="text-[9px] font-bold text-white uppercase tracking-widest">Export Config</span>
         </div>
 
         <div className="space-y-4">
-          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
+          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#3B301C] pb-2">
             <span>Output Format</span>
             <span className="text-white">MP4 (H.264)</span>
           </div>
-          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
+          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#3B301C] pb-2">
             <span>Target Resolution</span>
             <span className="text-white">1080x1920 (Vertical)</span>
           </div>
-          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#23272F] pb-2">
+          <div className="flex justify-between text-[10px] uppercase font-bold text-white border-b border-[#3B301C] pb-2">
             <span>Layout Applied</span>
-            <span className="text-[#00F5C4] font-mono">{customCaptionTemplate}</span>
+            <span className="text-[#6FBF8F] font-mono">{customCaptionTemplate}</span>
           </div>
         </div>
 
-        {/* RENDER OPTION ON TOP */}
+        {/* STEP 1 — RUN PIPELINE (once per video). After it completes, every
+            template previews live and is freely switchable; no re-run needed. */}
         <div className="space-y-3 pt-2">
-          {isRendering ? (
-            <div className="space-y-2 p-3 bg-[#181B21] border border-[#23272F]">
-              <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white">
-                <span>Rendering Video...</span>
-                <span className="text-[#00F5C4]">{renderJobStatus?.progress || 0}%</span>
+          {project?.status === "COMPLETED" ? (
+            <div className="p-3 bg-[#281F10] border border-[#6FBF8F]/30 space-y-1">
+              <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider">
+                <span className="text-[#6FBF8F]">✓ Pipeline complete</span>
+                <button
+                  onClick={startProcessing}
+                  title="Re-transcribe and re-plan this video from scratch"
+                  className="text-white/40 hover:text-white text-[8px] uppercase tracking-wider cursor-pointer"
+                >
+                  Re-run
+                </button>
               </div>
-              <div className="w-full bg-[#23272F] h-1">
-                <div 
-                  className="bg-[#00F5C4] h-1 transition-all"
+              <p className="text-[8px] text-white/50 leading-relaxed">
+                All templates are live in the preview — switch and style freely,
+                then export the one you like.
+              </p>
+            </div>
+          ) : project?.status === "PROCESSING" ? (
+            <div className="space-y-2 p-3 bg-[#281F10] border border-[#3B301C]">
+              <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white">
+                <span>Running pipeline… {jobStatus?.stage || "starting"}</span>
+                <span className="text-[#DCC8A4]">{Math.round((jobStatus?.progress || 0) * (jobStatus && jobStatus.progress <= 1 ? 100 : 1))}%</span>
+              </div>
+              <div className="w-full bg-[#3B301C] h-1">
+                <div
+                  className="bg-[#DCC8A4] h-1 transition-all"
+                  style={{ width: `${Math.min(100, (jobStatus?.progress || 0) * (jobStatus && jobStatus.progress <= 1 ? 100 : 1))}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={startProcessing}
+              disabled={project?.status === "CREATED"}
+              title={project?.status === "CREATED" ? "Upload a clip first" : "Transcribe and plan captions for this video"}
+              className={`w-full font-sora font-black uppercase text-[10px] tracking-wider py-3.5 transition-all text-center shadow-sm ${
+                project?.status === "CREATED"
+                  ? "bg-[#3B301C] text-white/30 cursor-not-allowed border border-[#1E170D]"
+                  : "bg-[#DCC8A4] text-[#171208] hover:bg-[#C9AF83] cursor-pointer"
+              }`}
+            >
+              {project?.status === "FAILED" ? "Retry Pipeline" : project?.status === "CREATED" ? "Upload a clip first" : "Run Pipeline"}
+            </button>
+          )}
+
+          {/* STEP 2 — EXPORT the currently-styled look as an MP4 download. */}
+          {isRendering ? (
+            <div className="space-y-2 p-3 bg-[#281F10] border border-[#3B301C]">
+              <div className="flex justify-between text-[8px] font-bold uppercase tracking-wider text-white">
+                <span>Exporting MP4…</span>
+                <span className="text-[#6FBF8F]">{renderJobStatus?.progress || 0}%</span>
+              </div>
+              <div className="w-full bg-[#3B301C] h-1">
+                <div
+                  className="bg-[#6FBF8F] h-1 transition-all"
                   style={{ width: `${renderJobStatus?.progress || 0}%` }}
                 />
               </div>
             </div>
           ) : (
-            <button 
+            <button
               onClick={startRendering}
               disabled={project?.status !== "COMPLETED"}
-              className={`w-full font-primary font-black uppercase text-[10px] tracking-wider py-3.5 transition-all text-center shadow-sm ${
-                project?.status === "COMPLETED" 
-                  ? "bg-[#FFB800] text-[#0A0B0D] hover:bg-[#E5A500] cursor-pointer" 
-                  : "bg-[#23272F] text-white/30 cursor-not-allowed border border-[#111317]"
+              title={project?.status !== "COMPLETED" ? "Run the pipeline first" : "Render the current template + styling into a downloadable MP4"}
+              className={`w-full font-sora font-black uppercase text-[10px] tracking-wider py-3 transition-all text-center ${
+                project?.status === "COMPLETED"
+                  ? "bg-[#171208] text-[#DCC8A4] border border-[#DCC8A4] hover:bg-[#DCC8A4] hover:text-[#171208] cursor-pointer"
+                  : "bg-[#3B301C] text-white/30 cursor-not-allowed border border-[#1E170D]"
               }`}
             >
-              Render & Export Video
+              Export MP4
             </button>
           )}
         </div>
 
         {/* COLLAPSIBLE PIPELINE DETAILS ACCORDION */}
-        <div className="border border-[#23272F] bg-[#181B21]/50 rounded-none overflow-hidden">
+        <div className="border border-[#3B301C] bg-[#281F10]/50 rounded-none overflow-hidden">
           <button
             onClick={() => setIsPipelineDropdownOpen(!isPipelineDropdownOpen)}
-            className="w-full px-3 py-2.5 flex justify-between items-center bg-[#181B21] border-b border-[#23272F] text-[9px] font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-[#1C2027] transition-all"
+            className="w-full px-3 py-2.5 flex justify-between items-center bg-[#281F10] border-b border-[#3B301C] text-[9px] font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-[#2C2314] transition-all"
           >
             <span>Pipeline Activity</span>
             <span className="text-white/60 text-[10px]">
@@ -274,7 +322,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                       <div key={stage.id} className="flex items-center justify-between text-[9px]">
                         <span className={`font-medium ${
                           state === "completed" ? "text-white/80" : 
-                          state === "running" ? "text-[#FFB800] font-bold animate-pulse" : 
+                          state === "running" ? "text-[#DCC8A4] font-bold animate-pulse" : 
                           state === "failed" ? "text-red-400 font-bold" : 
                           "text-white/30"
                         }`}>
@@ -282,12 +330,12 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                         </span>
                         <div className="flex items-center gap-1.5">
                           {state === "completed" && (
-                            <span className="text-[#00F5C4] font-bold">✓</span>
+                            <span className="text-[#6FBF8F] font-bold">✓</span>
                           )}
                           {state === "running" && (
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFB800] opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FFB800]"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#DCC8A4] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#DCC8A4]"></span>
                             </span>
                           )}
                           {state === "failed" && (
@@ -305,7 +353,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
 
               {/* RENDER PIPELINE STAGES SECTION */}
               {(isRendering || renderJobStatus || (exports || []).length > 0) && (
-                <div className="space-y-2 pt-2 border-t border-[#23272F]/50">
+                <div className="space-y-2 pt-2 border-t border-[#3B301C]/50">
                   <div className="text-[8px] font-bold uppercase text-white/50 tracking-wider">
                     Render Pipeline Stages
                   </div>
@@ -316,7 +364,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                         <div key={stage.id} className="flex items-center justify-between text-[9px]">
                           <span className={`font-medium ${
                             state === "completed" ? "text-white/80" : 
-                            state === "running" ? "text-[#00F5C4] font-bold animate-pulse" : 
+                            state === "running" ? "text-[#6FBF8F] font-bold animate-pulse" : 
                             state === "failed" ? "text-red-400 font-bold" : 
                             "text-white/30"
                           }`}>
@@ -324,12 +372,12 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                           </span>
                           <div className="flex items-center gap-1.5">
                             {state === "completed" && (
-                              <span className="text-[#00F5C4] font-bold">✓</span>
+                              <span className="text-[#6FBF8F] font-bold">✓</span>
                             )}
                             {state === "running" && (
                               <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00F5C4] opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00F5C4]"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#6FBF8F] opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#6FBF8F]"></span>
                               </span>
                             )}
                             {state === "failed" && (
@@ -355,7 +403,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                   </div>
                   <button
                     onClick={startProcessing}
-                    className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-primary font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 cursor-pointer text-center transition-colors"
+                    className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-sora font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 cursor-pointer text-center transition-colors"
                   >
                     Retry AI Processing
                   </button>
@@ -376,7 +424,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
         </div>
       </div>
 
-      <div className="space-y-4 pt-6 border-t border-[#23272F]">
+      <div className="space-y-4 pt-6 border-t border-[#3B301C]">
         <span className="block text-[9px] font-bold text-white uppercase tracking-widest">Render History</span>
         
         <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
@@ -384,10 +432,10 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
             <span className="block text-[8px] font-bold uppercase text-white italic">No exports generated.</span>
           ) : (
             (exports || []).map((exp, idx) => (
-              <div key={idx} className="bg-[#181B21] border border-[#23272F] p-2.5 flex flex-col justify-between gap-2 text-left shadow-sm">
+              <div key={idx} className="bg-[#281F10] border border-[#3B301C] p-2.5 flex flex-col justify-between gap-2 text-left shadow-sm">
                 <div className="flex justify-between items-center text-[7px] font-mono text-white uppercase">
                   <span>EXPORT #{idx + 1}</span>
-                  <span className={exp.status === "completed" ? "text-[#00F5C4]" : "text-yellow-500"}>
+                  <span className={exp.status === "completed" ? "text-[#6FBF8F]" : "text-yellow-500"}>
                     {exp.status}
                   </span>
                 </div>
@@ -397,8 +445,8 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                       onClick={() => setActiveExportId(exp.id)}
                       className={`text-[9px] font-bold uppercase tracking-wider transition-colors text-center flex-1 py-1 border block cursor-pointer ${
                         activeExportId === exp.id
-                          ? "text-[#0A0B0D] bg-[#FFB800] border-[#FFB800]"
-                          : "text-white/80 bg-[#0A0B0D] border-[#23272F] hover:text-white"
+                          ? "text-[#171208] bg-[#DCC8A4] border-[#DCC8A4]"
+                          : "text-white/80 bg-[#171208] border-[#3B301C] hover:text-white"
                       }`}
                     >
                       {activeExportId === exp.id ? "Now Previewing" : "Preview"}
@@ -406,7 +454,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                     <a
                       href={exp.download_url}
                       download
-                      className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4] hover:text-[#00C2A0] transition-colors text-center flex-1 py-1 bg-[#0A0B0D] border border-[#23272F] block"
+                      className="text-[9px] font-bold uppercase tracking-wider text-[#6FBF8F] hover:text-[#5FA97C] transition-colors text-center flex-1 py-1 bg-[#171208] border border-[#3B301C] block"
                     >
                       Download
                     </a>

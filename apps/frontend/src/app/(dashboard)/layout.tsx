@@ -18,9 +18,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!authorized) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center gap-3 bg-[#0A0B0D]">
-        <div className="w-8 h-8 border-2 border-[#00F5C4] border-t-transparent rounded-full animate-spin" />
-        <p className="text-[10px] uppercase font-bold tracking-widest text-[#9FA6B2]">Authenticating session...</p>
+      <div className="h-screen w-full flex flex-col items-center justify-center gap-4 bg-dune-white">
+        <div className="w-8 h-8 border-2 border-sand-300 border-t-sand-700 rounded-full animate-spin" />
+        <p className="font-sora text-[13px] font-semibold text-sand-700">Checking your session…</p>
       </div>
     );
   }

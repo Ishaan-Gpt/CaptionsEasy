@@ -78,9 +78,9 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
   const lineGroups = wordDisplayMode === "line" ? groupWordsIntoLines(localWords) : null;
 
   return (
-    <div className="h-56 bg-[#111317] border-t border-[#23272F] flex flex-col shrink-0 overflow-hidden shadow-md text-left">
+    <div className="h-56 bg-[#1E170D] border-t border-[#3B301C] flex flex-col shrink-0 overflow-hidden shadow-md text-left">
       {/* 1. Timeline Top Control Bar */}
-      <div className="h-12 border-b border-[#23272F] px-4 flex items-center justify-between bg-[#0E1013]/60 shrink-0">
+      <div className="h-12 border-b border-[#3B301C] px-4 flex items-center justify-between bg-[#1A140B]/60 shrink-0">
         
         {/* Playback & Frame Buttons */}
         <div className="flex items-center gap-3">
@@ -91,7 +91,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                 setCurrentTimeMs(videoRef.current.currentTime * 1000);
               }
             }}
-            className="p-1.5 bg-[#1C2027] border border-[#23272F] text-white hover:text-[#FFB800] transition-colors rounded cursor-pointer"
+            className="p-1.5 bg-[#2C2314] border border-[#3B301C] text-white hover:text-[#DCC8A4] transition-colors rounded cursor-pointer"
             title="Previous frame"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -110,7 +110,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                 }
               }
             }}
-            className="w-7 h-7 bg-[#FFB800] hover:bg-[#DE9E00] text-[#0A0B0D] rounded-full flex items-center justify-center transition-all cursor-pointer shadow hover:scale-105"
+            className="w-7 h-7 bg-[#DCC8A4] hover:bg-[#C9AF83] text-[#171208] rounded-full flex items-center justify-center transition-all cursor-pointer shadow hover:scale-105"
             title={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
@@ -127,7 +127,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                 setCurrentTimeMs(videoRef.current.currentTime * 1000);
               }
             }}
-            className="p-1.5 bg-[#1C2027] border border-[#23272F] text-white hover:text-[#FFB800] transition-colors rounded cursor-pointer"
+            className="p-1.5 bg-[#2C2314] border border-[#3B301C] text-white hover:text-[#DCC8A4] transition-colors rounded cursor-pointer"
             title="Next frame"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -157,13 +157,13 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
             </button>
           </div>
 
-          <div className="h-4 w-[1px] bg-[#23272F]" />
+          <div className="h-4 w-[1px] bg-[#3B301C]" />
 
-          <div className="flex border border-[#23272F] rounded bg-[#181B21] overflow-hidden p-0.5">
+          <div className="flex border border-[#3B301C] rounded bg-[#281F10] overflow-hidden p-0.5">
             <button
               onClick={() => setWordDisplayMode("word")}
               className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer rounded ${
-                wordDisplayMode === "word" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                wordDisplayMode === "word" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
               }`}
             >
               Word
@@ -171,7 +171,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
             <button
               onClick={() => setWordDisplayMode("line")}
               className={`px-3 py-1 text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer rounded ${
-                wordDisplayMode === "line" ? "bg-[#FFB800] text-[#0A0B0D]" : "text-white/40 hover:text-white"
+                wordDisplayMode === "line" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
               }`}
             >
               Line
@@ -181,7 +181,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
 
         {/* Time display & Zoom */}
         <div className="flex items-center gap-4">
-          <div className="text-[10px] font-mono font-bold text-[#FFB800] bg-[#181B21] px-2.5 py-1 rounded border border-[#23272F]">
+          <div className="text-[10px] font-mono font-bold text-[#DCC8A4] bg-[#281F10] px-2.5 py-1 rounded border border-[#3B301C]">
             {(() => {
               const formatTime = (ms: number) => {
                 const sec = Math.floor(ms / 1000) % 60;
@@ -193,7 +193,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
             })()}
           </div>
 
-          <div className="h-4 w-[1px] bg-[#23272F]" />
+          <div className="h-4 w-[1px] bg-[#3B301C]" />
 
           <div className="flex items-center gap-2">
             <svg className="w-3.5 h-3.5 text-white/50" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -206,7 +206,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
               step="0.1"
               value={zoomLevel}
               onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
-              className="w-20 h-1 bg-[#23272F] rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+              className="w-20 h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
             />
             <span className="text-[8px] font-mono text-white/40">{Math.round(zoomLevel * 100)}%</span>
           </div>
@@ -215,7 +215,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
 
       {/* 2. Timeline Track Area (Word Boxes & Waveform) */}
       <div 
-        className="flex-1 overflow-x-auto relative py-3 px-4 scrollbar-thin bg-[#0A0B0D]"
+        className="flex-1 overflow-x-auto relative py-3 px-4 scrollbar-thin bg-[#171208]"
         onWheel={(e) => {
           const container = e.currentTarget;
           if (e.deltaY !== 0) {
@@ -240,10 +240,10 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                     key={idx}
                     className={`absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
                       isActive
-                        ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
+                        ? "bg-[#DCC8A4] border-[#C9AF83] text-[#171208] scale-102 z-20"
                         : word.highlighted
-                        ? "bg-[#FFEAA7]/80 border-[#FFB800]/50 text-[#2D3436]"
-                        : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
+                        ? "bg-[#FFEAA7]/80 border-[#DCC8A4]/50 text-[#2E2415]"
+                        : "bg-[#DECEB0] border-[#C2B294] text-[#2E2415] hover:bg-[#E8DFCA] hover:border-white/40"
                     }`}
                     style={{
                       left: `${startX}px`,
@@ -278,14 +278,14 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                           if (e.key === "Escape") setEditingWordIndex(null);
                         }}
                         autoFocus
-                        className="bg-[#111317] border border-[#FFB800] text-[9px] font-bold text-center w-full focus:outline-none text-white rounded p-0.5"
+                        className="bg-[#1E170D] border border-[#DCC8A4] text-[9px] font-bold text-center w-full focus:outline-none text-white rounded p-0.5"
                       />
                     ) : (
                       <>
                         <span className="text-[9px] font-black truncate w-full block">
                           {word.text}
                         </span>
-                        <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#0A0B0D]/80" : "text-[#2E2514]/70"}`}>
+                        <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#171208]/80" : "text-[#2E2415]/70"}`}>
                           ♩ Text
                         </span>
                       </>
@@ -309,8 +309,8 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                     key={lineIdx}
                     className={`absolute h-11 rounded border flex items-center justify-center px-2 text-center transition-all cursor-pointer shadow-sm select-none ${
                       isActive
-                        ? "bg-[#FFB800] border-[#E5A500] text-[#0A0B0D] scale-102 z-20"
-                        : "bg-[#DECEB0] border-[#C2B294] text-[#2E2514] hover:bg-[#E8DFCA] hover:border-white/40"
+                        ? "bg-[#DCC8A4] border-[#C9AF83] text-[#171208] scale-102 z-20"
+                        : "bg-[#DECEB0] border-[#C2B294] text-[#2E2415] hover:bg-[#E8DFCA] hover:border-white/40"
                     }`}
                     style={{
                       left: `${startX}px`,
@@ -342,10 +342,10 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
 
           {/* Playhead vertical line cursor */}
           <div
-            className="absolute top-0 bottom-0 w-[2px] bg-[#FFB800] z-20 pointer-events-none"
+            className="absolute top-0 bottom-0 w-[2px] bg-[#DCC8A4] z-20 pointer-events-none"
             style={{ left: `${currentTimeMs * PX_PER_MS}px` }}
           >
-            <div className="w-3 h-3 rounded-full bg-[#FFB800] -ml-[5px] -mt-[2px] border border-[#0A0B0D] shadow shadow-[#FFB800]/50 cursor-ew-resize" />
+            <div className="w-3 h-3 rounded-full bg-[#DCC8A4] -ml-[5px] -mt-[2px] border border-[#171208] shadow shadow-[#DCC8A4]/50 cursor-ew-resize" />
           </div>
         </div>
       </div>

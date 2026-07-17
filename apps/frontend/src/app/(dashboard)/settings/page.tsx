@@ -1,17 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth";
+import StudioShell from "@/components/studio/StudioShell";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -22,17 +26,19 @@ export default function SettingsPage() {
       if (user) {
         setDisplayName(user.name);
         setEmail(user.email);
+        setAvatarUrl(user.avatar_url);
       }
       setLoading(false);
     });
-  }, []);
+  }, [router]);
 
-  const handleSave = async () => {
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSaving(true);
     setSaveError(null);
     setSaved(false);
     try {
-      await authService.updateProfile({ name: displayName });
+      await authService.updateProfile({ name: displayName.trim() });
       setSaved(true);
     } catch (err: any) {
       setSaveError(err.message || "Failed to save profile.");
@@ -41,38 +47,61 @@ export default function SettingsPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    setResetError(null);
+    setResetSent(false);
+    try {
+      await authService.requestPasswordReset(email);
+      setResetSent(true);
+    } catch (err: any) {
+      setResetError(err.message || "Couldn't send the reset email.");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0A0B0D] text-white p-12 selection:bg-[#00F5C4]/20 selection:text-[#00F5C4]">
-      <div className="max-w-2xl mx-auto space-y-8 animate-fade-in-up">
-        
-        {/* Header */}
-        <div className="flex justify-between items-center pb-6 border-b border-[#23272F]">
-          <div>
-            <h1 className="text-2xl font-primary font-black uppercase tracking-tight text-white">
-              Account <span className="text-[#00F5C4] font-accent italic lowercase font-light text-3xl">settings</span>
-            </h1>
-            <p className="text-[10px] text-white uppercase tracking-wider mt-1">
-              Manage your personal credentials and API integrations.
-            </p>
-          </div>
-          <button 
-            onClick={() => router.push("/dashboard")}
-            className="border border-[#23272F] bg-[#111317] text-white hover:text-[#00F5C4] font-primary font-black uppercase text-[9px] tracking-wider px-4 py-2 hover:border-[#00F5C4] transition-colors cursor-pointer"
-          >
-            Dashboard
-          </button>
+    <StudioShell>
+      <div className="px-6 sm:px-10 py-10 max-w-3xl mx-auto">
+        <div className="pb-8 border-b border-sand-200">
+          <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-[-0.015em] text-ink">
+            Account <em className="italic text-sand-600">settings</em>
+          </h1>
+          <p className="mt-2 text-[14px] text-sand-800">
+            Your identity across projects and exports.
+          </p>
         </div>
 
-        {/* Profile Card */}
-        <div className="dense-panel p-6 border-[#23272F] space-y-4">
-          <h3 className="text-xs font-primary font-black uppercase text-white tracking-wider">Profile Details</h3>
+        {/* Profile */}
+        <section className="pt-8">
+          <h2 className="font-sora text-[15px] font-bold text-ink">Profile</h2>
           {loading ? (
-            <p className="text-[10px] text-white uppercase tracking-wider">Loading profile...</p>
+            <div className="mt-4 h-24 rounded-xl bg-sand-100 animate-pulse" />
           ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white">Display Name</label>
+            <form
+              onSubmit={handleSave}
+              className="mt-4 rounded-xl border border-sand-200 bg-white p-6 space-y-5"
+            >
+              <div className="flex items-center gap-4">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    className="w-14 h-14 rounded-full border border-sand-200 bg-sand-50"
+                  />
+                ) : (
+                  <span className="w-14 h-14 rounded-full bg-sand-200" />
+                )}
+                <div className="text-[13px] leading-relaxed text-sand-800">
+                  Your avatar comes from your sign-in provider
+                  {avatarUrl?.includes("dicebear") ? " (generated from your name)" : ""}.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="block font-sora text-[12px] font-semibold text-sand-800">
+                    Display name
+                  </label>
                   <input
                     type="text"
                     value={displayName}
@@ -80,56 +109,75 @@ export default function SettingsPage() {
                       setDisplayName(e.target.value);
                       setSaved(false);
                     }}
-                    className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white px-3.5 py-2.5 focus:outline-none focus:border-[#00F5C4]"
+                    className="w-full rounded-lg border border-sand-300 bg-white px-4 py-3 text-[14px] text-ink outline-none transition-colors focus:border-sand-600 focus:ring-2 focus:ring-sand-200"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-[8px] font-bold uppercase tracking-wider text-white">Email Address</label>
+                <div className="space-y-1.5">
+                  <label className="block font-sora text-[12px] font-semibold text-sand-800">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={email}
                     disabled
                     title="Email changes require re-verification and aren't supported from this screen yet."
-                    className="w-full bg-[#181B21] border border-[#23272F] text-xs text-white/50 px-3.5 py-2.5 focus:outline-none"
+                    className="w-full rounded-lg border border-sand-200 bg-sand-50 px-4 py-3 text-[14px] text-sand-600 outline-none cursor-not-allowed"
                   />
                 </div>
               </div>
+
               {saveError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] uppercase font-bold tracking-wider p-3">
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
                   {saveError}
                 </div>
               )}
-              <div className="flex items-center gap-3">
+
+              <div className="flex items-center gap-4">
                 <button
-                  onClick={handleSave}
+                  type="submit"
                   disabled={saving || !displayName.trim()}
-                  className="bg-[#00F5C4] text-[#0A0B0D] font-primary font-black uppercase text-[9px] tracking-wider px-5 py-2.5 hover:bg-[#00C2A0] disabled:bg-[#00A383]/50 disabled:text-[#0A0B0D]/50 transition-colors cursor-pointer"
+                  className="rounded-full bg-ink px-6 py-2.5 font-sora text-[12px] font-semibold text-dune-white hover:bg-sand-800 disabled:opacity-60 transition-all cursor-pointer"
                 >
-                  {saving ? "Saving..." : "Save Profile"}
+                  {saving ? "Saving…" : "Save changes"}
                 </button>
                 {saved && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#00F5C4]">Saved</span>
+                  <span className="font-sora text-[12px] font-semibold text-sand-700">
+                    ✓ Saved
+                  </span>
                 )}
               </div>
-            </>
+            </form>
           )}
-        </div>
+        </section>
 
-        {/* Account security */}
-        <div className="dense-panel p-6 border-[#23272F] space-y-4">
-          <h3 className="text-xs font-primary font-black uppercase text-white tracking-wider">Account security</h3>
-          <p className="text-[10px] text-white uppercase tracking-wider leading-relaxed">
-            Password changes are handled through a verified email link.
-          </p>
-          <button
-            onClick={() => router.push("/forgot-password")}
-            className="border border-[#23272F] bg-[#111317] text-white hover:text-[#00F5C4] font-primary font-black uppercase text-[9px] tracking-wider px-5 py-2.5 hover:border-[#00F5C4] transition-colors cursor-pointer"
-          >
-            Send Password Reset Email
-          </button>
-        </div>
-
+        {/* Security */}
+        <section className="pt-10">
+          <h2 className="font-sora text-[15px] font-bold text-ink">Security</h2>
+          <div className="mt-4 rounded-xl border border-sand-200 bg-white p-6">
+            <p className="text-[14px] leading-relaxed text-sand-800 max-w-[52ch]">
+              Password changes go through a verified email link, sent to{" "}
+              <strong className="text-ink">{email || "your account email"}</strong>.
+            </p>
+            {resetError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+                {resetError}
+              </div>
+            )}
+            <div className="mt-4 flex items-center gap-4">
+              <button
+                onClick={handlePasswordReset}
+                disabled={!email || resetSent}
+                className="rounded-full border border-sand-300 px-6 py-2.5 font-sora text-[12px] font-semibold text-sand-800 hover:border-ink hover:text-ink disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                {resetSent ? "Email sent" : "Send password reset email"}
+              </button>
+              {resetSent && (
+                <span className="text-[12px] text-sand-700">Check your inbox.</span>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </StudioShell>
   );
 }

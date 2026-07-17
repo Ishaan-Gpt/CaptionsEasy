@@ -33,61 +33,65 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   const router = useRouter();
 
   const getStatusText = () => {
-    if (processingError) return "Processing Failed";
+    if (processingError) return "Processing failed";
     if (project?.status === "PROCESSING") {
       if (jobStatus) {
-        return `Processing: ${jobStatus.stage || "AI Captions"} (${Math.round((jobStatus.progress || 0) * 100)}%)`;
+        return `${jobStatus.stage || "Captioning"} · ${Math.round((jobStatus.progress || 0) * 100)}%`;
       }
-      return "Processing Video...";
+      return "Processing…";
     }
     if (project?.status === "COMPLETED") return "Ready";
-    if (project?.status === "UPLOADED") return "Uploaded (Processing...)";
-    return project?.status || "Idle";
+    if (project?.status === "UPLOADED") return "Queued";
+    if (project?.status === "CREATED") return "Awaiting upload";
+    return project?.status || "…";
   };
 
   const statusClass = () => {
-    if (processingError) return "text-red-400 bg-red-500/10 border-red-500/20";
+    if (processingError) return "text-red-400 bg-red-500/10 border-red-500/25";
     if (project?.status === "PROCESSING" || project?.status === "UPLOADED") {
-      return "text-yellow-400 bg-yellow-500/10 border-yellow-500/20 animate-pulse";
+      return "text-sand-300 bg-sand-300/10 border-sand-300/25 animate-pulse";
     }
-    if (project?.status === "COMPLETED") return "text-[#00F5C4] bg-[#00F5C4]/10 border-[#00F5C4]/20";
-    return "text-white/40 bg-white/5 border-white/10";
+    if (project?.status === "COMPLETED") return "text-[#6FBF8F] bg-[#6FBF8F]/10 border-[#6FBF8F]/25";
+    return "text-sand-400/80 bg-white/5 border-white/10";
   };
 
   const undoDisabled = wordsHistoryRef.current.past.length === 0;
   const redoDisabled = wordsHistoryRef.current.future.length === 0;
 
   return (
-    <header className="h-14 bg-[#111317] border-b border-[#23272F] px-6 flex items-center justify-between shrink-0 text-left">
-      <div className="flex items-center gap-3">
+    <header className="h-14 bg-[#1E170D] border-b border-[#3B301C] px-4 sm:px-6 flex items-center justify-between shrink-0 text-left">
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={() => router.push("/dashboard")}
-          className="p-1.5 rounded-full bg-[#181B21] border border-[#23272F] hover:border-white/20 transition-colors cursor-pointer text-white"
+          title="Back to projects"
+          className="p-2 rounded-full text-sand-300 hover:bg-[#281F10] hover:text-sand-100 transition-colors cursor-pointer"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </button>
-        <div className="text-left">
-          <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Project Workspace</span>
-          <h1 className="text-xs font-primary font-black uppercase tracking-wider text-white -mt-0.5 max-w-[200px] truncate">
-            {project?.title || "Loading Project..."}
+        <div className="min-w-0">
+          <span className="block font-mono text-[10px] text-sand-500">
+            Captions<span className="italic">Easy</span> studio
+          </span>
+          <h1 className="font-sora text-[13px] font-bold text-sand-100 -mt-0.5 max-w-[220px] truncate">
+            {project?.title || "Loading…"}
           </h1>
         </div>
-        <div className={`border rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-wider ${statusClass()}`}>
+        <div className={`border rounded-full px-3 py-1 font-sora text-[10px] font-semibold whitespace-nowrap ${statusClass()}`}>
           {getStatusText()}
         </div>
         {processingError && (
           <button
             onClick={startProcessing}
-            className="text-[8px] font-bold uppercase tracking-wider text-[#FFB800] hover:text-white bg-white/5 border border-[#23272F] px-2.5 py-1 rounded cursor-pointer"
+            className="font-sora text-[10px] font-semibold text-sand-300 hover:text-sand-100 bg-white/5 border border-[#3B301C] px-3 py-1 rounded-full transition-colors cursor-pointer"
           >
-            Retry Process
+            Retry
           </button>
         )}
       </div>
 
-      {/* Dynamic header widgets (Upload box & Status) */}
+      {/* Upload / pipeline widgets */}
       <div className="flex items-center gap-4">
         {project?.status === "CREATED" && uploadProgress === null && (
           <div className="relative">
@@ -97,47 +101,51 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
               onChange={handleUploadFile}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
-            <button className="bg-[#FFB800] text-[#0A0B0D] font-primary font-black uppercase text-[9px] tracking-wider px-4 py-2 rounded-none transition-colors cursor-pointer shadow-sm hover:bg-[#E5A500]">
-              Upload MP4 Clip
+            <button className="bg-sand-300 text-sand-900 font-sora font-semibold text-[11px] px-5 py-2 rounded-full transition-colors cursor-pointer hover:bg-sand-400">
+              Upload clip
             </button>
           </div>
         )}
         {uploadProgress !== null && (
-          <span className="text-[9px] uppercase font-bold text-[#FFB800] animate-pulse">
-            UPLOADING: {uploadProgress}%
+          <span className="font-mono text-[11px] text-sand-300 animate-pulse">
+            uploading {uploadProgress}%
           </span>
         )}
         {project?.status === "PROCESSING" && (
-          <span className="text-[9px] uppercase font-bold text-[#FFB800] animate-pulse">
-            PIPELINE STAGE: {jobStatus?.stage || "TRANSCRIPTION"} ({jobStatus?.progress || 0}%)
+          <span className="font-mono text-[11px] text-sand-300 animate-pulse hidden sm:block">
+            {jobStatus?.stage || "transcribing"} · {jobStatus?.progress || 0}%
           </span>
         )}
 
-        <div className="h-4 w-[1px] bg-[#23272F]" />
+        <div className="h-4 w-px bg-[#3B301C]" />
 
-        {/* Undo / Redo Tools */}
-        <div className="flex items-center gap-1.5">
+        {/* Undo / Redo */}
+        <div className="flex items-center gap-1">
           <button
             onClick={handleUndo}
             disabled={undoDisabled}
-            className={`p-1.5 rounded bg-[#181B21] border border-[#23272F] transition-all flex items-center justify-center cursor-pointer ${
-              undoDisabled ? "opacity-30 cursor-not-allowed" : "hover:border-[#FFB800] text-white"
+            className={`p-2 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+              undoDisabled
+                ? "opacity-30 cursor-not-allowed text-sand-400"
+                : "text-sand-300 hover:bg-[#281F10] hover:text-sand-100"
             }`}
             title="Undo (Ctrl+Z)"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
             </svg>
           </button>
           <button
             onClick={handleRedo}
             disabled={redoDisabled}
-            className={`p-1.5 rounded bg-[#181B21] border border-[#23272F] transition-all flex items-center justify-center cursor-pointer ${
-              redoDisabled ? "opacity-30 cursor-not-allowed" : "hover:border-[#FFB800] text-white"
+            className={`p-2 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+              redoDisabled
+                ? "opacity-30 cursor-not-allowed text-sand-400"
+                : "text-sand-300 hover:bg-[#281F10] hover:text-sand-100"
             }`}
             title="Redo (Ctrl+Y)"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
             </svg>
           </button>

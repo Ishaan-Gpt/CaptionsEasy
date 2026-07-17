@@ -1,102 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;700;800;900&family=Montserrat:wght@400;700;800;900&family=Outfit:wght@400;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-brand-teal: #00F5C4;
-  --color-brand-teal-dim: #00A383;
-  --color-brand-teal-dark: #005F4C;
-  --color-bg-dark: #0A0B0D;
-  --color-bg-panel: #111317;
-  --color-bg-panel-light: #181B21;
-  --color-border-grey: #23272F;
-  --color-border-teal: #00A383;
-  --color-text-grey: #FFFFFF;
+  /* Legacy Dashboard Colors (kept for compatibility) */
+  --color-brand-orange: #FF5500;
+  --color-brand-orange-dim: #E04B00;
+  --color-brand-orange-dark: #A63700;
+  --color-bg-dark: #08080A;
+  --color-bg-panel: #121214;
+  --color-bg-panel-light: #161618;
+  --color-border-grey: #222225;
+  --color-border-orange: #E04B00;
+  --color-text-grey: #F5F5F7;
+
+  /* Legacy soft-brown workspace tokens (dashboard still references these) */
+  --color-brand-base: #FDFBF9;
+  --color-brand-accent: #8E7568;
+  --color-brand-accent-light: #F3EFEA;
+  --color-brand-accent-dim: #7A6256;
+  --color-brand-accent-dark: #4A3B34;
+  --color-text-primary: #1F1A17;
+  --color-text-secondary: #6E5D54;
+  --color-border-subtle: #ECE7E1;
+  --color-border-accent: #8E7568;
+  --color-bg-card: #FFFFFF;
+
+  /* ————— CaptionsEasy brand system: Sand + White —————
+     Two hues only. White carries the canvas; sand carries the identity.
+     Everything else is a tint or shade of sand, with warm ink for text. */
+  --color-dune-white: #FDFCFA;
+  --color-sand-50: #FAF7F0;
+  --color-sand-100: #F4EDDF;
+  --color-sand-200: #EADDC5;
+  --color-sand-300: #DCC8A4;
+  --color-sand-400: #C9AF83;
+  --color-sand-500: #B29465;
+  --color-sand-600: #94764A;
+  --color-sand-700: #715836;
+  --color-sand-800: #4E3C24;
+  --color-sand-900: #2E2415;
+  --color-ink: #201910;
+
+  /* Typography variables */
+  --font-sans: var(--font-montserrat), sans-serif;
+  --font-serif: var(--font-serif), serif;
+  --font-mono: var(--font-mono), monospace;
+  --font-sora: var(--font-sora), sans-serif;
+
+  --shadow-sand-soft: 0 8px 24px -12px rgba(78, 60, 36, 0.25);
+  --shadow-sand-deep: 0 24px 60px -24px rgba(46, 36, 21, 0.35);
 
   --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-slide-up: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-glow-pulse: glow-pulse 2.5s ease-in-out infinite;
+  --animate-caption-pop: caption-pop 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 10px rgba(0, 245, 196, 0.1);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(0, 245, 196, 0.35);
-  }
+@keyframes caption-pop {
+  0% { opacity: 0; transform: translateY(0.35em) scale(0.92); }
+  60% { opacity: 1; transform: translateY(-0.04em) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 :root {
-  --background: #0A0B0D;
-  --foreground: #FFFFFF;
-  --font-primary: 'Montserrat', sans-serif;
-  --font-accent: 'Cormorant Garamond', serif;
+  --background: #FDFCFA;
+  --foreground: #201910;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-primary);
-  background-image: radial-gradient(#23272F 1.2px, transparent 1.2px);
-  background-size: 20px 20px;
   overflow-x: hidden;
 }
 
-/* Typography Accent classes */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+/* Lenis smooth-scroll integration */
+html.lenis, html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Typography accent classes (legacy, referenced by workspace pages) */
 .hybrid-title {
-  font-family: var(--font-primary);
-  font-weight: 900;
+  font-family: var(--font-sora);
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-.hybrid-accent {
-  font-family: var(--font-accent);
+.hybrid-serif {
+  font-family: var(--font-serif);
   font-style: italic;
   font-weight: 300;
   text-transform: none;
 }
 
-/* Dense Solid Panels (Replacing Glassmorphism) */
+/* Dense Solid Panels (legacy workspace) */
 .dense-panel {
-  background-color: #111317;
-  border: 1px solid #23272F;
+  background-color: #FFFFFF;
+  border: 1px solid #ECE7E1;
+  box-shadow: 0 4px 20px -2px rgba(142, 117, 104, 0.05);
 }
 
 .dense-panel-hover {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dense-panel-hover:hover {
-  background-color: #181B21;
-  border-color: #00A383;
+  background-color: #FDFBF9;
+  border-color: #8E7568;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -4px rgba(142, 117, 104, 0.12);
 }
 
 /* Waveform Canvas Styling */
 .waveform-container {
-  background-color: #0E1013;
-  border: 1px solid #1C1F26;
+  background-color: #FBF9F6;
+  border: 1px solid #ECE7E1;
 }
 
 /* Custom scrollbars */
@@ -106,21 +145,21 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A0B0D;
+  background: #FDFCFA;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #23272F;
+  background: #EADDC5;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00A383;
+  background: #B29465;
 }
 
 /* Custom sliders */
 input[type="range"] {
-  accent-color: #00F5C4;
+  accent-color: #B29465;
 }
 
 input[type="color"]::-webkit-color-swatch-wrapper {
@@ -129,4 +168,15 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 input[type="color"]::-webkit-color-swatch {
   border: none;
   border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
