@@ -6,7 +6,6 @@ import Nav from "@/components/landing/Nav";
 import Hero from "@/components/landing/Hero";
 import Contrast from "@/components/landing/Contrast";
 import Pipeline from "@/components/landing/Pipeline";
-import TemplateGallery from "@/components/landing/TemplateGallery";
 import Control from "@/components/landing/Control";
 import Closing from "@/components/landing/Closing";
 
@@ -39,7 +38,6 @@ export default function LandingPage() {
       <Hero />
       <Contrast />
       <Pipeline />
-      <TemplateGallery />
       <Control />
       <Closing />
     </main>

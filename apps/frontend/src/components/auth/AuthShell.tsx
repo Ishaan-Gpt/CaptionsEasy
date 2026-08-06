@@ -129,7 +129,7 @@ export const validEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 /* ————— The shell: form on white, live caption reel on sand-dark ————— */
 
-const REEL = ["serif_pop", "glow_stack", "cinematic_emerald", "staggered_3line"];
+const REEL = ["hormozi_viral", "mrbeast_punch", "cyber_neon", "vintage_cinematic"];
 
 function CaptionReel() {
   const [ti, setTi] = useState(0);

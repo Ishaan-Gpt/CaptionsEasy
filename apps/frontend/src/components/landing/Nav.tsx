@@ -28,7 +28,6 @@ export default function Nav() {
 
         <nav className="hidden sm:flex items-center gap-8 font-sora text-[13px] font-medium text-sand-700">
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
-          <a href="#templates" className="hover:text-ink transition-colors">Templates</a>
           <a href="#control" className="hover:text-ink transition-colors">The studio</a>
         </nav>
 

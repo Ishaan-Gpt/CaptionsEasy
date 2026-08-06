@@ -129,6 +129,7 @@ class CaptionPayload(StrictModel):
     color_mode: str = "solid"  # "solid" | "gradient"
     color2: str | None = None
     x_position_percent: float | None = None
+    y_position_percent: float | None = None
     shadow: float = 0.0
     outline: float = 0.0
     background_style: str = "none"  # "none" | "pill" | "shadow-box"

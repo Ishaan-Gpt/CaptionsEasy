@@ -59,8 +59,8 @@ export function TemplateSwatch({ preset }: Props) {
       }}
     >
       {isWordByWord ? (
-        <span className="text-[15px] uppercase tracking-wide" style={wordStyle(true)}>
-          {(preset.name.split(" ")[0] || "WORD").toUpperCase()}
+        <span className="text-[14px] uppercase tracking-wide font-black text-center px-2" style={wordStyle(true)}>
+          {preset.name.toUpperCase()}
         </span>
       ) : isStaggered ? (
         <div className="flex flex-col items-center gap-0.5">

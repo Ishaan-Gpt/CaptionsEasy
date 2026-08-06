@@ -32,6 +32,7 @@ EXTENSION_TO_CONTENT_TYPE = {
     ".mp4": "video/mp4",
     ".mov": "video/quicktime",
     ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
 }
 
 TRANSCRIPT_VERSION = "1.0"

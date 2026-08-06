@@ -13,7 +13,7 @@ import { transcriptService, TranscriptResponse } from "@/services/transcript";
 import { ApiError, NetworkUnavailableError } from "@/services/api-client";
 import { Project } from "@/services/types";
 import { TEMPLATE_PRESETS_LIST, getTemplateStyle } from "@/config/captionTemplates";
-import { CaptionStyle } from "@/remotion/CaptionEngine";
+import { CaptionStyle } from "@motion-ai/caption-engine";
 
 // Modular Project Detail Components
 import { WorkspaceHeader } from "@/components/project/WorkspaceHeader";
@@ -59,11 +59,12 @@ export default function ProjectWorkspacePage() {
   }, []);
 
   const [playerWidth, setPlayerWidth] = useState<number>(360);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
-    const element = playerContainerRef.current;
+    const element = videoRef.current || playerContainerRef.current;
     if (!element) return;
 
     const updateSize = () => {
@@ -85,7 +86,7 @@ export default function ProjectWorkspacePage() {
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateSize);
     };
-  }, [mounted]);
+  }, [mounted, videoRef.current]);
 
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -99,7 +100,6 @@ export default function ProjectWorkspacePage() {
   const [wordDisplayMode, setWordDisplayMode] = useState<"word" | "line">("word");
   const wordsHistoryRef = useRef<{ past: any[][]; future: any[][] }>({ past: [], future: [] });
   const [historyVersion, setHistoryVersion] = useState(0);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
 
@@ -125,7 +125,6 @@ export default function ProjectWorkspacePage() {
   const [customStaggeredLayout, setCustomStaggeredLayout] = useState<"splash" | "centre">("splash");
   const [customWordLimit, setCustomWordLimit] = useState<number>(5);
   const [customCaptionSpacingMs, setCustomCaptionSpacingMs] = useState<number>(50);
-  const [customWordPacing, setCustomWordPacing] = useState<string>("dynamic");
   const [customPauseHandling, setCustomPauseHandling] = useState<string>("hold");
   const [customAccentPeriodEnabled, setCustomAccentPeriodEnabled] = useState<boolean>(true);
 
@@ -136,6 +135,10 @@ export default function ProjectWorkspacePage() {
   const [customUnderline, setCustomUnderline] = useState<boolean>(false);
   const [customAlignment, setCustomAlignment] = useState<"left" | "center" | "right">("center");
   const [customXPositionPercent, setCustomXPositionPercent] = useState<number>(50);
+  const [customBoxLeft, setCustomBoxLeft] = useState<number | null>(null);
+  const [customBoxRight, setCustomBoxRight] = useState<number | null>(null);
+  const [customBoxTop, setCustomBoxTop] = useState<number | null>(null);
+  const [customBoxBottom, setCustomBoxBottom] = useState<number | null>(null);
   const [customColorMode, setCustomColorMode] = useState<"solid" | "gradient">("solid");
   const [customColor2, setCustomColor2] = useState<string>("#00F5C4");
   const [customLetterSpacing, setCustomLetterSpacing] = useState<number>(0);
@@ -143,15 +146,7 @@ export default function ProjectWorkspacePage() {
   const [customLineSpacing, setCustomLineSpacing] = useState<number>(1.0);
   const [styleError, setStyleError] = useState<string | null>(null);
 
-  // Bounding box editor positions
-  const [customBoxTop, setCustomBoxTop] = useState<number>(80);
-  const [customBoxBottom, setCustomBoxBottom] = useState<number>(120);
-  const [customBoxLeft, setCustomBoxLeft] = useState<number>(50);
-  const [customBoxRight, setCustomBoxRight] = useState<number>(50);
-  const [boxEditMode, setBoxEditMode] = useState<boolean>(false);
-  const [pendingBoxCommit, setPendingBoxCommit] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
-  const [liveDragBox, setLiveDragBox] = useState<{ top: number; bottom: number; left: number; right: number } | null>(null);
-  const [isSavingBox, setIsSavingBox] = useState(false);
+
 
   // Motion controls rendered by the shared CaptionEngine (preview + export).
   const [customEntranceAnim, setCustomEntranceAnim] = useState<"none" | "rise" | "pop" | "fade">("rise");
@@ -310,13 +305,17 @@ export default function ProjectWorkspacePage() {
             setCustomShadow(res.shadow || 0.0);
             setCustomOutline(res.outline || 2.0);
             setCustomBackgroundStyle(res.background_style || "none");
-            setCustomYPositionPercent(res.y_position_percent || 71.4);
+            setCustomYPositionPercent(res.y_position_percent || 75.0);
+            setCustomXPositionPercent(res.x_position_percent !== undefined ? res.x_position_percent : 50.0);
+            if (res.box_left !== undefined) setCustomBoxLeft(res.box_left);
+            if (res.box_right !== undefined) setCustomBoxRight(res.box_right);
+            if (res.box_top !== undefined) setCustomBoxTop(res.box_top);
+            if (res.box_bottom !== undefined) setCustomBoxBottom(res.box_bottom);
             setCustomCaptionTemplate(res.caption_template || "staggered_3line");
             setExpandedTemplateId(res.caption_template || "staggered_3line");
             setCustomStaggeredLayout((res.staggered_layout as "splash" | "centre") || "splash");
             setCustomWordLimit(res.word_limit || 5);
             setCustomCaptionSpacingMs(res.caption_spacing_ms || 50);
-            setCustomWordPacing(res.word_pacing || "dynamic");
             setCustomPauseHandling(res.pause_handling || "hold");
             setCustomAccentPeriodEnabled(res.accent_period_enabled !== undefined ? res.accent_period_enabled : true);
 
@@ -341,10 +340,6 @@ export default function ProjectWorkspacePage() {
             setCustomColorMode((res.color_mode || "solid") as any);
             if (res.color2) setCustomColor2(res.color2);
             if (res.x_position_percent != null) setCustomXPositionPercent(res.x_position_percent);
-            if (res.box_top != null) setCustomBoxTop(res.box_top);
-            if (res.box_bottom != null) setCustomBoxBottom(res.box_bottom);
-            if (res.box_left != null) setCustomBoxLeft(res.box_left);
-            if (res.box_right != null) setCustomBoxRight(res.box_right);
             if (res.keyword_font) setHeroFont(res.keyword_font);
             if (res.keyword_weight) setHeroFontFace(wMap[res.keyword_weight] || "Template default");
             if (res.keyword_size_scale != null) setHeroSizeScale(res.keyword_size_scale);
@@ -472,7 +467,6 @@ export default function ProjectWorkspacePage() {
       accent_period_enabled: customAccentPeriodEnabled,
       word_limit: customWordLimit,
       caption_spacing_ms: customCaptionSpacingMs,
-      word_pacing: customWordPacing,
       pause_handling: customPauseHandling,
       text_transform: customCasing,
       underline: customUnderline,
@@ -482,10 +476,10 @@ export default function ProjectWorkspacePage() {
       color_mode: customColorMode,
       color2: customColorMode === "gradient" ? customColor2 : null,
       x_position_percent: customXPositionPercent,
-      box_top: customBoxTop,
-      box_bottom: customBoxBottom,
       box_left: customBoxLeft,
       box_right: customBoxRight,
+      box_top: customBoxTop,
+      box_bottom: customBoxBottom,
       keyword_font: heroFont || null,
       keyword_weight: resolvedKeywordWeight,
       keyword_size_scale: heroSizeScale,
@@ -546,8 +540,7 @@ export default function ProjectWorkspacePage() {
         accent_period_enabled: customAccentPeriodEnabled,
         word_limit: customWordLimit,
         caption_spacing_ms: customCaptionSpacingMs,
-        word_pacing: customWordPacing,
-        pause_handling: customPauseHandling,
+          pause_handling: customPauseHandling,
         text_transform: customCasing,
         underline: customUnderline,
         letter_spacing: customLetterSpacing,
@@ -556,10 +549,6 @@ export default function ProjectWorkspacePage() {
         color_mode: customColorMode,
         color2: customColorMode === "gradient" ? customColor2 : null,
         x_position_percent: customXPositionPercent,
-        box_top: customBoxTop,
-        box_bottom: customBoxBottom,
-        box_left: customBoxLeft,
-        box_right: customBoxRight,
         keyword_font: heroFont || null,
         keyword_weight: resolvedKeywordWeight,
         keyword_size_scale: heroSizeScale,
@@ -581,41 +570,35 @@ export default function ProjectWorkspacePage() {
       }
     }, 1000);
   };
-
-  const applyBoxToFragment = async (startMs: number, box: { top: number; bottom: number; left: number; right: number }) => {
-    setIsSavingBox(true);
-    try {
-      await projectsService.setFragmentOverride(projectId, startMs, box);
-      if (project?.status === "COMPLETED") {
-        await projectsService.generateMotionScript(projectId);
-        refetchMotionScript();
-      }
-    } catch (err) {
-      console.error("Error saving fragment box override:", err);
-    } finally {
-      setIsSavingBox(false);
-      setPendingBoxCommit(null);
-    }
+  const handleUpdatePosition = (x: number, y: number) => {
+    setCustomXPositionPercent(x);
+    setCustomYPositionPercent(y);
   };
 
-  const applyBoxToAll = async (box: { top: number; bottom: number; left: number; right: number }) => {
-    setIsSavingBox(true);
-    setCustomBoxTop(box.top);
-    setCustomBoxBottom(box.bottom);
-    setCustomBoxLeft(box.left);
-    setCustomBoxRight(box.right);
-    try {
-      await saveStyleImmediate({
-        box_top: box.top,
-        box_bottom: box.bottom,
-        box_left: box.left,
-        box_right: box.right,
-      });
-    } finally {
-      setIsSavingBox(false);
-      setPendingBoxCommit(null);
-    }
+  const handleUpdateBoxMargins = (left: number, right: number) => {
+    setCustomBoxLeft(left);
+    setCustomBoxRight(right);
   };
+
+  const handleUpdateFontSize = (size: number) => {
+    setCustomSize(Math.round(size));
+  };
+
+  const handleDragResizeEnd = (
+    x: number,
+    y: number,
+    left: number | null,
+    right: number | null,
+    size: number | null,
+  ) => {
+    const overrides: any = { x_position_percent: x, y_position_percent: y };
+    if (left !== null) overrides.box_left = left;
+    if (right !== null) overrides.box_right = right;
+    if (size !== null) overrides.size = Math.round(size);
+    saveStyleImmediate(overrides);
+  };
+
+
 
   const saveTranscriptBackground = (updatedWords: any[]) => {
     if (transcriptSaveTimeoutRef.current) {
@@ -760,7 +743,12 @@ export default function ProjectWorkspacePage() {
       heroSizeScale,
       entranceAnim: customEntranceAnim,
       highlightAnim: customHighlightAnim,
-      box: { top: customBoxTop, bottom: customBoxBottom, left: customBoxLeft, right: customBoxRight },
+      box: customBoxLeft !== null && customBoxRight !== null ? {
+        top: customBoxTop ?? 80,
+        bottom: customBoxBottom ?? 120,
+        left: customBoxLeft,
+        right: customBoxRight,
+      } : null,
       accentPeriod: customAccentPeriodEnabled,
     };
   }, [
@@ -770,9 +758,9 @@ export default function ProjectWorkspacePage() {
     customLineSpacing, shadowEnabled, customShadow, customShadowColor,
     strokeEnabled, customOutline, customOutlineColor, backgroundEnabled,
     selectedBackgroundStyle, customXPositionPercent, customYPositionPercent,
+    customBoxLeft, customBoxRight, customBoxTop, customBoxBottom,
     customStaggeredLayout, heroFont, heroFontFace, heroSizeScale,
-    customEntranceAnim, customHighlightAnim, customBoxTop, customBoxBottom,
-    customBoxLeft, customBoxRight, customAccentPeriodEnabled,
+    customEntranceAnim, customHighlightAnim, customAccentPeriodEnabled,
   ]);
 
   const handleTemplateClick = async (presetId: string) => {
@@ -796,7 +784,6 @@ export default function ProjectWorkspacePage() {
     setCustomAccentPeriodEnabled(preset.accent_period_enabled !== undefined ? preset.accent_period_enabled : true);
     setCustomWordLimit(preset.word_limit || 5);
     setCustomCaptionSpacingMs(preset.caption_spacing_ms || 50);
-    setCustomWordPacing(preset.word_pacing || "dynamic");
     setCustomPauseHandling(preset.pause_handling || "hold");
 
     setShadowEnabled(preset.shadow > 0);
@@ -814,7 +801,9 @@ export default function ProjectWorkspacePage() {
     setCustomLetterSpacing(0);
     setCustomWordSpacing(6);
     setCustomLineSpacing(1.0);
-
+    // Templates ship their own designed safe-area — a box left over from a
+    // previous template (or a manual drag) would otherwise silently carry
+    // over and can look misplaced against the new layout.
     setCustomBoxTop(preset.box_top);
     setCustomBoxBottom(preset.box_bottom);
     setCustomBoxLeft(preset.box_left);
@@ -855,7 +844,6 @@ export default function ProjectWorkspacePage() {
       accent_period_enabled: preset.accent_period_enabled !== undefined ? preset.accent_period_enabled : true,
       word_limit: preset.word_limit || 5,
       caption_spacing_ms: preset.caption_spacing_ms || 50,
-      word_pacing: preset.word_pacing || "dynamic",
       pause_handling: preset.pause_handling || "hold",
       text_transform: "none",
       underline: false,
@@ -865,14 +853,14 @@ export default function ProjectWorkspacePage() {
       color_mode: "solid",
       color2: null,
       x_position_percent: null,
-      alignment: "center",
-      keyword_font: null,
-      keyword_weight: null,
-      keyword_size_scale: null,
       box_top: preset.box_top,
       box_bottom: preset.box_bottom,
       box_left: preset.box_left,
       box_right: preset.box_right,
+      alignment: "center",
+      keyword_font: null,
+      keyword_weight: null,
+      keyword_size_scale: null,
     });
   };
 
@@ -1026,14 +1014,20 @@ export default function ProjectWorkspacePage() {
           setCustomXPositionPercent={setCustomXPositionPercent}
           customYPositionPercent={customYPositionPercent}
           setCustomYPositionPercent={setCustomYPositionPercent}
+          customBoxLeft={customBoxLeft}
+          setCustomBoxLeft={setCustomBoxLeft}
+          customBoxRight={customBoxRight}
+          setCustomBoxRight={setCustomBoxRight}
+          customBoxTop={customBoxTop}
+          setCustomBoxTop={setCustomBoxTop}
+          customBoxBottom={customBoxBottom}
+          setCustomBoxBottom={setCustomBoxBottom}
           customStaggeredLayout={customStaggeredLayout}
           setCustomStaggeredLayout={setCustomStaggeredLayout}
           customWordLimit={customWordLimit}
           setCustomWordLimit={setCustomWordLimit}
           customCaptionSpacingMs={customCaptionSpacingMs}
           setCustomCaptionSpacingMs={setCustomCaptionSpacingMs}
-          customWordPacing={customWordPacing}
-          setCustomWordPacing={setCustomWordPacing}
           customPauseHandling={customPauseHandling}
           setCustomPauseHandling={setCustomPauseHandling}
           customAccentPeriodEnabled={customAccentPeriodEnabled}
@@ -1052,16 +1046,7 @@ export default function ProjectWorkspacePage() {
           saveStyleBackground={saveStyleBackground}
           handleTemplateClick={handleTemplateClick}
           styleError={styleError}
-          customBoxTop={customBoxTop}
-          customBoxBottom={customBoxBottom}
-          customBoxLeft={customBoxLeft}
-          customBoxRight={customBoxRight}
-          setCustomBoxTop={setCustomBoxTop}
-          setCustomBoxBottom={setCustomBoxBottom}
-          setCustomBoxLeft={setCustomBoxLeft}
-          setCustomBoxRight={setCustomBoxRight}
-          boxEditMode={boxEditMode}
-          setBoxEditMode={setBoxEditMode}
+
           customEntranceAnim={customEntranceAnim}
           setCustomEntranceAnim={setCustomEntranceAnim}
           customHighlightAnim={customHighlightAnim}
@@ -1095,17 +1080,14 @@ export default function ProjectWorkspacePage() {
             setIsMuted={setIsMuted}
             activeExportId={activeExportId}
             setActiveExportId={setActiveExportId}
-            boxEditMode={boxEditMode}
-            setBoxEditMode={setBoxEditMode}
-            pendingBoxCommit={pendingBoxCommit}
-            setPendingBoxCommit={setPendingBoxCommit}
-            liveDragBox={liveDragBox}
-            setLiveDragBox={setLiveDragBox}
-            isSavingBox={isSavingBox}
             videoRef={videoRef}
             playerContainerRef={playerContainerRef}
             playerWidth={playerWidth}
             setPlayerWidth={setPlayerWidth}
+            onUpdatePosition={handleUpdatePosition}
+            onUpdateBoxMargins={handleUpdateBoxMargins}
+            onUpdateFontSize={handleUpdateFontSize}
+            onDragResizeEnd={handleDragResizeEnd}
             wavesurfer={wavesurfer}
             project={project}
             projectVideo={projectVideo}
@@ -1135,12 +1117,6 @@ export default function ProjectWorkspacePage() {
             customYPositionPercent={customYPositionPercent}
             customXPositionPercent={customXPositionPercent}
             customStaggeredLayout={customStaggeredLayout}
-            customBoxTop={customBoxTop}
-            customBoxBottom={customBoxBottom}
-            customBoxLeft={customBoxLeft}
-            customBoxRight={customBoxRight}
-            applyBoxToFragment={applyBoxToFragment}
-            applyBoxToAll={applyBoxToAll}
             handleUploadFile={handleUploadFile}
             pickKeywordIndex={pickKeywordIndex}
             getActiveSegmentAndIndex={getActiveSegmentAndIndex}

@@ -128,14 +128,6 @@ def pick_keyword_idx(words_text: list[str]) -> int:
             best_idx = i
     return best_idx
 
-def resolve_box_margins(cap_payload, margin_l: int, margin_r: int, canvas_width: int) -> tuple[int, int]:
-    """Per-caption-card box override (Phase C) takes priority over the
-    project's global safe_area margins — falls back to the global margins
-    when the card has no override, same as before this field existed."""
-    box = getattr(cap_payload, "box", None)
-    if box is not None:
-        return int(box.left), canvas_width - int(box.right)
-    return margin_l, canvas_width - margin_r
 
 
 def estimate_text_width(text: str, font_size: float) -> float:
@@ -152,6 +144,22 @@ def estimate_text_width(text: str, font_size: float) -> float:
         else:
             width += font_size * 0.52
     return width
+
+
+def resolve_box_margins(cap_payload, margin_l: int, margin_r: int, width: int) -> tuple[int, int]:
+    box = getattr(cap_payload, "box", None)
+    if box:
+        if isinstance(box, dict):
+            l = box.get("left")
+            r = box.get("right")
+        else:
+            l = getattr(box, "left", None)
+            r = getattr(box, "right", None)
+        l_val = int(l) if l is not None else margin_l
+        r_val = int(width - r) if r is not None else (width - margin_r)
+        return l_val, r_val
+    return margin_l, width - margin_r
+
 
 class RenderEngine:
     def __init__(self, ffmpeg_binary: str = "ffmpeg", ffprobe_binary: str = "ffprobe") -> None:
@@ -229,9 +237,9 @@ class RenderEngine:
         base_color = self.hex_to_ass_abgr(preset.typography.color)
         outline = preset.typography.outline
         shadow = preset.typography.shadow
-        margin_l = int(preset.safe_area.left)
-        margin_r = int(preset.safe_area.right)
-        margin_v = int(preset.safe_area.bottom)
+        margin_l = int(width * 0.08)
+        margin_r = int(width * 0.08)
+        margin_v = int(height * 0.25)
 
         bold_str = str(preset.typography.weight)
         if bold_str.isdigit():
@@ -567,13 +575,15 @@ class RenderEngine:
                     size_large = size_normal * 1.8
 
                     box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
-                    box_width = box_right - box_left
+                    box_width = max(100, (box_right or (width - margin_r)) - (box_left or margin_l))
 
                     def fit(sz: float, text: str) -> float:
-                        if not text:
+                        if not text or not box_width:
                             return sz
                         w_est = estimate_text_width(text, sz)
-                        return sz * (box_width / w_est) if w_est > box_width else sz
+                        if w_est and w_est > box_width:
+                            return sz * (box_width / w_est)
+                        return sz
 
                     size_l1 = fit(size_l1, " ".join(line1_words))
                     size_l3 = fit(size_l3, " ".join(line3_words))
@@ -589,23 +599,38 @@ class RenderEngine:
                     start_str = self.ms_to_ass_time(t_start)
                     end_str = self.ms_to_ass_time(t_end)
 
-                    hl_color = active_color_abgr or self.hex_to_ass_abgr("#FFEE00")
-                    drop_shadow_tag = "\\bord0\\shad5\\4c&H000000&\\4a&H50&\\blur0.8"
+                    deep_yellow_color = self.hex_to_ass_abgr("#FFD700")
+                    hl_color = active_color_abgr or self.hex_to_ass_abgr("#FF2A6D")
+                    drop_shadow_tag = "\\bord3\\3c&H000000&\\shad4\\4c&H000000&\\blur0.8"
+
+                    W2 = estimate_text_width(line2_text, size_large) or 0.0
+                    is_centre = staggered_layout == "centre"
+
+                    if is_centre:
+                        X_l1, an_l1 = 540, 5
+                        X_l3, an_l3 = 540, 5
+                    else:
+                        X_l1, an_l1 = int(540 - W2 / 2), 4
+                        if X_l1 < box_left:
+                            X_l1 = box_left
+                        X_l3, an_l3 = int(540 + W2 / 2), 6
+                        if X_l3 > box_right:
+                            X_l3 = box_right
 
                     if visible_l1:
                         l1_parts = []
                         for idx, w in enumerate(line1_words):
                             if idx <= revealed_max:
                                 if idx == active_idx:
-                                    l1_parts.append(f"{{\\c{hl_color}}}{w}{{\\c&HFFFFFF&}}")
+                                    l1_parts.append(f"{{\\c{hl_color}}}{w}{{\\c{deep_yellow_color}}}")
                                 else:
                                     l1_parts.append(w)
                         l1_str = " ".join(l1_parts)
-                        l1_tags = f"{{\\pos(540,{int(Y_l1)})\\an5\\fn{body_font}\\fs{int(size_l1)}\\c&HFFFFFF&{drop_shadow_tag}\\b900}}"
+                        l1_tags = f"{{\\pos({X_l1},{int(Y_l1)})\\an{an_l1}\\fn{body_font}\\fs{int(size_l1)}\\c{deep_yellow_color}{drop_shadow_tag}\\b900}}"
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l1_tags}{l1_str}")
 
                     if has_l2:
-                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c&HFFFFFF&{drop_shadow_tag}\\b900\\i1}}"
+                        l2_tags = f"{{\\pos(540,{int(Y_l2)})\\an5\\fn{keyword_font}\\fs{int(size_large)}\\c{deep_yellow_color}{drop_shadow_tag}\\b900\\i1}}"
                         l2_str = f"{line2_text}{{\\c{hl_color}}}."
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l2_tags}{l2_str}")
 
@@ -615,12 +640,13 @@ class RenderEngine:
                             abs_idx = k + 1 + idx
                             if abs_idx <= revealed_max:
                                 if abs_idx == active_idx:
-                                    l3_parts.append(f"{{\\c{hl_color}}}{w}{{\\c&HFFFFFF&}}")
+                                    l3_parts.append(f"{{\\c{hl_color}}}{w}{{\\c{deep_yellow_color}}}")
                                 else:
                                     l3_parts.append(w)
                         l3_str = " ".join(l3_parts)
-                        l3_tags = f"{{\\pos(540,{int(Y_l3)})\\an5\\fn{body_font}\\fs{int(size_l3)}\\c&HFFFFFF&{drop_shadow_tag}\\b900}}"
+                        l3_tags = f"{{\\pos({X_l3},{int(Y_l3)})\\an{an_l3}\\fn{body_font}\\fs{int(size_l3)}\\c{deep_yellow_color}{drop_shadow_tag}\\b900}}"
                         ass_lines.append(f"Dialogue: 2,{start_str},{end_str},Default,,0,0,0,,{l3_tags}{l3_str}")
+
 
                 elif is_cinematic_emerald:
                     k = None
@@ -785,11 +811,11 @@ class RenderEngine:
                     # off their keyword-synced anchor — see below) just
                     # enough to keep their full (not just currently-revealed)
                     # text inside this box.
-                    box_left, box_right = resolve_box_margins(cap_payload, margin_l, margin_r, width)
+                    box_left = margin_l
+                    box_right = width - margin_r
 
-                    # Vertical position calculations: ensure they appear at the chosen y-axis height
-                    y_pct = getattr(preset.typography, "y_position_percent", 71.4) or 71.4
-                    base_y = int(height * y_pct / 100.0)
+                    # Vertical position calculations: locked to 3/4th (75%) height
+                    base_y = int(height * 0.75)
                     # Tighter vertical rhythm — 1.45x line height left more
                     # empty space between lines than text on screen,
                     # especially once cards regularly hold their full
@@ -1017,9 +1043,8 @@ class RenderEngine:
                     # narrows/widens that wrap width by overriding them
                     # in-line instead of falling through to the Style
                     # line's global margins (the "0,0" default below).
-                    cap_box = getattr(cap_payload, "box", None)
-                    dialogue_margin_l = int(cap_box.left) if cap_box is not None else margin_l
-                    dialogue_margin_r = int(cap_box.right) if cap_box is not None else margin_r
+                    dialogue_margin_l = margin_l
+                    dialogue_margin_r = margin_r
                     ass_lines.append(
                         f"Dialogue: 0,{start_str},{end_str},Default,,{dialogue_margin_l},{dialogue_margin_r},0,,{full_text}"
                     )
@@ -1079,24 +1104,18 @@ class RenderEngine:
         from app.core.config import get_settings
         settings = get_settings()
 
-        # Remotion is now the primary rendering engine for every template
-        # that has a real per-template layout (the "advanced" family below)
-        # — these used to render through the ASS/libass path, which can't
-        # express gradients, blurred glows, or CSS-quality typography and
-        # forced every effect to be approximated with ASS tag hacks. The
-        # ASS path remains as the renderer for the plain word_by_word /
-        # sentence_highlight / sentence_clean templates, which have no
-        # layered look worth the extra Remotion render cost.
-        used_template = getattr(motion_script.global_settings, "caption_template", None)
-        is_advanced_template = used_template in {
-            "cinematic_emerald",
-            "staggered_3line",
-            "glow_stack",
-            "cartoon_stack",
-            "serif_pop",
-        }
-
-        if settings.use_remotion_render and is_advanced_template:
+        # Remotion is the single rendering engine for every caption template.
+        # The ASS/libass path (render_ass, below) used to own word_by_word /
+        # sentence_highlight / sentence_clean because they had no layered
+        # look worth the extra render cost — but that split meant every
+        # text-setting control had to be implemented (and kept in sync)
+        # twice, and most of them only ever were on one side. Both paths
+        # already consume the exact same MotionScript timeline (render_ass
+        # does no independent segmentation), so there's no correctness
+        # reason left to keep them apart. render_ass is retained only as a
+        # manual fallback (use_remotion_render=False) while the unified path
+        # is verified in production; it is otherwise unreachable.
+        if settings.use_remotion_render:
             return self.render_remotion(motion_script, video_path, output_path, progress_callback)
         else:
             return self.render_ass(motion_script, video_path, output_path, progress_callback)

@@ -56,26 +56,7 @@ FRAGMENT_OVERRIDE_MATCH_TOLERANCE_MS = 250
 
 
 def apply_fragment_overrides(motion_script_data: dict, project: Project) -> dict:
-    """Resolves each caption event's payload.box from the project's sparse
-    fragment_overrides_json (nearest start_ms within tolerance), mutating
-    and returning the same motion_script_data dict. A caption with no
-    matching override keeps payload.box unset (None) — renderers already
-    fall back to the project's global safe_area in that case, so "no
-    override" needs no explicit action here."""
-    overrides = project.fragment_overrides_json or {}
-    if not overrides:
-        return motion_script_data
-
-    override_starts = [int(k) for k in overrides.keys()]
-    for event in motion_script_data.get("timeline", []):
-        if event.get("type") != "caption":
-            continue
-        start_ms = event.get("start_ms")
-        if start_ms is None:
-            continue
-        nearest = min(override_starts, key=lambda s: abs(s - start_ms))
-        if abs(nearest - start_ms) <= FRAGMENT_OVERRIDE_MATCH_TOLERANCE_MS:
-            event["payload"]["box"] = overrides[str(nearest)]["box"]
+    """No-op: safe-area overrides are deleted."""
     return motion_script_data
 
 
@@ -407,43 +388,6 @@ async def get_custom_style(
         })
 
 
-class FragmentOverrideRequest(BaseModel):
-    top: float
-    bottom: float
-    left: float
-    right: float
-
-
-@router.put("/projects/{project_id}/fragment-override/{start_ms}")
-async def upsert_fragment_override(
-    project_id: uuid.UUID,
-    start_ms: int,
-    body: FragmentOverrideRequest,
-    project: Project = Depends(get_owned_project),
-    project_repository: ProjectRepository = Depends(get_project_repository),
-):
-    # Keyed by the caption card's own start_ms — the only anchor stable
-    # across MotionScript regenerations (evt-N timeline IDs restart at 1
-    # every regeneration and are not safe to key overrides on). The merge
-    # step in generate_motion_script/export_project matches by nearest
-    # start_ms within a tolerance window, not exact equality, so a few ms
-    # of drift from re-transcription/re-grouping doesn't detach this.
-    await project_repository.set_fragment_override(
-        project,
-        start_ms_key=str(start_ms),
-        box={"top": body.top, "bottom": body.bottom, "left": body.left, "right": body.right},
-    )
-    return success_response({"start_ms": start_ms})
-
-
-@router.delete("/projects/{project_id}/fragment-override/{start_ms}", status_code=204)
-async def delete_fragment_override(
-    project_id: uuid.UUID,
-    start_ms: int,
-    project: Project = Depends(get_owned_project),
-    project_repository: ProjectRepository = Depends(get_project_repository),
-):
-    await project_repository.delete_fragment_override(project, start_ms_key=str(start_ms))
 
 
 @router.delete("/projects/{project_id}", status_code=204)

@@ -2,9 +2,9 @@
 
 import React from "react";
 import { Project } from "@/services/types";
-import { CaptionBoxEditor, BoxMargins } from "@/components/CaptionBoxEditor";
+
 import SmoothCaptionOverlay from "@/components/project/SmoothCaptionOverlay";
-import { CaptionStyle } from "@/remotion/CaptionEngine";
+import { CaptionStyle } from "@motion-ai/caption-engine";
 
 interface VideoPlayerSectionProps {
   // State
@@ -28,13 +28,19 @@ interface VideoPlayerSectionProps {
   setIsMuted: (v: boolean) => void;
   activeExportId: string | null;
   setActiveExportId: (id: string | null) => void;
-  boxEditMode: boolean;
-  setBoxEditMode: (v: boolean) => void;
-  pendingBoxCommit: { top: number; bottom: number; left: number; right: number } | null;
-  setPendingBoxCommit: (v: { top: number; bottom: number; left: number; right: number } | null) => void;
-  liveDragBox: { top: number; bottom: number; left: number; right: number } | null;
-  setLiveDragBox: (v: { top: number; bottom: number; left: number; right: number } | null) => void;
-  isSavingBox: boolean;
+
+
+  // State
+  onUpdatePosition: (x: number, y: number) => void;
+  onUpdateBoxMargins: (left: number, right: number) => void;
+  onUpdateFontSize: (size: number) => void;
+  onDragResizeEnd: (
+    x: number,
+    y: number,
+    left: number | null,
+    right: number | null,
+    size: number | null,
+  ) => void;
 
   // Refs & Element binders
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -75,15 +81,6 @@ interface VideoPlayerSectionProps {
   customXPositionPercent: number;
   customStaggeredLayout: "splash" | "centre";
   
-  // Custom Box margins
-  customBoxTop: number;
-  customBoxBottom: number;
-  customBoxLeft: number;
-  customBoxRight: number;
-
-  // Action methods
-  applyBoxToFragment: (startMs: number, box: { top: number; bottom: number; left: number; right: number }) => Promise<void>;
-  applyBoxToAll: (box: { top: number; bottom: number; left: number; right: number }) => Promise<void>;
   handleUploadFile: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   pickKeywordIndex: (words: any[]) => number;
   getActiveSegmentAndIndex: () => { words: any[]; absoluteStartIndex: number; relativeActiveIdx: number } | null;
@@ -110,10 +107,7 @@ export const VideoPlayerSection: React.FC<VideoPlayerSectionProps> = ({
   volume, setVolume,
   isMuted, setIsMuted,
   activeExportId, setActiveExportId,
-  boxEditMode, setBoxEditMode,
-  pendingBoxCommit, setPendingBoxCommit,
-  liveDragBox, setLiveDragBox,
-  isSavingBox,
+  onUpdatePosition, onUpdateBoxMargins, onUpdateFontSize, onDragResizeEnd,
   videoRef, playerContainerRef, playerWidth, setPlayerWidth, wavesurfer,
   project, projectVideo, exports, motionScript, localWords,
   customCaptionTemplate, customSize, customFont, customFontFace,
@@ -123,8 +117,7 @@ export const VideoPlayerSection: React.FC<VideoPlayerSectionProps> = ({
   shadowEnabled, strokeEnabled, backgroundEnabled, selectedBackgroundStyle,
   customShadow, customOutline, customYPositionPercent, customXPositionPercent,
   customStaggeredLayout,
-  customBoxTop, customBoxBottom, customBoxLeft, customBoxRight,
-  applyBoxToFragment, applyBoxToAll, handleUploadFile,
+  handleUploadFile,
   pickKeywordIndex, getActiveSegmentAndIndex,
   captionStyle, captionWordLimit,
 }) => {
@@ -351,97 +344,15 @@ export const VideoPlayerSection: React.FC<VideoPlayerSectionProps> = ({
                 canvasHeight={canvasHeight}
                 scale={playerWidth / canvasWidth}
                 fallbackTimeMs={currentTimeMs}
+                onUpdatePosition={onUpdatePosition}
+                onUpdateBoxMargins={onUpdateBoxMargins}
+                onUpdateFontSize={onUpdateFontSize}
+                onDragResizeEnd={onDragResizeEnd}
               />
             );
           })()}
 
-          {/* Safe-Box constraints Editor Overlay */}
-          {boxEditMode && !activeExportId && (() => {
-            // Same real-display canvas as the caption layer above — the box
-            // must sit on the same coordinate system the captions render in.
-            const getCanvasDims = () => {
-              const width = 1080;
-              const ratio = selectedRatio === "original"
-                ? naturalAspectRatio
-                : selectedRatio === "9:16" ? 9 / 16
-                : selectedRatio === "16:9" ? 16 / 9
-                : selectedRatio === "1:1" ? 1
-                : 4 / 5;
-              return { width, height: width / ratio };
-            };
-            const { width: canvasWidth, height: canvasHeight } = getCanvasDims();
-            const S = playerWidth / canvasWidth;
 
-            const activeCaption = motionScript?.timeline?.find(
-              (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-            );
-            const resolvedBox: BoxMargins = activeCaption?.payload?.box ?? {
-              top: customBoxTop, bottom: customBoxBottom, left: customBoxLeft, right: customBoxRight,
-            };
-            const displayBox = liveDragBox ?? resolvedBox;
-
-            return (
-              <CaptionBoxEditor
-                box={displayBox}
-                canvasWidth={canvasWidth}
-                canvasHeight={canvasHeight}
-                scale={S}
-                template={captionStyle.template}
-                yPercent={captionStyle.yPercent}
-                onChange={setLiveDragBox}
-                onCommit={(box) => {
-                  setLiveDragBox(null);
-                  setPendingBoxCommit(box);
-                }}
-              />
-            );
-          })()}
-
-          {/* Progress bottom-bar line */}
-          <div className="absolute bottom-0 inset-x-0 h-1 bg-[#3B301C]">
-            <div
-              className="h-full bg-[#6FBF8F] transition-all duration-75"
-              style={{ width: `${durationMs > 0 ? (currentTimeMs / durationMs) * 100 : 0}%` }}
-            />
-          </div>
-
-          {/* Bounding Box Apply Dialog overlay */}
-          {pendingBoxCommit && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-[#171208]/95 border border-[#DCC8A4]/40 rounded-full pl-4 pr-1.5 py-1.5 shadow-xl text-left">
-              <span className="text-[9px] font-black uppercase tracking-wider text-white/70">Apply box to</span>
-              <button
-                disabled={isSavingBox}
-                onClick={() => {
-                  const activeCaption = motionScript?.timeline?.find(
-                    (e: any) => e.type === "caption" && currentTimeMs >= e.start_ms && currentTimeMs <= e.end_ms
-                  );
-                  if (activeCaption && pendingBoxCommit) {
-                    applyBoxToFragment(activeCaption.start_ms, pendingBoxCommit);
-                  } else {
-                    setPendingBoxCommit(null);
-                  }
-                }}
-                className="text-[9px] font-bold uppercase tracking-wider text-[#171208] bg-[#DCC8A4] hover:bg-[#C9AF83] rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
-              >
-                This Caption
-              </button>
-              <button
-                disabled={isSavingBox}
-                onClick={() => pendingBoxCommit && applyBoxToAll(pendingBoxCommit)}
-                className="text-[9px] font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 cursor-pointer disabled:opacity-50"
-              >
-                All Captions
-              </button>
-              <button
-                disabled={isSavingBox}
-                onClick={() => setPendingBoxCommit(null)}
-                className="text-[9px] font-bold uppercase tracking-wider text-white/50 hover:text-white/80 rounded-full px-2 py-1 cursor-pointer disabled:opacity-50"
-                title="Discard"
-              >
-                ✕
-              </button>
-            </div>
-          )}
 
         </div>
       </div>
@@ -517,22 +428,7 @@ export const VideoPlayerSection: React.FC<VideoPlayerSectionProps> = ({
           })()}
         </div>
 
-        <button
-          onClick={() => {
-            setBoxEditMode(!boxEditMode);
-            setPendingBoxCommit(null);
-            setLiveDragBox(null);
-            setActiveExportId(null);
-          }}
-          className={`text-[9px] font-black uppercase tracking-wider rounded-full px-3 py-1.5 cursor-pointer transition-colors ${
-            boxEditMode
-              ? "bg-[#DCC8A4] text-[#171208]"
-              : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-          }`}
-          title="Drag/resize the caption's bounding box"
-        >
-          {boxEditMode ? "Editing Box" : "Edit Box"}
-        </button>
+
       </div>
     </section>
   );

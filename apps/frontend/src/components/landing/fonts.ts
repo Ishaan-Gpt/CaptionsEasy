@@ -13,10 +13,13 @@ import {
   Fredoka,
   Caveat,
   Cinzel,
+  Lilita_One,
+  Space_Mono,
+  Montserrat,
 } from "next/font/google";
 
 export const anton = Anton({ weight: "400", subsets: ["latin"] });
-export const outfit = Outfit({ weight: ["600", "700"], subsets: ["latin"] });
+export const outfit = Outfit({ weight: ["600", "700", "800"], subsets: ["latin"] });
 export const playfair = Playfair_Display({
   weight: ["800"],
   style: ["normal", "italic"],
@@ -24,6 +27,9 @@ export const playfair = Playfair_Display({
 });
 export const baloo = Baloo_2({ weight: "800", subsets: ["latin"] });
 export const kaushan = Kaushan_Script({ weight: "400", subsets: ["latin"] });
-export const fredoka = Fredoka({ weight: "600", subsets: ["latin"] });
+export const fredoka = Fredoka({ weight: ["600", "700"], subsets: ["latin"] });
 export const caveat = Caveat({ weight: "700", subsets: ["latin"] });
-export const cinzel = Cinzel({ weight: "800", subsets: ["latin"] });
+export const cinzel = Cinzel({ weight: ["600", "800"], subsets: ["latin"] });
+export const lilita = Lilita_One({ weight: "400", subsets: ["latin"] });
+export const spaceMono = Space_Mono({ weight: "700", subsets: ["latin"] });
+export const montserrat = Montserrat({ weight: ["800", "900"], subsets: ["latin"] });

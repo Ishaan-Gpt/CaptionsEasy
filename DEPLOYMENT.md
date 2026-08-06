@@ -30,32 +30,43 @@ fixable issues before they become live-deployment debugging.
 
 - **[YOU]** Groq account + API key (https://console.groq.com). You said
   Supabase is already set up but Groq still needs an account/key.
-- **[YOU]** Render account (https://render.com) — backend + worker + Redis.
+- **[YOU]** Render account (https://render.com) — backend, runs the worker inline (free tier has no separate Background Worker type).
+- **[YOU]** Upstash account (https://upstash.com) — free Redis instance for Celery. Free tier (10k commands/day) comfortably covers a handful of occasional beta users. Create a database, region closest to Render's (Oregon by default), copy the `rediss://` connection string.
 - **[YOU]** Vercel account (https://vercel.com) — frontend.
 - **[DONE]** Supabase: confirm you have, from your existing project's
   Settings > API / Database pages:
   - Project URL (`SUPABASE_URL`)
   - Service role key (`SUPABASE_SERVICE_ROLE_KEY`)
+  - Anon/public key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, for the frontend)
   - JWT secret (`SUPABASE_JWT_SECRET`, Settings > API > JWT Settings)
   - Async DB connection string (`DATABASE_URL_ASYNC`, use the `postgresql+asyncpg://...` form of your connection string)
   - Sync DB connection string (`DATABASE_URL`, `postgresql+psycopg2://...` form, used only by Alembic)
   - Storage bucket name (`SUPABASE_STORAGE_BUCKET`) — create one (e.g. `videos`) under Storage if it doesn't exist yet, and make sure it is **not** public (Storage clients use the service role key, never a public URL).
 
-## 1. Backend + worker + Redis — Render
+## 1. Backend + inline worker — Render
 
-**[DONE]** `apps/backend/Dockerfile` and `render.yaml` (repo root) define:
-- `motionai-backend` — web service running `uvicorn`, health check at `/health`, runs `alembic upgrade head` before each deploy.
-- `motionai-worker` — same image, runs `celery -A app.worker.celery_app worker`.
-- `motionai-redis` — managed Redis, connection string wired into both services automatically.
+**[DONE]** `apps/backend/Dockerfile` and `render.yaml` (repo root) define a
+single service, `motionai-backend` — web service running `uvicorn`, health
+check at `/health`. There is no separate worker service: Render's free tier
+has no Background Worker type, so `RUN_WORKER_INLINE=true` makes this same
+process also run the Celery worker loop in a background thread (see
+`app.main._start_inline_worker`). It talks to an **external** Redis
+(Upstash) rather than a Render-managed one. The Dockerfile also installs
+Node.js + pnpm and the `apps/remotion-pipeline` workspace, since
+`app/render/engine.py`'s default render path shells out to
+`npx remotion render` — this was missing until this deploy and would have
+failed every real render job.
 
 **[YOU]** in the Render dashboard:
-1. New > Blueprint, point at this repo/branch — Render reads `render.yaml` and creates all three services.
-2. For **both** `motionai-backend` and `motionai-worker`, set these env vars (Render does not let a blueprint commit secrets, so these must be added manually):
+1. New > Blueprint, point at this repo/branch — Render reads `render.yaml` and creates the service.
+2. Set these env vars manually (Render does not let a blueprint commit secrets):
    - `DATABASE_URL_ASYNC`, `DATABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`
+   - `REDIS_URL` — the `rediss://...` string from Upstash (note the double `s`, TLS)
    - `GROQ_API_KEY` (and leave `GROQ_BASE_URL`/`GROQ_SPEECH_MODEL` at their defaults unless you need to override)
-   - `SPEECH_PROVIDER_NAME=groq` (currently defaults to `dummy` — this is the one switch that turns on the real provider)
+   - `SPEECH_PROVIDER_NAME=groq`, `CREATIVE_PROVIDER_NAME=groq`, `CAPTION_PROVIDER_NAME=groq` (all default to `dummy` — these are the switches that turn on real Groq calls)
    - `CORS_ALLOW_ORIGINS=["https://<your-vercel-app>.vercel.app"]` (you'll know this URL after step 2 below — come back and set it)
-3. Deploy. Watch the build logs for the `pip install` + `alembic upgrade head` step on `motionai-backend`.
+3. Deploy. Watch the build logs — the Node/pnpm install step adds a few minutes on first build (cached after).
+4. Run migrations against the real DB once, from your machine: `cd apps/backend && DATABASE_URL=<sync-url-from-supabase> alembic upgrade head` (the free Render plan doesn't support `preDeployCommand`, so this is manual).
 
 ## 2. Frontend — Vercel
 
@@ -63,7 +74,9 @@ fixable issues before they become live-deployment debugging.
 1. New Project > import this repo.
 2. Root Directory: `apps/frontend` (this is a pnpm workspace — Vercel needs to know the frontend isn't at the repo root).
 3. Framework preset: Next.js (auto-detected). Install command: `pnpm install --frozen-lockfile` (Vercel usually auto-detects pnpm from `pnpm-lock.yaml`).
-4. Env var: `NEXT_PUBLIC_API_URL=https://<your-render-backend>.onrender.com/api/v1` (get the exact URL from the Render dashboard after step 1 deploys). This is the only frontend env var (`apps/frontend/.env.example`) — the frontend has no direct Supabase client, auth/storage go through the backend API.
+4. Env vars (`apps/frontend/.env.example`):
+   - `NEXT_PUBLIC_API_URL=https://<your-render-backend>.onrender.com/api/v1` (get the exact URL from the Render dashboard after step 1 deploys)
+   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the frontend instantiates its own Supabase client directly for auth (`src/services/auth/supabaseClient.ts`) and **the build/runtime throws if these are missing** — this was undocumented before this deploy.
 5. Deploy. Note the resulting `*.vercel.app` URL, then go back to Render and set `CORS_ALLOW_ORIGINS` to that exact URL (step 1.2).
 
 No custom domain for now, per your answer — ship on the default `*.onrender.com` / `*.vercel.app` subdomains; a custom domain is a drop-in addition later in both dashboards.

@@ -83,6 +83,25 @@ export interface CaptionPayload {
   color: string;
   alignment: string;
   animation: Animation;
+  text_transform?: string; // "none" | "uppercase" | "lowercase" | "capitalize"
+  underline?: boolean;
+  letter_spacing?: number;
+  word_spacing?: number;
+  line_spacing?: number;
+  color_mode?: string; // "solid" | "gradient"
+  color2?: string | null;
+  x_position_percent?: number | null;
+  y_position_percent?: number | null;
+  shadow?: number;
+  outline?: number;
+  background_style?: string; // "none" | "pill" | "shadow-box"
+  entrance_anim?: string; // "none" | "rise" | "pop" | "fade"
+  highlight_anim?: string; // "pop" | "flash" | "underline" | "glow"
+  outline_color?: string;
+  shadow_color?: string;
+  /** Per-caption-card bounding-box override — see SafeArea. None/absent
+   * means "use the project's global safe_area". */
+  box?: SafeArea | null;
 }
 
 export interface HighlightPayload {

@@ -7,7 +7,8 @@ import {
   CaptionCanvas,
   CaptionStyle,
   EngineWord,
-} from "@/remotion/CaptionEngine";
+} from "@motion-ai/caption-engine";
+import DraggableCaptionWrapper from "@/components/project/DraggableCaptionWrapper";
 
 /**
  * The live caption layer of the studio preview.
@@ -16,7 +17,9 @@ import {
  * WYSIWYG — and drives it with its own requestAnimationFrame clock reading
  * `video.currentTime` directly, so caption motion runs at display refresh
  * rate instead of the ~4Hz `timeupdate` event the old overlay used.
- * Every style-control change hits the next animation frame: realtime.
+ *
+ * Wraps the rendered captions in a DraggableCaptionWrapper so the user can
+ * grab and reposition or stretch the caption box directly — no toolbar needed.
  */
 export default function SmoothCaptionOverlay({
   videoRef,
@@ -28,6 +31,10 @@ export default function SmoothCaptionOverlay({
   canvasHeight,
   scale,
   fallbackTimeMs,
+  onUpdatePosition,
+  onUpdateBoxMargins,
+  onUpdateFontSize,
+  onDragResizeEnd,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   motionScript: any;
@@ -39,6 +46,16 @@ export default function SmoothCaptionOverlay({
   scale: number;
   /** Used when no <video> element exists yet (nothing uploaded). */
   fallbackTimeMs: number;
+  onUpdatePosition: (x: number, y: number) => void;
+  onUpdateBoxMargins: (left: number, right: number) => void;
+  onUpdateFontSize: (size: number) => void;
+  onDragResizeEnd: (
+    x: number,
+    y: number,
+    left: number | null,
+    right: number | null,
+    size: number | null,
+  ) => void;
 }) {
   const [timeMs, setTimeMs] = useState(fallbackTimeMs);
   const [settled, setSettled] = useState(true);
@@ -92,23 +109,46 @@ export default function SmoothCaptionOverlay({
 
   if (cards.length === 0) return null;
 
+  // Compute current margin values from the style for the DraggableCaptionWrapper
+  const box = style.box;
+  const marginLeft = box ? box.left : Math.round(canvasWidth * 0.08);
+  const marginRight = box ? box.right : Math.round(canvasWidth * 0.08);
+
   return (
     <div
-      className="absolute inset-0 pointer-events-none overflow-hidden select-none z-30"
+      className="absolute inset-0 overflow-hidden select-none z-30"
       style={{
         width: `${canvasWidth}px`,
         height: `${canvasHeight}px`,
         transform: `scale(${scale})`,
         transformOrigin: "top left",
+        pointerEvents: "none",
       }}
     >
-      <CaptionCanvas
-        timeMs={timeMs}
-        cards={cards}
-        style={style}
-        canvas={{ width: canvasWidth, height: canvasHeight }}
-        settled={settled}
-      />
+      {/* The DraggableCaptionWrapper sits inside the scaled canvas space.
+          It positions itself using the same xPercent/yPercent logic as
+          boxContainerStyle, then handles drag/resize pointer events. */}
+      <DraggableCaptionWrapper
+        xPercent={style.xPercent ?? 50}
+        yPercent={style.yPercent ?? 75}
+        canvasWidth={canvasWidth}
+        canvasHeight={canvasHeight}
+        marginLeftPx={marginLeft}
+        marginRightPx={marginRight}
+        fontSize={style.size}
+        onMove={onUpdatePosition}
+        onResize={onUpdateBoxMargins}
+        onResizeFont={onUpdateFontSize}
+        onEnd={onDragResizeEnd}
+      >
+        <CaptionCanvas
+          timeMs={timeMs}
+          cards={cards}
+          style={style}
+          canvas={{ width: canvasWidth, height: canvasHeight }}
+          settled={settled}
+        />
+      </DraggableCaptionWrapper>
     </div>
   );
 }

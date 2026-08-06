@@ -15,6 +15,8 @@ CONTENT_TYPE_TO_EXTENSION = {
     "video/mp4": ".mp4",
     "video/quicktime": ".mov",
     "video/webm": ".webm",
+    "video/x-matroska": ".mkv",
+    "video/mkv": ".mkv",
 }
 
 

@@ -1,14 +1,10 @@
 /**
  * CaptionEngine — the single source of truth for how captions look and move.
  *
- * Used by BOTH surfaces:
+ * Published as the @motion-ai/caption-engine workspace package and imported
+ * by BOTH surfaces (no copy-paste — that import IS the WYSIWYG guarantee):
  *   - apps/frontend .................. live preview (60fps rAF clock feeds timeMs)
  *   - apps/remotion-pipeline ......... export render (useCurrentFrame feeds timeMs)
- *
- * ⚠ This file is physically mirrored at:
- *      apps/frontend/src/remotion/CaptionEngine.tsx
- *      apps/remotion-pipeline/src/CaptionEngine.tsx
- *   Keep the two copies byte-identical — that equality IS the WYSIWYG guarantee.
  *
  * Design rules:
  *   - Everything is a pure function of `timeMs`. No CSS transitions, no
@@ -370,34 +366,28 @@ function boxContainerStyle(
   style: CaptionStyle,
   canvas: CanvasSpec,
 ): { container: React.CSSProperties; maxWidthPx: number } {
-  const box = resolveBox(card, style, canvas);
-  const left = Math.max(0, box.left);
-  const right = Math.max(0, box.right);
-  const maxWidthPx = Math.max(80, canvas.width - left - right);
+  const box = card.box || style.box;
+  const marginLeft = box ? box.left : Math.round(canvas.width * 0.08);
+  const marginRight = box ? box.right : Math.round(canvas.width * 0.08);
+  const maxWidthPx = Math.max(80, canvas.width - marginLeft - marginRight);
 
-  const yPx = (canvas.height * (style.yPercent || 71.4)) / 100;
-  const clampedY = Math.min(Math.max(yPx, box.top), canvas.height - box.bottom);
-
-  let leftPx = left;
-  let translateX = "0";
-  if (style.xPercent != null && Math.abs(style.xPercent - 50) > 0.5) {
-    leftPx = (canvas.width * style.xPercent) / 100;
-    translateX = "-50%";
-  }
+  const xPct = style.xPercent ?? 50;
+  const yPct = style.yPercent ?? 75;
+  const topPx = canvas.height * (yPct / 100);
+  const leftPct = xPct;
 
   return {
     container: {
       position: "absolute",
-      left: `${leftPx}px`,
-      width: style.xPercent != null && Math.abs(style.xPercent - 50) > 0.5 ? undefined : `${maxWidthPx}px`,
-      top: `${clampedY}px`,
-      transform: `translate(${translateX}, -50%)`,
+      left: `${leftPct}%`,
+      top: `${topPx}px`,
+      transform: "translate(-50%, -50%)",
+      width: `${maxWidthPx}px`,
       display: "flex",
       flexDirection: "column",
-      alignItems:
-        style.alignment === "left" ? "flex-start" : style.alignment === "right" ? "flex-end" : "center",
+      alignItems: "center",
       justifyContent: "center",
-      textAlign: style.alignment,
+      textAlign: "center",
     },
     maxWidthPx,
   };
@@ -422,13 +412,18 @@ function sharedTextStyle(style: CaptionStyle): React.CSSProperties {
     wordSpacing: `${style.wordSpacing}px`,
     textDecoration: style.underline ? "underline" : "none",
   };
-  if (style.shadow > 0) {
-    css.textShadow = `0px ${style.shadow}px ${Math.max(2, style.shadow * 1.4)}px ${style.shadowColor || "rgba(0,0,0,0.6)"}`;
-  }
-  if (style.outline > 0) {
-    (css as any).WebkitTextStroke = `${style.outline}px ${style.outlineColor || "#000000"}`;
-    (css as any).paintOrder = "stroke fill";
-  }
+  // Always set explicitly (rather than only when >0) so this can be spread
+  // AFTER a template skin's own decorative CSS and reliably win either way:
+  // a user-enabled shadow/outline overrides the skin default, and a
+  // disabled one (0) actually turns the skin default off instead of being
+  // silently shadowed by property spread order.
+  css.textShadow =
+    style.shadow > 0
+      ? `0px ${style.shadow}px ${Math.max(2, style.shadow * 1.4)}px ${style.shadowColor || "rgba(0,0,0,0.6)"}`
+      : "none";
+  (css as any).WebkitTextStroke =
+    style.outline > 0 ? `${style.outline}px ${style.outlineColor || "#000000"}` : "0px transparent";
+  (css as any).paintOrder = style.outline > 0 ? "stroke fill" : "normal";
   return css;
 }
 
@@ -614,6 +609,11 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
     height: `${size * 1.18}px`,
   });
 
+  const gradientCss =
+    style.colorMode === "gradient"
+      ? `linear-gradient(135deg, ${style.color}, ${style.color2 || style.highlightColor})`
+      : undefined;
+
   const bodyLine = (
     words: EngineWord[],
     size: number,
@@ -625,8 +625,11 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
       fontSize: `${size}px`,
       fontWeight: bodyWeight as any,
       lineHeight: 1.18,
-      ...sharedTextStyle(style),
+      // Skin defaults first, then the user's own shadow/outline toggles —
+      // sharedTextStyle always sets an explicit value (including "off") so
+      // it reliably wins the cascade in either direction.
       ...(skin.bodyCss ? skin.bodyCss(style) : {}),
+      ...sharedTextStyle(style),
     };
     const pos: React.CSSProperties = useSplash
       ? align === "left"
@@ -634,7 +637,11 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
         : align === "right"
           ? { position: "absolute", right: `${heroLeftPx}px`, top: 0 }
           : { position: "absolute", left: "50%", transform: "translateX(-50%)", top: 0 }
-      : { position: "absolute", left: "50%", transform: "translateX(-50%)", top: 0 };
+      : style.alignment === "left"
+        ? { position: "absolute", left: 0, top: 0 }
+        : style.alignment === "right"
+          ? { position: "absolute", right: 0, top: 0 }
+          : { position: "absolute", left: "50%", transform: "translateX(-50%)", top: 0 };
 
     return (
       <div style={{ ...inner, ...pos }}>
@@ -647,6 +654,7 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
             style={style}
             baseColor={skin.bodyColor(style)}
             animateHighlight={Boolean(skin.bodyHighlightFlash)}
+            gradientCss={gradientCss}
             trailingSpace={i < words.length - 1}
             settled={settled}
           />
@@ -664,7 +672,9 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
           flexDirection: "column",
           alignItems: "center",
           width: `${maxWidthPx}px`,
+          boxSizing: "border-box",
           gap: `${Math.max(0, lineGap - bodySizeRaw)}px`,
+          ...backgroundWrapStyle(style),
           ...entranceStyle(style.entranceAnim, enterP, timeMs, card.startMs),
         }}
       >
@@ -700,14 +710,15 @@ const STACK_SKINS: Record<string, StackSkin> = {
     bodyWeight: "700",
     bodyColor: (s) => s.color || "#FFFFFF",
     bodySizeScale: 1.1,
-    bodyCss: (s) => ({
-      WebkitTextStroke: `${s.outline > 0 ? s.outline : 2}px ${s.outlineColor || "#000000"}`,
-      paintOrder: "stroke fill",
-    }),
+    // Body stroke is fully user-controlled via sharedTextStyle (spread
+    // after this in ThreeLineStack's bodyLine) — no baseline needed here.
     heroFont: (s) => s.heroFont || "Anton",
     heroWeight: (s) => s.heroWeight || "900",
     heroSizeScale: (s) => s.heroSizeScale ?? 1.5,
     heroCasing: "uppercase",
+    // The hero word keeps a legible minimum outline regardless of the
+    // body's stroke toggle — it's the template's signature "block letter"
+    // look, not a user-adjustable effect (see TEMPLATE_LOCK_HINTS).
     heroCss: (s) => ({
       color: s.highlightColor || "#C5FF00",
       WebkitTextStroke: `${s.outline > 0 ? s.outline : 2}px ${s.outlineColor || "#000000"}`,
@@ -721,7 +732,8 @@ const STACK_SKINS: Record<string, StackSkin> = {
     bodyWeight: "800",
     bodyColor: () => "#FFFFFF",
     bodySizeScale: 1.2,
-    bodyCss: () => ({ textShadow: "0px 3px 6px rgba(0,0,0,0.45)" }),
+    // Body shadow is fully user-controlled via sharedTextStyle; presets for
+    // this template already carry an appropriate default `shadow` value.
     heroFont: (s) => s.heroFont || "Anton",
     heroWeight: (s) => s.heroWeight || "900",
     heroSizeScale: (s) => s.heroSizeScale ?? 2.3,
@@ -771,20 +783,23 @@ const STACK_SKINS: Record<string, StackSkin> = {
   serif_pop: {
     bodyFont: (s) => s.font,
     bodyWeight: "900",
-    bodyColor: () => "#FFFFFF",
+    bodyColor: () => "#FFD700",
     bodySizeScale: 1.0,
-    bodyCss: () => ({ textShadow: "0px 3px 3px rgba(0,0,0,0.45), 0px 6px 10px rgba(0,0,0,0.35)" }),
+    bodyCss: () => ({
+      color: "#FFD700",
+      textShadow: "0px 2px 4px rgba(0,0,0,0.9), 0px 4px 12px rgba(0,0,0,0.85), 0px 0px 2px #000000",
+    }),
     heroFont: (s) => s.heroFont || "'Kaushan Script', cursive",
     heroWeight: (s) => s.heroWeight || "400",
     heroSizeScale: (s) => s.heroSizeScale ?? 1.8,
     heroCss: () => ({
-      color: "#FFFFFF",
-      textShadow: "0px 3px 3px rgba(0,0,0,0.45), 0px 6px 10px rgba(0,0,0,0.35)",
+      color: "#FFD700",
+      textShadow: "0px 3px 6px rgba(0,0,0,0.9), 0px 6px 16px rgba(0,0,0,0.85), 0px 0px 3px #000000",
     }),
     heroSuffix: (s) =>
       s.accentPeriod === false ? null : <span style={{ color: s.highlightColor || "#FFEE00" }}>.</span>,
     lineGapScale: 1.15,
-    splash: false,
+    splash: true,
     bodyHighlightFlash: true,
   },
   cinematic_emerald: {
@@ -1020,16 +1035,16 @@ export function styleFromMotionScript(ms: any): CaptionStyle {
     outlineColor: firstCaption.outline_color || "#000000",
     backgroundStyle: (firstCaption.background_style as any) || "none",
     xPercent: firstCaption.x_position_percent ?? null,
-    yPercent: firstCaption.y_position_percent ?? 71.4,
+    yPercent: firstCaption.y_position_percent ?? 75,
     staggeredLayout: (gs.staggered_layout as any) || "splash",
     heroFont: hero.font ?? null,
     heroWeight: hero.weight ?? null,
     heroSizeScale: hero.size_scale ?? null,
     entranceAnim: (firstCaption.entrance_anim as any) || "rise",
     highlightAnim: (firstCaption.highlight_anim as any) || "pop",
-    box: safe
-      ? { top: safe.top ?? 80, bottom: safe.bottom ?? 120, left: safe.left ?? 50, right: safe.right ?? 50 }
-      : DEFAULT_BOX,
+    // Per-card override wins; otherwise fall back to the project's global
+    // safe_area (the same margins every renderer already uses for layout).
+    box: firstCaption.box ?? safe ?? null,
     accentPeriod: gs.accent_period_enabled !== false,
   };
 }

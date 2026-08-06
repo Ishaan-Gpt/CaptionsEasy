@@ -66,6 +66,68 @@ def build_ai_pipeline_stages(
         if video is None:
             raise ValueError(f"No video found for project {project_id}; cannot run AI pipeline.")
 
+        # Double check and dynamically extract/save metadata if missing in DB
+        if video.width is None or video.height is None:
+            try:
+                from app.storage.dependencies import get_storage_client
+                import tempfile
+                import subprocess
+                import json
+                import os
+                import asyncio
+                
+                # download video
+                storage_client = get_storage_client(settings)
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                video_bytes = loop.run_until_complete(storage_client.download(path=video.storage_path))
+                
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                    tmp.write(video_bytes)
+                    tmp_path = tmp.name
+                
+                try:
+                    from app.render.engine import RenderEngine
+                    engine = RenderEngine(
+                        ffmpeg_binary=settings.ffmpeg_binary if hasattr(settings, "ffmpeg_binary") else "ffmpeg",
+                        ffprobe_binary=settings.ffprobe_binary if hasattr(settings, "ffprobe_binary") else "ffprobe",
+                    )
+                    meta = engine.probe_metadata(tmp_path)
+                    
+                    video.width = meta.get("width")
+                    video.height = meta.get("height")
+                    video.duration_ms = int(meta.get("duration_s", 0) * 1000)
+                    video.fps = 30
+                    
+                    try:
+                        cmd = [
+                            engine.ffprobe_binary,
+                            "-v", "error",
+                            "-select_streams", "v:0",
+                            "-show_entries", "stream=r_frame_rate",
+                            "-of", "json",
+                            tmp_path
+                        ]
+                        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                        fps_data = json.loads(res.stdout)
+                        r_fps = fps_data.get("streams", [{}])[0].get("r_frame_rate", "30/1")
+                        if "/" in r_fps:
+                            num, den = map(int, r_fps.split("/"))
+                            video.fps = int(round(num / den))
+                    except Exception:
+                        pass
+                    
+                    session.add(video)
+                    session.commit()
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+            except Exception as e:
+                print(f"Error self-healing video metadata in AI pipeline: {e}")
+
         # Query Project to get selected style and caption template. Falls
         # back to "kalakar" — not StylePresetManager's own "minimal" default
         # — because that's the base preset the frontend's own custom-style

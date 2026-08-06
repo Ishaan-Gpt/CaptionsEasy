@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@motion-ai/caption-engine": "workspace:*",
     "@gsap/react": "^2.1.2",
     "@phosphor-icons/react": "^2.1.10",
     "@remotion/player": "^4.0.484",

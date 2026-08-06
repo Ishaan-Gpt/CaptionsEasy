@@ -323,8 +323,45 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         video_id: str,
         style: Optional[str] = None,
         caption_template: Optional[str] = None,
+        staggered_layout: Optional[str] = None,
     ) -> ProviderOutput:
         start = time.monotonic()
+
+        # Fetch the video width/height/fps if available in the database to set the canvas size dynamically
+        canvas_width = 1080
+        canvas_height = 1920
+        aspect_ratio = "9:16"
+        resolution = "1080x1920"
+        frame_rate = 30.0
+
+        try:
+            from sqlalchemy import select
+            from app.db.session import AsyncSessionLocal
+            from app.db.models.video import Video
+            import uuid
+
+            async def fetch_video_metadata():
+                async with AsyncSessionLocal() as session:
+                    stmt = select(Video).where(Video.project_id == uuid.UUID(project_id)).order_by(Video.created_at.desc())
+                    result = await session.execute(stmt)
+                    return result.scalars().first()
+
+            import asyncio
+            video_rec = await fetch_video_metadata()
+            if video_rec and video_rec.width and video_rec.height:
+                canvas_width = video_rec.width
+                canvas_height = video_rec.height
+                frame_rate = float(video_rec.fps) if video_rec.fps else 30.0
+                resolution = f"{canvas_width}x{canvas_height}"
+                
+                from math import gcd
+                common = gcd(canvas_width, canvas_height)
+                w_ratio = canvas_width // common
+                h_ratio = canvas_height // common
+                aspect_ratio = f"{w_ratio}:{h_ratio}"
+        except Exception as e:
+            # Fall back to default vertical resolution
+            print(f"Error fetching video metadata in DummyRenderPlanProvider: {e}")
 
         # The actual StylePresetManager dict key this style resolved to — NOT
         # preset.name (a human display string like "Custom My Project") which
@@ -393,8 +430,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         template_style = get_template_style(template)
         word_limit_to_use = template_style.word_limit
         max_chars = template_style.max_chars
-        # Matches the canvas dims baked into global_settings below.
-        canvas_width_px = 1080
+        canvas_width_px = canvas_width
         box_width_px = canvas_width_px - preset.safe_area.left - preset.safe_area.right
         grouping_font_size = font_size * template_style.base_size_scale
 
@@ -542,6 +578,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                         "color_mode": preset.typography.color_mode or "solid",
                         "color2": preset.typography.color2,
                         "x_position_percent": preset.typography.x_position_percent,
+                        "y_position_percent": preset.typography.y_position_percent,
                         "shadow": preset.typography.shadow,
                         "outline": preset.typography.outline,
                         "background_style": preset.typography.background_style or "none",
@@ -711,10 +748,10 @@ class DummyRenderPlanProvider(RenderPlanProvider):
             },
             "assets": [],
             "global_settings": {
-                "canvas": {"width": 1080, "height": 1920},
-                "frame_rate": 30.0,
-                "resolution": "1080x1920",
-                "aspect_ratio": "9:16",
+                "canvas": {"width": canvas_width, "height": canvas_height},
+                "frame_rate": frame_rate,
+                "resolution": resolution,
+                "aspect_ratio": aspect_ratio,
                 "safe_area": {
                     "top": preset.safe_area.top,
                     "bottom": preset.safe_area.bottom,
@@ -733,7 +770,7 @@ class DummyRenderPlanProvider(RenderPlanProvider):
                 "caption_template": template,
                 # Layout variant for staggered_3line: "splash" (original
                 # left/right-offset look) or "centre" (all lines centered).
-                "staggered_layout": getattr(preset.timing, "staggered_layout", "splash"),
+                "staggered_layout": staggered_layout or getattr(preset.timing, "staggered_layout", "splash"),
             },
             "timeline": timeline,
         }

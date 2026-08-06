@@ -23,7 +23,12 @@ class GroqCreativeProvider(CreativeProvider):
         # The prompt's JSON example contains literal { } braces, so a plain
         # str.format() misparses them as format fields (KeyError). A direct
         # placeholder substitution avoids that entirely.
-        transcript_json_str = json.dumps(transcript.model_dump(), indent=2)
+        compact_transcript = {
+            "language": transcript.language,
+            "duration_ms": transcript.duration_ms,
+            "text": " ".join(w.text for w in transcript.words)
+        }
+        transcript_json_str = json.dumps(compact_transcript, separators=(",", ":"))
         user_message = prompt_template.replace("{transcript_json}", transcript_json_str)
 
         start = time.monotonic()

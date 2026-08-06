@@ -2,7 +2,7 @@
 
 import React from "react";
 import { TemplateSwatch } from "@/components/TemplateSwatch";
-import { TEMPLATE_PRESETS_LIST } from "@/config/captionTemplates";
+import { TEMPLATE_PRESETS_LIST, getTemplateStyle } from "@/config/captionTemplates";
 
 // Picks the heavier of two CSS-style font weights
 const maxWeight = (a: string, b: string): string => {
@@ -23,19 +23,18 @@ const POPULAR_FONTS = [
   "JetBrains Mono", "Fira Code", "Source Code Pro", "Space Mono", "Inconsolata", "Share Tech Mono", "VT323", "Cutive Mono", "IBM Plex Mono", "Roboto Mono", "Courier Prime", "Special Elite", "Major Mono Display"
 ];
 
-const TRENDING_CAPTION_TEMPLATES = new Set([
-  "staggered_3line",
-  "glow_stack",
-  "cartoon_stack",
-  "serif_pop",
-  "cinematic_emerald",
+const TRENDING_PRESET_IDS = new Set([
+  "hormozi_viral",
+  "mrbeast_punch",
+  "cyber_neon",
+  "tiktok_pop",
 ]);
 
 const TRENDING_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter((p) =>
-  TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
+  TRENDING_PRESET_IDS.has(p.id)
 );
 const BUILTIN_TEMPLATE_PRESETS = TEMPLATE_PRESETS_LIST.filter(
-  (p) => !TRENDING_CAPTION_TEMPLATES.has(p.caption_template)
+  (p) => !TRENDING_PRESET_IDS.has(p.id)
 );
 
 interface SidebarControlsSectionProps {
@@ -56,27 +55,25 @@ interface SidebarControlsSectionProps {
   customStaggeredLayout: "splash" | "centre"; setCustomStaggeredLayout: (v: "splash" | "centre") => void;
   customWordLimit: number; setCustomWordLimit: (v: number) => void;
   customCaptionSpacingMs: number; setCustomCaptionSpacingMs: (v: number) => void;
-  customWordPacing: string; setCustomWordPacing: (v: string) => void;
   customPauseHandling: string; setCustomPauseHandling: (v: string) => void;
   customAccentPeriodEnabled: boolean; setCustomAccentPeriodEnabled: (v: boolean) => void;
-  
+
   customFontFace: string; setCustomFontFace: (v: string) => void;
   customCasing: "none" | "uppercase" | "lowercase" | "capitalize"; setCustomCasing: (v: "none" | "uppercase" | "lowercase" | "capitalize") => void;
   customUnderline: boolean; setCustomUnderline: (v: boolean) => void;
   customAlignment: "left" | "center" | "right"; setCustomAlignment: (v: "left" | "center" | "right") => void;
   customXPositionPercent: number; setCustomXPositionPercent: (v: number) => void;
+  customBoxLeft: number | null; setCustomBoxLeft: (v: number | null) => void;
+  customBoxRight: number | null; setCustomBoxRight: (v: number | null) => void;
+  customBoxTop: number | null; setCustomBoxTop: (v: number | null) => void;
+  customBoxBottom: number | null; setCustomBoxBottom: (v: number | null) => void;
   customColorMode: "solid" | "gradient"; setCustomColorMode: (v: "solid" | "gradient") => void;
   customColor2: string; setCustomColor2: (v: string) => void;
   customLetterSpacing: number; setCustomLetterSpacing: (v: number) => void;
   customWordSpacing: number; setCustomWordSpacing: (v: number) => void;
   customLineSpacing: number; setCustomLineSpacing: (v: number) => void;
 
-  // Box margins
-  customBoxTop: number; setCustomBoxTop: (v: number) => void;
-  customBoxBottom: number; setCustomBoxBottom: (v: number) => void;
-  customBoxLeft: number; setCustomBoxLeft: (v: number) => void;
-  customBoxRight: number; setCustomBoxRight: (v: number) => void;
-  boxEditMode: boolean; setBoxEditMode: (v: boolean) => void;
+
 
   // Target word settings
   editTarget: "primary" | "secondary"; setEditTarget: (v: "primary" | "secondary") => void;
@@ -131,7 +128,6 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   customStaggeredLayout, setCustomStaggeredLayout,
   customWordLimit, setCustomWordLimit,
   customCaptionSpacingMs, setCustomCaptionSpacingMs,
-  customWordPacing, setCustomWordPacing,
   customPauseHandling, setCustomPauseHandling,
   customAccentPeriodEnabled, setCustomAccentPeriodEnabled,
   customFontFace, setCustomFontFace,
@@ -139,16 +135,16 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   customUnderline, setCustomUnderline,
   customAlignment, setCustomAlignment,
   customXPositionPercent, setCustomXPositionPercent,
+  customBoxLeft, setCustomBoxLeft,
+  customBoxRight, setCustomBoxRight,
+  customBoxTop, setCustomBoxTop,
+  customBoxBottom, setCustomBoxBottom,
   customColorMode, setCustomColorMode,
   customColor2, setCustomColor2,
   customLetterSpacing, setCustomLetterSpacing,
   customWordSpacing, setCustomWordSpacing,
   customLineSpacing, setCustomLineSpacing,
-  customBoxTop, setCustomBoxTop,
-  customBoxBottom, setCustomBoxBottom,
-  customBoxLeft, setCustomBoxLeft,
-  customBoxRight, setCustomBoxRight,
-  boxEditMode, setBoxEditMode,
+
   editTarget, setEditTarget,
   heroFont, setHeroFont,
   heroFontFace, setHeroFontFace,
@@ -166,6 +162,11 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   customShadowColor, setCustomShadowColor,
   handleTemplateClick,
 }) => {
+  // What the currently selected template can actually honor — drives real
+  // conditional show/hide instead of static hint prose (see capabilities
+  // on TemplateStyleConfig in @/config/captionTemplates).
+  const capabilities = getTemplateStyle(customCaptionTemplate).capabilities;
+
   return (
     <section className="w-80 bg-[#1E170D] border-r border-[#3B301C] flex flex-col shrink-0">
       {/* Sidebar Tabs Header */}
@@ -199,7 +200,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
           <div className="space-y-4 text-left">
             
             {/* Editing target toggle (Primary vs. Secondary/Hero) */}
-            {customCaptionTemplate !== "sentence_clean" && (
+            {capabilities.hero && (
               <div className="space-y-1">
                 <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Editing Target</label>
                 <div className="flex border border-[#3B301C] rounded overflow-hidden p-0.5 bg-[#171208]">
@@ -345,7 +346,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             {/* FORMAT OPTIONS */}
             <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
               <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Format & Case</span>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid gap-3 ${capabilities.alignment ? "grid-cols-2" : "grid-cols-1"}`}>
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Casing</label>
                   <select
@@ -363,25 +364,31 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
-                  <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
-                    {(["left", "center", "right"] as const).map((align) => (
-                      <button
-                        key={align}
-                        onClick={() => {
-                          setCustomAlignment(align);
-                          saveStyleImmediate({ alignment: align });
-                        }}
-                        className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
-                          customAlignment === align ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
-                        }`}
-                      >
-                        {align}
-                      </button>
-                    ))}
+                {/* This template's layout anchors lines to fixed positions
+                    (splash/hero-centered) — a generic left/center/right
+                    alignment control would have no visible effect, so it's
+                    hidden rather than shown as a no-op. */}
+                {capabilities.alignment && (
+                  <div className="space-y-1">
+                    <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
+                    <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
+                      {(["left", "center", "right"] as const).map((align) => (
+                        <button
+                          key={align}
+                          onClick={() => {
+                            setCustomAlignment(align);
+                            saveStyleImmediate({ alignment: align });
+                          }}
+                          className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
+                            customAlignment === align ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
+                          }`}
+                        >
+                          {align}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Underline Switch */}
@@ -492,59 +499,72 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               </div>
             </div>
 
-            {/* POSITION & BOUNDING BOX */}
+            {/* POSITION & BOX — numeric fallback for the same xPercent/
+                yPercent/margins the drag handles on the canvas control, so
+                position is editable without a mouse. */}
             <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Layout Position & Box</span>
-                
-                <button
-                  onClick={() => setBoxEditMode(!boxEditMode)}
-                  className={`text-[8px] font-bold uppercase border px-2 py-0.5 rounded transition-all cursor-pointer ${
-                    boxEditMode ? "bg-[#DCC8A4] text-[#171208] border-[#DCC8A4]" : "border-[#3B301C] text-white/60 hover:text-white"
-                  }`}
-                >
-                  {boxEditMode ? "Exit Box Edit" : "Edit Safe Box"}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-left">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Position & Box</span>
+              <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
-                    <span>Vertical position</span>
-                    <span className="font-mono text-[#DCC8A4]">{customYPositionPercent}%</span>
+                    <span>Horizontal</span>
+                    <span className="font-mono text-[#DCC8A4]">{Math.round(customXPositionPercent)}%</span>
                   </div>
                   <input
                     type="range"
-                    min="10"
-                    max="90"
-                    step="0.5"
-                    value={customYPositionPercent}
-                    onChange={(e) => {
-                      setCustomYPositionPercent(parseFloat(e.target.value));
-                      saveStyleBackground({ y_position_percent: parseFloat(e.target.value) });
-                    }}
-                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
-                    <span>Horizontal position</span>
-                    <span className="font-mono text-[#DCC8A4]">{customXPositionPercent}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="90"
-                    step="1"
+                    min="2"
+                    max="98"
                     value={customXPositionPercent}
                     onChange={(e) => {
-                      setCustomXPositionPercent(parseInt(e.target.value, 10));
-                      saveStyleBackground({ x_position_percent: parseInt(e.target.value, 10) });
+                      const v = parseFloat(e.target.value);
+                      setCustomXPositionPercent(v);
+                      saveStyleBackground({ x_position_percent: v });
                     }}
                     className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
                   />
                 </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
+                    <span>Vertical</span>
+                    <span className="font-mono text-[#DCC8A4]">{Math.round(customYPositionPercent)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2"
+                    max="98"
+                    value={customYPositionPercent}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setCustomYPositionPercent(v);
+                      saveStyleBackground({ y_position_percent: v });
+                    }}
+                    className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {([
+                  ["Left Margin", customBoxLeft, setCustomBoxLeft, "box_left"],
+                  ["Right Margin", customBoxRight, setCustomBoxRight, "box_right"],
+                  ["Top Margin", customBoxTop, setCustomBoxTop, "box_top"],
+                  ["Bottom Margin", customBoxBottom, setCustomBoxBottom, "box_bottom"],
+                ] as const).map(([label, value, setter, field]) => (
+                  <div key={field} className="space-y-1">
+                    <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">{label}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={value ?? ""}
+                      placeholder="auto"
+                      onChange={(e) => {
+                        const v = e.target.value === "" ? null : parseFloat(e.target.value);
+                        (setter as (v: number | null) => void)(v);
+                        saveStyleBackground({ [field]: v });
+                      }}
+                      className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] text-white"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -656,6 +676,111 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* TIMING & LAYOUT */}
+            <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
+              <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Timing & Layout</span>
+
+              {capabilities.stagger && (
+                <div className="space-y-1">
+                  <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Staggered Layout</label>
+                  <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
+                    {(["splash", "centre"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          setCustomStaggeredLayout(mode);
+                          saveStyleImmediate({ staggered_layout: mode });
+                        }}
+                        className={`flex-1 py-1 text-[8px] font-bold uppercase cursor-pointer rounded transition-all ${
+                          customStaggeredLayout === mode ? "bg-[#DCC8A4] text-[#171208]" : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {capabilities.accentPeriod && (
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-white">Accent Period</span>
+                    <span className="text-[7px] text-white/40 uppercase tracking-wider">Trailing dot after the hero word</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCustomAccentPeriodEnabled(!customAccentPeriodEnabled);
+                      saveStyleImmediate({ accent_period_enabled: !customAccentPeriodEnabled });
+                    }}
+                    className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-pointer ${
+                      customAccentPeriodEnabled ? "bg-[#DCC8A4]" : "bg-[#3B301C]"
+                    }`}
+                  >
+                    <div
+                      className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${
+                        customAccentPeriodEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
+                  <span>Words Per Card</span>
+                  <span className="font-mono text-[#DCC8A4]">{customWordLimit}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  value={customWordLimit}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    setCustomWordLimit(v);
+                    saveStyleBackground({ word_limit: v });
+                  }}
+                  className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[7px] font-bold uppercase tracking-wider text-white/60">
+                  <span>Gap Between Cards</span>
+                  <span className="font-mono text-[#DCC8A4]">{customCaptionSpacingMs}ms</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="300"
+                  step="10"
+                  value={customCaptionSpacingMs}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    setCustomCaptionSpacingMs(v);
+                    saveStyleBackground({ caption_spacing_ms: v });
+                  }}
+                  className="w-full h-1 bg-[#3B301C] rounded-lg appearance-none cursor-pointer accent-[#DCC8A4]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Pause Handling</label>
+                <select
+                  value={customPauseHandling}
+                  onChange={(e) => {
+                    setCustomPauseHandling(e.target.value);
+                    saveStyleImmediate({ pause_handling: e.target.value });
+                  }}
+                  className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
+                >
+                  <option value="hold">Hold last card through silence</option>
+                  <option value="clear">Clear during silence</option>
+                </select>
               </div>
             </div>
 

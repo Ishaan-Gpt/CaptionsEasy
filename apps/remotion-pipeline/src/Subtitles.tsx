@@ -6,7 +6,7 @@ import {
   styleFromMotionScript,
   CaptionCardView,
   CaptionCard,
-} from "./CaptionEngine";
+} from "@motion-ai/caption-engine";
 
 /**
  * Export composition: a transparent overlay of animated captions, burned

@@ -10,6 +10,9 @@ import {
   fredoka,
   caveat,
   cinzel,
+  lilita,
+  spaceMono,
+  montserrat,
 } from "./fonts";
 
 /**
@@ -35,77 +38,70 @@ const pop = (isActive: boolean, extra: React.CSSProperties = {}): React.CSSPrope
 
 export const SPECIMENS: SpecimenDef[] = [
   {
-    id: "word_by_word",
-    name: "Word by Word",
-    blurb: "One bold uppercase word holds the whole frame.",
+    id: "hormozi_viral",
+    name: "Hormozi Viral",
+    blurb: "Bold Anton font, electric yellow active word with black outline.",
+    render: (words, activeIdx) => (
+      <span
+        className={`${anton.className} flex flex-wrap justify-center gap-x-[0.35em] gap-y-1 uppercase text-white`}
+        style={{ fontSize: "clamp(1.1rem, 1.8vw, 1.5rem)", lineHeight: 1.25 }}
+      >
+        {words.map((w, i) => {
+          const active = i === activeIdx;
+          return (
+            <span
+              key={w + i}
+              style={pop(active, {
+                color: active ? "#FFE600" : "#FFFFFF",
+                fontSize: active ? "1.3em" : "1em",
+                WebkitTextStroke: "1px rgba(0,0,0,0.9)",
+                textShadow: "0 2px 4px rgba(0,0,0,0.8)",
+              })}
+            >
+              {w}
+            </span>
+          );
+        })}
+      </span>
+    ),
+  },
+  {
+    id: "mrbeast_punch",
+    name: "MrBeast Punch",
+    blurb: "High-energy single active word with 3D drop shadow.",
     render: (words, activeIdx) => (
       <span
         key={activeIdx}
-        className="font-sans font-black uppercase text-white animate-caption-pop"
-        style={{ fontSize: "clamp(1.6rem, 3vw, 2.4rem)", letterSpacing: "0.02em" }}
+        className={`${lilita.className} uppercase text-white animate-caption-pop inline-block`}
+        style={{
+          fontSize: "clamp(1.8rem, 3.2vw, 2.6rem)",
+          color: "#00F5FF",
+          WebkitTextStroke: "1.5px rgba(0,0,0,0.9)",
+          textShadow: "3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 4px 12px rgba(0,245,255,0.4)",
+        }}
       >
         {words[activeIdx]}
       </span>
     ),
   },
   {
-    id: "staggered_3line",
-    name: "Staggered 3-Line",
-    blurb: "Three offset lines; the live word snaps to mint.",
-    render: (words, activeIdx) => {
-      const lines = [words.slice(0, 2), words.slice(2, 4), words.slice(4)];
-      let i = -1;
-      return (
-        <span className={`${outfit.className} flex flex-col gap-1 uppercase font-bold text-white leading-none`}>
-          {lines.map((line, li) => (
-            <span
-              key={li}
-              className="flex gap-[0.4em] justify-center"
-              style={{
-                fontSize: "clamp(0.95rem, 1.6vw, 1.3rem)",
-                transform: `translateX(${li === 0 ? "-8%" : li === 1 ? "6%" : "-3%"})`,
-              }}
-            >
-              {line.map((w) => {
-                i += 1;
-                const active = i === activeIdx;
-                return (
-                  <span
-                    key={w + i}
-                    className={active ? anton.className : undefined}
-                    style={pop(active, {
-                      color: active ? "#00F5C4" : "#FFFFFF",
-                      fontSize: active ? "1.28em" : "1em",
-                    })}
-                  >
-                    {w}
-                  </span>
-                );
-              })}
-            </span>
-          ))}
-        </span>
-      );
-    },
-  },
-  {
-    id: "sentence_highlight",
-    name: "Sentence Highlight",
-    blurb: "The full line stays; the current word jumps a weight class.",
+    id: "cyber_neon",
+    name: "Cyber Neon",
+    blurb: "Monospace code theme with glowing magenta hero word stack.",
     render: (words, activeIdx) => (
       <span
-        className={`${outfit.className} flex flex-wrap justify-center gap-x-[0.35em] gap-y-1 font-bold uppercase text-white`}
-        style={{ fontSize: "clamp(0.95rem, 1.6vw, 1.3rem)", lineHeight: 1.25 }}
+        className={`${spaceMono.className} flex flex-wrap justify-center items-center gap-x-[0.4em] gap-y-1 text-white/90 font-bold`}
+        style={{ fontSize: "clamp(0.9rem, 1.5vw, 1.2rem)" }}
       >
         {words.map((w, i) => {
           const active = i === activeIdx;
           return (
             <span
               key={w + i}
-              className={active ? anton.className : undefined}
               style={pop(active, {
-                color: active ? "#00F5C4" : "#FFFFFF",
+                color: active ? "#FF007F" : "#E0F7FA",
                 fontSize: active ? "1.35em" : "1em",
+                textShadow: active ? "0 0 20px #FF007F, 0 0 10px #FF007F" : "none",
               })}
             >
               {w}
@@ -116,26 +112,24 @@ export const SPECIMENS: SpecimenDef[] = [
     ),
   },
   {
-    id: "glow_stack",
-    name: "Glow Stack",
-    blurb: "Rounded body text with a glowing splash hero word.",
+    id: "tiktok_pop",
+    name: "TikTok Pop",
+    blurb: "Soft pill background highlight with vibrant lime accent.",
     render: (words, activeIdx) => (
       <span
-        className={`${baloo.className} flex flex-wrap justify-center items-center gap-x-[0.3em] gap-y-1 text-white`}
-        style={{ fontSize: "clamp(0.95rem, 1.6vw, 1.25rem)", lineHeight: 1.3 }}
+        className={`${fredoka.className} flex flex-wrap justify-center items-center gap-x-[0.35em] gap-y-1 font-bold`}
+        style={{ fontSize: "clamp(0.95rem, 1.6vw, 1.25rem)" }}
       >
         {words.map((w, i) => {
           const active = i === activeIdx;
           return (
             <span
               key={w + i}
-              className={active ? anton.className : undefined}
               style={pop(active, {
-                color: active ? "#4FA8FF" : "#FFFFFF",
-                fontSize: active ? "1.8em" : "1em",
-                margin: active ? "0 0.18em" : "0",
-                textTransform: active ? "uppercase" : "none",
-                textShadow: active ? "0 0 24px rgba(79,168,255,0.65)" : "0 2px 0 rgba(0,0,0,0.45)",
+                color: active ? "#76FF03" : "#FFFFFF",
+                background: active ? "rgba(0,0,0,0.75)" : "transparent",
+                padding: active ? "2px 10px" : "0",
+                borderRadius: active ? "999px" : "0",
               })}
             >
               {w}
@@ -146,82 +140,30 @@ export const SPECIMENS: SpecimenDef[] = [
     ),
   },
   {
-    id: "cartoon_stack",
-    name: "Cartoon Stack",
-    blurb: "Hand-written top line, chunky outlined punch word.",
-    render: (words, activeIdx) => (
-      <span className="flex flex-col items-center gap-1">
-        <span
-          className={`${caveat.className} text-white/90`}
-          style={{ fontSize: "clamp(1rem, 1.7vw, 1.4rem)" }}
-        >
-          {words.slice(0, 3).join(" ")}
-        </span>
-        <span
-          className={`${fredoka.className} flex flex-wrap justify-center gap-x-[0.3em] gap-y-1 uppercase`}
-          style={{ fontSize: "clamp(0.9rem, 1.5vw, 1.25rem)" }}
-        >
-          {words.slice(3).map((w, i) => {
-            const idx = i + 3;
-            const active = idx === activeIdx;
-            return (
-              <span
-                key={w + idx}
-                style={pop(active, {
-                  color: active ? "#EDE0A6" : "#FFFFFF",
-                  fontSize: active ? "1.4em" : "1em",
-                  WebkitTextStroke: "1px rgba(0,0,0,0.85)",
-                  textShadow: "0 3px 0 rgba(0,0,0,0.6)",
-                })}
-              >
-                {w}
-              </span>
-            );
-          })}
-        </span>
-      </span>
-    ),
-  },
-  {
-    id: "serif_pop",
-    name: "Serif Pop",
-    blurb: "Editorial serif with a brush-script hero word and a pop dot.",
-    render: (words, activeIdx) => (
+    id: "minimal_luxe",
+    name: "Minimal Luxe",
+    blurb: "Cinzel serif typography with champagne gold highlight accents.",
+    render: (words) => (
       <span
-        className={`${playfair.className} flex flex-wrap justify-center items-baseline gap-x-[0.3em] gap-y-1 text-white font-extrabold`}
-        style={{ fontSize: "clamp(0.95rem, 1.6vw, 1.3rem)", lineHeight: 1.35 }}
+        className={`${cinzel.className} text-[#F8F5EE] uppercase text-center font-semibold`}
+        style={{
+          fontSize: "clamp(0.85rem, 1.4vw, 1.1rem)",
+          letterSpacing: "0.12em",
+          lineHeight: 1.6,
+        }}
       >
-        {words.map((w, i) => {
-          const active = i === activeIdx;
-          return (
-            <span key={w + i} className="relative inline-block">
-              <span
-                className={active ? kaushan.className : undefined}
-                style={pop(active, {
-                  color: active ? "#FFEE00" : "#FFFFFF",
-                  fontSize: active ? "1.6em" : "1em",
-                  margin: active ? "0 0.22em" : "0",
-                  fontWeight: active ? 400 : 800,
-                })}
-              >
-                {w}
-              </span>
-              {active && (
-                <span
-                  className="absolute -top-1 -right-2 w-[0.32em] h-[0.32em] rounded-full"
-                  style={{ backgroundColor: "#FFEE00" }}
-                />
-              )}
-            </span>
-          );
-        })}
+        {words.map((w, i) => (
+          <span key={w + i} style={{ color: i === 2 ? "#E5C158" : "#F8F5EE" }}>
+            {w}{" "}
+          </span>
+        ))}
       </span>
     ),
   },
   {
-    id: "cinematic_emerald",
-    name: "Cinematic Emerald",
-    blurb: "Quiet Outfit base under a giant glowing italic keyword.",
+    id: "vintage_cinematic",
+    name: "Vintage Cinematic",
+    blurb: "Playfair Display base under a giant glowing italic keyword.",
     render: (words, activeIdx) => (
       <span className="flex flex-col items-center gap-1">
         <span
@@ -246,21 +188,71 @@ export const SPECIMENS: SpecimenDef[] = [
     ),
   },
   {
-    id: "sentence_clean",
-    name: "Sentence Clean",
-    blurb: "Uniform engraved capitals. No hero word, by design.",
-    render: (words) => (
+    id: "bold_impact",
+    name: "Bold Impact",
+    blurb: "Montserrat heavy font with blazing neon orange pop accent.",
+    render: (words, activeIdx) => (
       <span
-        className={`${cinzel.className} text-white uppercase text-center`}
-        style={{
-          fontSize: "clamp(0.85rem, 1.4vw, 1.1rem)",
-          letterSpacing: "0.12em",
-          lineHeight: 1.6,
-        }}
+        className={`${montserrat.className} flex flex-wrap justify-center gap-x-[0.35em] gap-y-1 font-black uppercase text-white`}
+        style={{ fontSize: "clamp(1rem, 1.7vw, 1.35rem)", lineHeight: 1.2 }}
       >
-        {words.join(" ")}
+        {words.map((w, i) => {
+          const active = i === activeIdx;
+          return (
+            <span
+              key={w + i}
+              style={pop(active, {
+                color: active ? "#FF5722" : "#FFFFFF",
+                fontSize: active ? "1.35em" : "1em",
+                textShadow: active ? "0 4px 14px rgba(255,87,34,0.6)" : "0 2px 4px rgba(0,0,0,0.5)",
+              })}
+            >
+              {w}
+            </span>
+          );
+        })}
       </span>
     ),
+  },
+  {
+    id: "staggered_splash",
+    name: "Staggered Splash",
+    blurb: "Multi-line staggered layout; the active word snaps to neon lime.",
+    render: (words, activeIdx) => {
+      const lines = [words.slice(0, 2), words.slice(2, 4), words.slice(4)];
+      let i = -1;
+      return (
+        <span className={`${outfit.className} flex flex-col gap-1 uppercase font-bold text-white leading-none`}>
+          {lines.map((line, li) => (
+            <span
+              key={li}
+              className="flex gap-[0.4em] justify-center"
+              style={{
+                fontSize: "clamp(0.95rem, 1.6vw, 1.3rem)",
+                transform: `translateX(${li === 0 ? "-8%" : li === 1 ? "6%" : "-3%"})`,
+              }}
+            >
+              {line.map((w) => {
+                i += 1;
+                const active = i === activeIdx;
+                return (
+                  <span
+                    key={w + i}
+                    className={active ? anton.className : undefined}
+                    style={pop(active, {
+                      color: active ? "#C5FF00" : "#FFFFFF",
+                      fontSize: active ? "1.28em" : "1em",
+                    })}
+                  >
+                    {w}
+                  </span>
+                );
+              })}
+            </span>
+          ))}
+        </span>
+      );
+    },
   },
 ];
 

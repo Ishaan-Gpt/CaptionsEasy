@@ -756,15 +756,15 @@
   "custom_a4360e2c-cfef-4c7d-b3ab-855ba88e307a": {
     "name": "Custom newproj",
     "typography": {
-      "font": "Caveat",
-      "size": 48.0,
-      "weight": "700",
+      "font": "Baloo 2",
+      "size": 76.0,
+      "weight": "800",
       "color": "#FFFFFF",
       "alignment": "center",
-      "shadow": 5.0,
-      "outline": 8.0,
+      "shadow": 4.0,
+      "outline": 2.0,
       "background_style": "none",
-      "y_position_percent": 37.0,
+      "y_position_percent": 71.4,
       "text_transform": "none",
       "underline": false,
       "letter_spacing": 0.0,
@@ -772,11 +772,11 @@
       "line_spacing": 1.0,
       "color_mode": "solid",
       "color2": null,
-      "x_position_percent": 24.0,
+      "x_position_percent": 50.0,
       "keyword_font": null,
       "keyword_weight": null,
-      "keyword_size_scale": 1.6,
-      "entrance_anim": "rise",
+      "keyword_size_scale": 2.3,
+      "entrance_anim": "fade",
       "highlight_anim": "underline",
       "outline_color": "#000000",
       "shadow_color": "#000000"
@@ -788,14 +788,14 @@
     },
     "highlight": {
       "colors": [
-        "#EDE0A6"
+        "#4FA8FF"
       ]
     },
     "safe_area": {
       "top": 80.0,
       "bottom": 120.0,
-      "left": 50.0,
-      "right": 50.0
+      "left": 167.1560693641619,
+      "right": 86.0
     },
     "emoji": {
       "behavior": "none"
@@ -807,7 +807,7 @@
       "pause_handling": "hold",
       "sentence_segmentation": "semantic",
       "reading_speed_limit_cps": 22,
-      "caption_template": "cartoon_stack",
+      "caption_template": "glow_stack",
       "staggered_layout": "splash",
       "accent_period_enabled": true
     },

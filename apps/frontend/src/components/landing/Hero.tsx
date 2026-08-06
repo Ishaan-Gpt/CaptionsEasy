@@ -82,10 +82,10 @@ export default function Hero() {
               Start captioning
             </Link>
             <a
-              href="#templates"
+              href="#how"
               className="font-sora text-sm font-semibold rounded-full border border-sand-400 text-sand-800 px-8 py-4 hover:border-ink hover:text-ink transition-colors"
             >
-              See the templates
+              See how it works
             </a>
           </motion.div>
 
@@ -95,7 +95,7 @@ export default function Hero() {
             transition={reduce ? { duration: 0 } : { delay: 1.6, duration: 0.8 }}
             className="mt-10 font-mono text-[12px] text-sand-600"
           >
-            word-level timing&ensp;·&ensp;8 cinematic templates&ensp;·&ensp;1080p MP4 export
+            word-level timing&ensp;·&ensp;full custom typography&ensp;·&ensp;1080p MP4 export
           </motion.p>
         </div>
 

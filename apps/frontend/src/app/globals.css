@@ -70,6 +70,15 @@
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.015); }
+}
+
+.animate-subtle-float {
+  animation: subtle-float 6s ease-in-out infinite;
+}
+
 :root {
   --background: #FDFCFA;
   --foreground: #201910;

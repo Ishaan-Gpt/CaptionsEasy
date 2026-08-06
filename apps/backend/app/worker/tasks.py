@@ -62,12 +62,76 @@ def _build_stages(session, job_id: str, settings, *, progress=None, repo=None):
         from app.worker.render_stage import build_render_stages
         return build_render_stages(session, job_id, settings)
     elif job_row.job_type == "video_metadata_extraction":
-        # Enqueued by UploadService for every upload, but no consumer ever
-        # existed — width/height/duration are probed by the AI pipeline and
-        # the render engine themselves. Completing it as an explicit no-op
-        # stops the retry loop that used to burn worker cycles after every
-        # single upload (UnroutableJobError x max-retries).
-        return []
+        def run_metadata_extraction() -> None:
+            # 1. Load latest video
+            video = session.execute(
+                select(Video).where(Video.project_id == job_row.project_id).order_by(Video.created_at.desc())
+            ).scalars().first()
+            if not video:
+                raise ValueError("No video found for project.")
+
+            # 2. Download video bytes
+            from app.storage.dependencies import get_storage_client
+            import asyncio
+            storage_client = get_storage_client(settings)
+            
+            try:
+                # Run the async download inside a thread loop or standard asyncio.run
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            video_bytes = loop.run_until_complete(storage_client.download(path=video.storage_path))
+
+            # 3. Save to temp file
+            import tempfile
+            import os
+            import subprocess
+            import json
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+                tmp.write(video_bytes)
+                tmp_path = tmp.name
+
+            try:
+                # 4. Probe using RenderEngine
+                from app.render.engine import RenderEngine
+                engine = RenderEngine(
+                    ffmpeg_binary=settings.ffmpeg_binary if hasattr(settings, "ffmpeg_binary") else "ffmpeg",
+                    ffprobe_binary=settings.ffprobe_binary if hasattr(settings, "ffprobe_binary") else "ffprobe",
+                )
+                meta = engine.probe_metadata(tmp_path)
+
+                # 5. Update DB
+                video.width = meta.get("width")
+                video.height = meta.get("height")
+                video.duration_ms = int(meta.get("duration_s", 0) * 1000)
+                video.fps = 30
+
+                try:
+                    cmd = [
+                        engine.ffprobe_binary,
+                        "-v", "error",
+                        "-select_streams", "v:0",
+                        "-show_entries", "stream=r_frame_rate",
+                        "-of", "json",
+                        tmp_path
+                    ]
+                    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                    fps_data = json.loads(res.stdout)
+                    r_fps = fps_data.get("streams", [{}])[0].get("r_frame_rate", "30/1")
+                    if "/" in r_fps:
+                        num, den = map(int, r_fps.split("/"))
+                        video.fps = int(round(num / den))
+                except Exception:
+                    pass
+
+                session.add(video)
+                session.commit()
+            finally:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+        return [Stage(name="Extract Video Metadata", fn=run_metadata_extraction)]
 
     raise UnroutableJobError(f"Unrecognized job_type={job_row.job_type!r} for job_id={job_id!r}")
 

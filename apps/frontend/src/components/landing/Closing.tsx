@@ -44,7 +44,6 @@ export default function Closing() {
           </p>
           <nav className="flex gap-6 font-sora text-[13px] font-medium text-sand-700">
             <a href="#how" className="hover:text-ink transition-colors">How it works</a>
-            <a href="#templates" className="hover:text-ink transition-colors">Templates</a>
             <Link href="/login" className="hover:text-ink transition-colors">Sign in</Link>
           </nav>
         </div>
