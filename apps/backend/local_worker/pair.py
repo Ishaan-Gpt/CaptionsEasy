@@ -63,6 +63,14 @@ def _find_or_download_cloudflared() -> str:
 
 
 def main() -> None:
+    # Windows consoles default stdout to the system codepage (cp1252),
+    # which can't encode arbitrary characters — reconfigure defensively
+    # rather than relying on every future print() staying pure-ASCII.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     settings = get_local_worker_settings()
     worker_token = secrets.token_hex(24)
     port = settings.port or _pick_free_port()
@@ -124,13 +132,13 @@ def main() -> None:
             pairing = resp.json()["data"]
 
             print("")
-            print("━" * 56)
+            print("=" * 56)
             print("  Almost done. Open this link and click Confirm:")
             print("")
             print(f"    {pairing['confirmUrl']}")
             print("")
             print(f"  Pairing code: {pairing['code']}   (expires in 15 min)")
-            print("━" * 56)
+            print("=" * 56)
             print("")
 
             deadline = time.monotonic() + 15 * 60

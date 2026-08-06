@@ -121,6 +121,8 @@ not localhost:
 
 ## 5. Known deployment failure points to check if something breaks
 
+- **Supavisor pooler GeoDNS mismatch**: `aws-1-ap-northeast-2.pooler.supabase.com` resolved and connected fine from a local (Seoul-region-adjacent) network but failed from Render's Oregon egress with `(ENOTFOUND) tenant/user postgres.<ref> not found` — Supabase's pooler DNS appears to be geo-routed and Render's request was landing on a different backend than the one that actually serves this project's tenant. Confirmed both underlying pooler IPs (`15.164.188.235`, `43.202.154.182`, found via `getaddrinfo`) work individually when connected to directly. Workaround in production: `DATABASE_URL_ASYNC`/`DATABASE_URL` on Render are pinned to the IP `43.202.154.182` instead of the hostname, bypassing DNS (safe here since `sslmode=require` doesn't verify hostname/cert anyway). This is fragile — Supabase doesn't guarantee pooler IP stability — so if the DB check on `/health/ready` starts failing again, re-resolve `aws-1-ap-northeast-2.pooler.supabase.com` and try both current IPs directly before assuming something else broke.
+
 - **CORS**: `CORS_ALLOW_ORIGINS` must exactly match the Vercel origin (scheme + host, no trailing slash). `app/main.py` already reads this from config — no code change needed, just the env var.
 - **Upload limits**: Render's default request body limit and `MAX_UPLOAD_SIZE_BYTES` (`app/core/config.py`) must agree — large videos can be rejected by the platform before your own limit even applies.
 - **Worker connectivity**: worker and backend must use the identical `REDIS_URL` — in the blueprint both pull from the same `motionai-redis` service, so this should already be correct.
