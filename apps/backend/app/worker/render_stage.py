@@ -8,8 +8,8 @@ from app.core.config import Settings
 from app.db.models.job import Job
 from app.db.models.video import Video
 from app.db.models.motion_script import MotionScript as MotionScriptRow
-from app.db.models.export import Export as ExportRow
 from app.storage.dependencies import get_storage_client
+from app.worker.export_persistence import build_export_row
 from app.worker.stages import Stage
 from app.render.engine import RenderEngine
 from packages.contracts.python import validate_motion_script
@@ -142,17 +142,17 @@ def build_render_stages(
         style_name = project_row.style if project_row else "minimal"
 
         # Save Export record to DB
-        export_row = ExportRow(
-            id=export_id,
+        export_row = build_export_row(
+            export_id=export_id,
             project_id=ctx.project_id,
-            resolution=f"{ctx.meta.get('width', 1080)}x{ctx.meta.get('height', 1920)}",
+            style_name=style_name,
             quality=ctx.motion_script.export_settings.quality if ctx.motion_script.export_settings else "high",
-            storage_path=export_storage_path,
+            width=ctx.meta.get("width", 1080),
+            height=ctx.meta.get("height", 1920),
             render_duration_ms=ctx.meta.get("render_duration_ms", 0),
-            style=style_name,
-            duration_ms=int(ctx.meta.get("duration_s", 0.0) * 1000),
-            file_size=ctx.meta.get("size_bytes", 0),
-            status="completed",
+            duration_s=ctx.meta.get("duration_s", 0.0),
+            size_bytes=ctx.meta.get("size_bytes", 0),
+            storage_path=export_storage_path,
         )
         session.add(export_row)
         session.commit()

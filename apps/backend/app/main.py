@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.deps import check_rate_limit
 
 from app.api.health import router as health_router
+from app.api.v1.pairing_public import router as pairing_public_router
 from app.api.v1.router import api_router
+from app.api.v1.worker_callbacks import router as worker_callbacks_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import RequestLoggingMiddleware, configure_logging
@@ -95,6 +97,12 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(health_router)
+    # Public/worker-authenticated routes — no check_rate_limit (that
+    # dependency requires a Supabase JWT via get_current_profile, which
+    # doesn't apply to an unauthenticated pairing worker or a worker
+    # presenting its own bearer token instead of a user's).
+    app.include_router(pairing_public_router, prefix=settings.api_v1_prefix)
+    app.include_router(worker_callbacks_router, prefix=settings.api_v1_prefix)
     app.include_router(api_router, prefix=settings.api_v1_prefix, dependencies=[Depends(check_rate_limit)])
 
     if settings.run_worker_inline:

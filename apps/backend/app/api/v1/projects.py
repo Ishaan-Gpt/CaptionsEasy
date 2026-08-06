@@ -399,7 +399,7 @@ async def delete_project(
     await project_repository.soft_delete(project)
     
     # Dispatch storage cleanup task via the dispatcher
-    dispatcher.dispatch_cleanup(str(project.id))
+    await dispatcher.dispatch_cleanup(str(project.id))
     
     return success_response(None, status_code=204)
 
@@ -454,7 +454,7 @@ async def process_project(
         raise NotFoundError("Upload a video before starting processing.")
 
     job = await job_repository.create_queued(project_id=project.id, job_type=AI_PIPELINE_JOB_TYPE)
-    job_dispatcher.dispatch(str(job.id))
+    await job_dispatcher.dispatch(str(job.id))
     return success_response({"jobId": str(job.id)}, status_code=202)
 
 
@@ -597,7 +597,7 @@ async def export_project(
     )
 
     job = await job_repository.create_queued(project_id=project.id, job_type="render")
-    job_dispatcher.dispatch(str(job.id))
+    await job_dispatcher.dispatch(str(job.id))
     return success_response({"jobId": str(job.id)}, status_code=202)
 
 

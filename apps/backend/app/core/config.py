@@ -71,6 +71,18 @@ class Settings(BaseSettings):
     render_plan_provider_name: str = Field(default="dummy", alias="RENDER_PLAN_PROVIDER_NAME")
     use_remotion_render: bool = Field(default=True, alias="USE_REMOTION_RENDER")
 
+    # --- Local-worker processing (cloud rendering paused; see DEPLOYMENT.md) ---
+    # This backend's own publicly reachable base URL, handed to a paired
+    # local worker so it knows where to POST progress/results back to.
+    backend_public_url: str = Field(default="http://localhost:8000/api/v1", alias="BACKEND_PUBLIC_URL")
+    # The frontend's own base URL — pairing's confirmUrl points here (the
+    # /pair confirmation page is a Next.js route, not a backend endpoint).
+    frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+    # How long a dispatch POST to a worker's tunnel URL waits to connect
+    # before giving up and treating the worker as offline (fire-and-forget
+    # handoff — the worker calls back later, so this is short on purpose).
+    worker_dispatch_timeout_seconds: float = Field(default=10.0, alias="WORKER_DISPATCH_TIMEOUT_SECONDS")
+
     # --- Groq AI (speech provider). Sprint 1.5/1.6. ---
     # Groq exposes an OpenAI-Whisper-compatible transcription endpoint.
     # Never hardcoded outside app.ai.providers.speech — these are the only

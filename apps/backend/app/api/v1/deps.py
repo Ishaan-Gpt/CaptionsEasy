@@ -21,7 +21,9 @@ from app.services.caption_plan_repository import CaptionPlanRepository
 from app.services.motion_script_repository import MotionScriptRepository
 from app.services.export_repository import ExportRepository
 from app.services.transcript_repository import TranscriptRepository
-from app.worker.dispatcher import CeleryJobDispatcher, JobDispatcherProtocol
+from app.storage.base import StorageClient
+from app.storage.dependencies import get_storage_client
+from app.worker.dispatcher import CompositeJobDispatcher, JobDispatcherProtocol
 from app.worker.progress import RedisProgressReporter
 from app.worker.redis_client import get_redis_client
 from app.worker.types import ProgressReporterProtocol
@@ -63,11 +65,12 @@ def get_transcript_repository(db: AsyncSession = Depends(get_db)) -> TranscriptR
     return TranscriptRepository(db)
 
 
-_job_dispatcher = CeleryJobDispatcher()
-
-
-def get_job_dispatcher() -> JobDispatcherProtocol:
-    return _job_dispatcher
+def get_job_dispatcher(
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    storage_client: StorageClient = Depends(get_storage_client),
+) -> JobDispatcherProtocol:
+    return CompositeJobDispatcher(db=db, settings=settings, storage_client=storage_client)
 
 
 def get_progress_reporter(settings: Settings = Depends(get_settings)) -> ProgressReporterProtocol:

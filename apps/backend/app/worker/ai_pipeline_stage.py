@@ -20,17 +20,12 @@ from sqlalchemy.orm import Session
 from app.ai.orchestration.factory import build_default_engine
 from app.ai.types import PipelineContext, PipelineStage
 from app.core.config import Settings
-from app.db.models.transcript import Transcript as TranscriptRow
-from app.db.models.creative_plan import CreativePlan as CreativePlanRow
-from app.db.models.caption_plan import CaptionPlan as CaptionPlanRow
-from app.db.models.motion_script import MotionScript as MotionScriptRow
 from app.db.models.video import Video
+from app.worker.ai_pipeline_persistence import build_ai_pipeline_rows
 from app.worker.stages import Stage
 from app.worker.types import JobRepositoryProtocol, ProgressReporterProtocol
 
 AI_PIPELINE_JOB_TYPE = "ai_pipeline"
-
-TRANSCRIPT_SCHEMA_VERSION = 1
 
 
 AI_SUBSTAGE_ESTIMATE_MS = 15_000  # rough per-substage estimate; no real AI timing history yet.
@@ -184,45 +179,20 @@ def build_ai_pipeline_stages(
         if not outcome.success:
             raise RuntimeError(f"AI pipeline failed at {outcome.failed_stage}: {outcome.reason}")
 
-        # 1. Persist Transcript
         transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]
-        session.add(
-            TranscriptRow(
-                project_id=uuid.UUID(str(project_id)),
-                language=transcript.language,
-                provider=settings.speech_provider_name,
-                version=TRANSCRIPT_SCHEMA_VERSION,
-                transcript_json=transcript.model_dump(mode="json"),
-            )
-        )
-
-        # 2. Persist Creative Plan
         creative_plan = ctx.stage_outputs[PipelineStage.CREATIVE_VALIDATION]
-        session.add(
-            CreativePlanRow(
-                project_id=uuid.UUID(str(project_id)),
-                creative_plan=creative_plan.model_dump(mode="json"),
-            )
-        )
-
-        # 3. Persist Caption Plan
         caption_plan = ctx.stage_outputs[PipelineStage.CAPTION_VALIDATION]
-        session.add(
-            CaptionPlanRow(
-                project_id=uuid.UUID(str(project_id)),
-                caption_json=caption_plan.model_dump(mode="json"),
-            )
-        )
-
-        # 4. Persist MotionScript
         motion_script = ctx.stage_outputs[PipelineStage.RENDER_VALIDATION]
-        session.add(
-            MotionScriptRow(
-                project_id=uuid.UUID(str(project_id)),
-                motion_script_json=motion_script.model_dump(mode="json"),
-                version=1,
-            )
-        )
+
+        for row in build_ai_pipeline_rows(
+            project_id=project_id,
+            speech_provider_name=settings.speech_provider_name,
+            transcript_json=transcript.model_dump(mode="json"),
+            creative_plan_json=creative_plan.model_dump(mode="json"),
+            caption_json=caption_plan.model_dump(mode="json"),
+            motion_script_json=motion_script.model_dump(mode="json"),
+        ):
+            session.add(row)
 
         session.commit()
 

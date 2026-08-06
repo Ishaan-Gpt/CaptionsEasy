@@ -9,6 +9,7 @@ from app.db.models.project import Project
 from app.db.models.transcript import Transcript
 from app.db.models.usage import Usage
 from app.db.models.video import Video
+from app.db.models.worker import Worker, WorkerPairing
 
 __all__ = [
     "Base",
@@ -22,4 +23,6 @@ __all__ = [
     "Transcript",
     "Usage",
     "Video",
+    "Worker",
+    "WorkerPairing",
 ]

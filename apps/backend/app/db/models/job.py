@@ -41,5 +41,13 @@ class Job(UUIDPKMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Which paired local worker this job was dispatched to, if any — lets
+    # the worker-callback endpoints verify the caller's bearer token
+    # against the exact worker the job was handed off to.
+    worker_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     project: Mapped["Project"] = relationship(back_populates="jobs")  # noqa: F821

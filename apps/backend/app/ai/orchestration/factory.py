@@ -35,6 +35,7 @@ from app.ai.providers.stage_providers import (
     SpeechProvider,
 )
 from app.ai.types import PipelineContext, PipelineStage
+from app.storage.base import StorageClient
 from packages.contracts.python import CaptionPlan, CreativePlan, RenderPlan, Transcript  # type: ignore[import-not-found]
 
 
@@ -136,12 +137,19 @@ def build_default_engine(
     caption_provider_name: str = "dummy",
     render_plan_provider_name: str = "dummy",
     metrics_recorder: MetricsRecorder | None = None,
+    storage_client: StorageClient | None = None,
 ) -> tuple[AIPipelineOrchestrationEngine, MetricsRecorder]:
     """Resolves providers by name from the typed registries (never hardcoded
     here — see contracts/ai.md > Providers) and assembles the engine.
-    Returns the recorder too, so callers can read metrics back out."""
+    Returns the recorder too, so callers can read metrics back out.
+
+    `storage_client`, if given, overrides the speech provider's default
+    Supabase-backed download — used by the local worker (see
+    apps/backend/local_worker/run_job.py), which never holds Supabase
+    service-role credentials and instead resolves the one video it needs
+    via a presigned URL handed to it in the job payload."""
     register_dummy_providers()  # idempotent; ensures "dummy" is always resolvable.
-    register_groq_speech_provider()  # idempotent; ensures "groq" is resolvable.
+    register_groq_speech_provider(storage_client=storage_client)  # idempotent; ensures "groq" is resolvable.
     register_groq_creative_provider()
     register_groq_caption_provider()
     recorder = metrics_recorder or InMemoryMetricsRecorder()

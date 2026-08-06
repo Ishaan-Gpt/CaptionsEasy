@@ -1,0 +1,9 @@
+# Deliberately light — the local worker never touches the DB or Storage
+# directly (see storage_client.py), so no sqlalchemy/asyncpg/celery/redis/
+# supabase here, unlike apps/backend/requirements.txt.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27
+pydantic>=2.9
+pydantic-settings>=2.5
+python-multipart>=0.0.9

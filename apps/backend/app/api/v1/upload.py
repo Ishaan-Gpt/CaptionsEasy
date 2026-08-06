@@ -58,7 +58,7 @@ async def upload_video(
     )
     # Sprint 1.3: dispatch the queued metadata-extraction job to the
     # background worker (dummy stages only — see app.worker.stages).
-    job_dispatcher.dispatch(str(result.job.id))
+    await job_dispatcher.dispatch(str(result.job.id))
     return success_response(
         {
             "videoId": str(result.video.id),
