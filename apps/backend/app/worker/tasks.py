@@ -19,6 +19,7 @@ from app.worker.logging import WorkerLogger
 from app.worker.pipeline import run_job_pipeline
 from app.worker.progress import RedisProgressReporter
 from app.worker.redis_client import get_redis_client
+from app.worker.stages import Stage
 from app.worker.types import JobOutcome
 
 
@@ -131,7 +132,7 @@ def _build_stages(session, job_id: str, settings, *, progress=None, repo=None):
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
-        return [Stage(name="Extract Video Metadata", fn=run_metadata_extraction)]
+        return [Stage(name="Extract Video Metadata", run=run_metadata_extraction)]
 
     raise UnroutableJobError(f"Unrecognized job_type={job_row.job_type!r} for job_id={job_id!r}")
 
