@@ -213,7 +213,10 @@ async def save_custom_style(
     # first any earlier custom safe_area save would be silently discarded
     # on the next unrelated style edit) > the base "kalakar" preset's > a
     # hardcoded fallback.
-    existing_custom_safe_area = data.get(preset_key, {}).get("safe_area", {})
+    # The DB column is the durable source of truth (presets.json on disk
+    # gets reset on every Render redeploy) — prefer it over the on-disk
+    # copy when reading back this project's own prior custom safe_area.
+    existing_custom_safe_area = (project.custom_style_json or data.get(preset_key, {})).get("safe_area", {})
     default_safe_area = base_preset.get("safe_area", {
         "top": 80.0, "bottom": 120.0, "left": 50.0, "right": 50.0,
     })
@@ -278,13 +281,23 @@ async def save_custom_style(
         "transitions": base_preset.get("transitions", "fade")
     }
     
-    with open(presets_json_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-        
+    # Best-effort local-disk cache for this process only — NOT the durable
+    # store. Render's container disk is rebuilt from git on every deploy,
+    # so anything written here alone is lost the moment the next commit
+    # (from this task or any other) triggers an auto-deploy. The DB write
+    # below is what actually survives.
+    try:
+        with open(presets_json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except OSError:
+        pass
+
     from app.render.presets import StylePresetManager
-    StylePresetManager._presets.clear()
-    
-    updated = await project_repository.update_fields(project, style=preset_key)
+    StylePresetManager.register(preset_key, data[preset_key])
+
+    updated = await project_repository.update_fields(
+        project, style=preset_key, custom_style_json=data[preset_key]
+    )
     return success_response({"style": preset_key})
 
 
@@ -296,16 +309,21 @@ async def get_custom_style(
     import os
     import json
     preset_key = f"custom_{project_id}"
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    presets_json_path = os.path.abspath(os.path.join(current_dir, "..", "..", "render", "presets.json"))
-    
-    if os.path.exists(presets_json_path):
-        with open(presets_json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {}
-        
-    preset = data.get(preset_key)
+
+    # DB column is the durable source of truth; presets.json on disk is
+    # only a same-process cache warm-up and can be stale/missing after a
+    # redeploy, so it's strictly a fallback for pre-migration entries.
+    preset = project.custom_style_json
+    if preset is None:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        presets_json_path = os.path.abspath(os.path.join(current_dir, "..", "..", "render", "presets.json"))
+        if os.path.exists(presets_json_path):
+            with open(presets_json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {}
+        preset = data.get(preset_key)
+
     if preset:
         topo = preset.get("typography", {})
         highlight = preset.get("highlight", {})

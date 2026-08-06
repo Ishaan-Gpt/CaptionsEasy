@@ -79,6 +79,7 @@ class ProjectRepository:
         thumbnail_url: str | None = None,
         style: str | None = None,
         caption_template: str | None = None,
+        custom_style_json: dict | None = None,
     ) -> Project:
         """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite)."""
         if title is not None:
@@ -93,6 +94,8 @@ class ProjectRepository:
             project.style = style
         if caption_template is not None:
             project.caption_template = caption_template
+        if custom_style_json is not None:
+            project.custom_style_json = custom_style_json
         await self._db.commit()
         await self._db.refresh(project)
         return project

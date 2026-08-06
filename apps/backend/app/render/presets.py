@@ -101,6 +101,17 @@ class StylePresetManager:
         }
 
     @classmethod
+    def register(cls, key: str, data: dict) -> None:
+        """Hydrates one preset into the in-process cache from a source other
+        than presets.json — namely a project's own custom_style_json column
+        (the durable store; see 0008_project_custom_style_json). Call this
+        before get_preset(key) whenever key is a "custom_<project_id>" key,
+        since presets.json on disk won't have it after a redeploy and this
+        process may never have loaded it before."""
+        cls.load_presets()
+        cls._presets[key.strip().lower()] = StylePreset(**data)
+
+    @classmethod
     def get_preset(cls, name: Optional[str]) -> StylePreset:
         cls.load_presets()
         clean_name = (name or "minimal").strip().lower()

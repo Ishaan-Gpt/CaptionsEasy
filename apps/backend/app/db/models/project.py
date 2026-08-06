@@ -36,6 +36,12 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     # (CustomStyleRequest/presets.json is a full-replace blob — an
     # unrelated style save would silently wipe a sparse map stored there).
     fragment_overrides_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # The full resolved StylePreset dict for this project's "custom_<id>"
+    # style key (see app.render.presets.StylePresetManager). Source of
+    # truth for custom templates — presets.json on disk is not durable
+    # across Render deploys, this column is. None = project has never
+    # saved a custom style (uses a built-in preset by name instead).
+    custom_style_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     owner: Mapped["Profile"] = relationship(back_populates="projects")  # noqa: F821
     videos: Mapped[list["Video"]] = relationship(  # noqa: F821

@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import select
 from app.core.config import Settings
 from app.db.models.job import Job
+from app.db.models.project import Project
 from app.db.models.video import Video
 from app.db.models.motion_script import MotionScript as MotionScriptRow
 from app.storage.dependencies import get_storage_client
@@ -68,6 +69,18 @@ def build_render_stages(
         ).scalars().first()
         if ms_row is None:
             raise ValueError(f"No MotionScript found for project {ctx.project_id}.")
+
+        # Hydrate StylePresetManager's in-process cache for this project's
+        # custom style before generate_ass() looks it up — this worker may
+        # be a fresh process (e.g. a local worker) that never wrote/loaded
+        # presets.json, and that file is reset on every Render redeploy
+        # anyway. custom_style_json on the project row is the durable copy.
+        project_row = session.execute(
+            select(Project).where(Project.id == ctx.project_id)
+        ).scalar_one_or_none()
+        if project_row and project_row.style and project_row.style.startswith("custom_") and project_row.custom_style_json:
+            from app.render.presets import StylePresetManager
+            StylePresetManager.register(project_row.style, project_row.custom_style_json)
 
         # Validate MotionScript
         try:

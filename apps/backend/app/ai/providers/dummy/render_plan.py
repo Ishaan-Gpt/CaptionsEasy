@@ -369,6 +369,31 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         # silently fall back to "minimal" wherever this theme key is looked up
         # again later (e.g. the ASS export engine).
         resolved_style_key = (style or "minimal").strip().lower()
+        if resolved_style_key.startswith("custom_"):
+            # This process's StylePresetManager cache may never have seen
+            # this project's custom style (presets.json is reset on every
+            # Render redeploy; a local-worker process starts with no cache
+            # at all). The DB column (custom_style_json) is the durable
+            # source of truth — hydrate the cache from it before lookup.
+            try:
+                import uuid
+                from sqlalchemy import select
+                from app.db.session import AsyncSessionLocal
+                from app.db.models.project import Project as ProjectRow
+
+                async def fetch_custom_style():
+                    async with AsyncSessionLocal() as session:
+                        stmt = select(ProjectRow.custom_style_json).where(
+                            ProjectRow.id == uuid.UUID(project_id)
+                        )
+                        result = await session.execute(stmt)
+                        return result.scalar_one_or_none()
+
+                custom_style_json = await fetch_custom_style()
+                if custom_style_json:
+                    StylePresetManager.register(resolved_style_key, custom_style_json)
+            except Exception as e:
+                print(f"Error hydrating custom style {resolved_style_key} from DB: {e}")
         preset = StylePresetManager.get_preset(resolved_style_key)
 
         # Resolve caption template setting
