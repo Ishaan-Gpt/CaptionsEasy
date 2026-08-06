@@ -74,8 +74,7 @@ def build_ai_pipeline_stages(
                 import subprocess
                 import json
                 import os
-                import asyncio
-                
+
                 # download video
                 storage_client = get_storage_client(settings)
                 try:
