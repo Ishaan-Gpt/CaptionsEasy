@@ -4,6 +4,52 @@ This sprint is shipping, not coding. Items marked **[YOU]** require your
 accounts/credentials/dashboard access — I cannot do these for you. Items
 marked **[DONE]** are already prepared in this repo.
 
+## Local-worker processing (current state, read this first)
+
+Render's free-tier web service (512MB RAM) OOM'd mid-render during a live
+smoke test — Chromium (Remotion) + ffmpeg + FastAPI + the inline Celery
+worker all sharing one process exceeded it. Rather than upgrade the Render
+plan, **AI-pipeline and render jobs now run on the user's own computer**
+instead of Celery, pushed over a Cloudflare Quick Tunnel and reported back
+over HTTPS. This was verified end-to-end against the live deployment
+(pairing → dispatch → Groq transcription/creative/caption → Remotion
+render → export persisted to Supabase Storage).
+
+- **Render still runs the CRUD API** — auth, projects, uploads, jobs,
+  metadata extraction, storage cleanup are all unchanged and still Celery/
+  inline-worker-backed. Only `ai_pipeline`/`render` job types are rerouted;
+  see `app/worker/dispatcher.py`'s `CompositeJobDispatcher`.
+- **Cloud AI/render processing is dormant, not deleted** — `app.worker.
+  ai_pipeline_stage`/`render_stage`/`tasks.py` are untouched and would
+  work again immediately if a project ever wants to re-enable cloud
+  processing (e.g. after upgrading the Render plan) by pointing the
+  dispatcher back at Celery for those job types.
+- **New required env vars on Render** (already set): `BACKEND_PUBLIC_URL`
+  (this backend's own public URL, e.g. `https://motionai-backend.onrender.com/api/v1`
+  — handed to paired workers so they know where to call back) and
+  `FRONTEND_URL` (e.g. `https://captionseasy.vercel.app` — used to build
+  the `/pair` confirmation link).
+- **The local worker** lives at `apps/backend/local_worker/` — a small
+  FastAPI service that reuses `app.ai.orchestration`/`app.render.engine`
+  unmodified (both are pure-compute, no DB/Celery coupling) so the exact
+  same tested pipeline code runs on a user's machine. It never holds
+  Supabase or database credentials — only a Groq API key and a per-worker
+  bearer token generated at pairing time.
+- **Users connect a computer** via one command from Settings:
+  `curl -fsSL https://captionseasy.vercel.app/install.sh | bash` (mac/
+  Linux) or `irm https://captionseasy.vercel.app/install.ps1 | iex`
+  (Windows) — served by `apps/frontend/src/app/install.sh|install.ps1`.
+  No git clone; the script downloads a GitHub tarball invisibly. The
+  script installs Node 20+/pnpm/ffmpeg/cloudflared if missing, starts the
+  worker, opens a Cloudflare Quick Tunnel, and prints a `/pair?code=...`
+  link the user opens and confirms while logged in.
+- **If a job is dispatched with no paired/online worker**, the backend
+  fails it immediately with `NO_WORKER_PAIRED` (409) rather than leaving
+  it stuck at "queued" — the frontend shows a "Connect your computer" CTA
+  linking to Settings (see `ExportHistorySection.tsx`'s `isNoWorkerError`).
+- Cloud processing is shown as **"coming soon"** on the Settings page —
+  this is the only processing path right now, not a fallback option.
+
 ## Pre-Deploy Checklist
 
 Run through this before touching Render/Vercel — catches the local,

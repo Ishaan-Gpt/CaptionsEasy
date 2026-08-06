@@ -6,6 +6,12 @@ MotionAI is a premium, production-ready AI-powered video editing and captioning 
 
 ## 🏗️ Architecture Overview
 
+> **Current deployment note:** AI-pipeline and render processing run on
+> users' own paired computers, not the Celery worker shown below — see
+> "Local-worker processing" at the top of `DEPLOYMENT.md` for why and how.
+> The diagram below still reflects the underlying pipeline logic (which is
+> reused unmodified either way); only *where* it executes has changed.
+
 The following diagram illustrates the flow of a video through the MotionAI orchestration pipeline, from upload to the final rendered output:
 
 ```mermaid
