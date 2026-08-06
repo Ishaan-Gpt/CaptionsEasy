@@ -87,6 +87,12 @@ async def _run_ai_pipeline(
         caption_provider_name=payload.get("captionProviderName") or "groq",
         render_plan_provider_name=payload.get("renderPlanProviderName") or "dummy",
         storage_client=storage_client,
+        # Without this, each Groq provider's own get_settings() fallback
+        # fires and crashes on the local worker (it requires
+        # DATABASE_URL_ASYNC/SUPABASE_* fields this worker never has) —
+        # caught live: "AI Pipeline Failed" / Speech Transcription stage
+        # failing with 4 pydantic validation errors for Settings.
+        settings=settings,
     )
 
     loop = asyncio.get_running_loop()

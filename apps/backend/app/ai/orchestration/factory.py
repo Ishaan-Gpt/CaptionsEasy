@@ -138,20 +138,25 @@ def build_default_engine(
     render_plan_provider_name: str = "dummy",
     metrics_recorder: MetricsRecorder | None = None,
     storage_client: StorageClient | None = None,
+    settings=None,
 ) -> tuple[AIPipelineOrchestrationEngine, MetricsRecorder]:
     """Resolves providers by name from the typed registries (never hardcoded
     here — see contracts/ai.md > Providers) and assembles the engine.
     Returns the recorder too, so callers can read metrics back out.
 
     `storage_client`, if given, overrides the speech provider's default
-    Supabase-backed download — used by the local worker (see
-    apps/backend/local_worker/run_job.py), which never holds Supabase
-    service-role credentials and instead resolves the one video it needs
-    via a presigned URL handed to it in the job payload."""
+    Supabase-backed download. `settings`, if given, overrides all three
+    Groq provider registrations' own `get_settings()` fallback — both are
+    used by the local worker (apps/backend/local_worker/run_job.py), which
+    never holds a real app.core.config.Settings (that type requires
+    DATABASE_URL_ASYNC/SUPABASE_* fields the worker deliberately never
+    has) and passes its own lightweight LocalWorkerSettings instead. Any
+    object exposing the same `.groq_*` attributes works — these providers
+    only ever read attributes off it, never isinstance-check it."""
     register_dummy_providers()  # idempotent; ensures "dummy" is always resolvable.
-    register_groq_speech_provider(storage_client=storage_client)  # idempotent; ensures "groq" is resolvable.
-    register_groq_creative_provider()
-    register_groq_caption_provider()
+    register_groq_speech_provider(settings, storage_client=storage_client)  # idempotent; ensures "groq" is resolvable.
+    register_groq_creative_provider(settings)
+    register_groq_caption_provider(settings)
     recorder = metrics_recorder or InMemoryMetricsRecorder()
 
     stage_registry = build_stage_registry(

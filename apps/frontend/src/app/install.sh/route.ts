@@ -79,15 +79,25 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   else echo "!! Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads" && exit 1; fi
 fi
 
-# --- Download the worker source (no git required) — skip if this machine
-# already has it, so a repeat run by the same user is instant instead of
-# re-downloading the whole repo every time. ---
-if [ ! -d "$INSTALL_DIR/apps/backend" ]; then
-  mkdir -p "$INSTALL_DIR"
+# --- Download the worker source (no git required). This is under active
+# development — "already downloaded" alone isn't enough to skip, or a
+# stale local copy would silently miss bug fixes forever. Compare against
+# the latest commit on GitHub (one small API call, not a re-download) and
+# only re-fetch when it's actually changed. ---
+mkdir -p "$INSTALL_DIR"
+SHA_MARKER_FILE="$INSTALL_DIR/.captionseasy_commit_sha"
+REMOTE_SHA="$(curl -fsSL -H "User-Agent: captionseasy-installer" https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main 2>/dev/null | grep -o '"sha": *"[a-f0-9]*"' | head -1 | grep -o '[a-f0-9]\{40\}' || true)"
+LOCAL_SHA="$([ -f "$SHA_MARKER_FILE" ] && cat "$SHA_MARKER_FILE" || true)"
+
+if [ ! -d "$INSTALL_DIR/apps/backend" ] || { [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; }; then
   echo "-> Downloading CaptionsEasy worker..."
+  # Clear any previous extracted copy (but keep tools/ and hash markers)
+  # so files removed upstream don't linger as stale leftovers.
+  find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name "tools" ! -name ".captionseasy_*" -exec rm -rf {} +
   curl -fsSL "${REPO_TARBALL_URL}" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
+  [ -n "$REMOTE_SHA" ] && echo "$REMOTE_SHA" > "$SHA_MARKER_FILE"
 else
-  echo "-> CaptionsEasy worker already downloaded, skipping."
+  echo "-> CaptionsEasy worker already up to date, skipping."
 fi
 
 # macOS ships shasum, not sha256sum; Linux is the reverse — support both.

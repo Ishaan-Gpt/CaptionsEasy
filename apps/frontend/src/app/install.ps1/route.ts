@@ -139,16 +139,37 @@ if (-not (Test-Command ffmpeg)) {
 
 # ---------------------------------------------------------------------
 # Download the worker source (no git required) and install dependencies.
+# This is under active development — "already downloaded" alone isn't
+# enough to skip, or a stale local copy would silently miss bug fixes
+# forever. Compare against the latest commit on GitHub (one small API
+# call, not a re-download) and only re-fetch when it's actually changed.
 # ---------------------------------------------------------------------
-if (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) {
+$ShaMarkerFile = Join-Path $InstallDir ".captionseasy_commit_sha"
+$RemoteSha = $null
+try {
+    $RemoteSha = (Invoke-RestMethod -Uri "https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main" -Headers @{ "User-Agent" = "captionseasy-installer" }).sha
+} catch {
+    Write-Host "   (couldn't check for updates — continuing with what's local, if any)"
+}
+$LocalSha = if (Test-Path $ShaMarkerFile) { (Get-Content $ShaMarkerFile -Raw).Trim() } else { $null }
+$NeedsDownload = (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) -or ($RemoteSha -and $RemoteSha -ne $LocalSha)
+
+if ($NeedsDownload) {
     Write-Host "-> Downloading CaptionsEasy worker..."
     $ZipPath = Join-Path $InstallDir "source.zip"
     Invoke-WebRequest -Uri "${REPO_ZIP_URL}" -OutFile $ZipPath
+    # Clear any previous extracted copy (but keep tools/ and the hash
+    # markers) so files removed upstream don't linger as stale leftovers.
+    Get-ChildItem -Path $InstallDir -Exclude "tools", ".captionseasy_*", "source.zip" |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
     Remove-Item $ZipPath
     $ExtractedDir = Get-ChildItem -Path $InstallDir -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
     Get-ChildItem -Path $ExtractedDir.FullName | Move-Item -Destination $InstallDir -Force
     Remove-Item $ExtractedDir.FullName -Recurse -Force
+    if ($RemoteSha) { Set-Content $ShaMarkerFile $RemoteSha }
+} else {
+    Write-Host "-> CaptionsEasy worker already up to date, skipping."
 }
 
 Set-Location $InstallDir
