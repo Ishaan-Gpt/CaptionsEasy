@@ -1,18 +1,45 @@
 // Serves the Windows one-command local-worker installer (PowerShell).
-// Mirrors install.sh/route.ts — see its comments for the overall flow.
+//
+// Designed for a genuinely fresh machine with nothing pre-installed: it
+// never assumes Python/Node/ffmpeg/cloudflared/pnpm already exist, and
+// never relies on winget (not guaranteed present on every Windows 10/11
+// edition, and can trigger UAC per-package). Every prerequisite it doesn't
+// find is fetched as a portable zip/exe into $InstallDir\tools and used
+// from there directly — no installers, no admin rights, nothing added to
+// the system PATH permanently.
 const REPO_ZIP_URL = "https://codeload.github.com/Ishaan-Gpt/CaptionsEasy/zip/refs/heads/main";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+const PYTHON_EMBED_URL = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip";
+const GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py";
+const NODE_ZIP_URL = "https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip";
+// BtbN's GitHub-hosted build rather than gyan.dev's own server — measured
+// gyan.dev stalling for minutes on this connection during testing; GitHub's
+// release CDN was consistently fast. Includes ffprobe.exe alongside
+// ffmpeg.exe in the same bin/ folder, which is all this script needs.
+const FFMPEG_ZIP_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
 
 export async function GET(request: Request) {
   const appUrl = new URL(request.url).origin;
-  const script = `$ErrorActionPreference = "Stop"
+  const script = `# CaptionsEasy local worker installer (Windows) — safe to run on a brand
+# new machine with nothing installed. Run in a normal (non-administrator)
+# PowerShell window: irm ${appUrl}/install.ps1 | iex
+$ErrorActionPreference = "Stop"
+# Invoke-WebRequest's default progress-bar rendering makes large downloads
+# dramatically slower in Windows PowerShell (measured firsthand: a ~100MB
+# file effectively stalling for minutes) — every download below is large
+# enough for this to matter.
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $AppUrl = if ($env:CAPTIONSEASY_APP_URL) { $env:CAPTIONSEASY_APP_URL } else { "${appUrl}" }
 $InstallDir = if ($env:CAPTIONSEASY_HOME) { $env:CAPTIONSEASY_HOME } else { "$HOME\\.captionseasy" }
+$ToolsDir = Join-Path $InstallDir "tools"
+New-Item -ItemType Directory -Force -Path $ToolsDir | Out-Null
 
 Write-Host ""
 Write-Host "======================================================"
 Write-Host "  CaptionsEasy - connecting this computer"
+Write-Host "  (first run on a new machine takes a few minutes)"
 Write-Host "======================================================"
 Write-Host ""
 
@@ -20,13 +47,32 @@ function Test-Command($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
-# Find a real 3.11+ interpreter — checking only "does python exist" isn't
-# enough: many Windows machines have an old Python (3.8, 3.9...) shadowing
-# python/python3 on PATH, which fails on this codebase's 3.11+ syntax with
-# a confusing "'type' object is not subscriptable" error deep in imports
-# rather than a clear version message. Prefer the py launcher (lets us pick
-# an exact version even when multiple are installed), then fall back to
-# checking python3/python's own reported version.
+function Get-VersionOk($cmd, $minMajor, $minMinor) {
+    try {
+        $out = & $cmd --version 2>&1
+        if ($out -match "(\\d+)\\.(\\d+)") {
+            $maj = [int]$matches[1]; $min = [int]$matches[2]
+            return ($maj -gt $minMajor -or ($maj -eq $minMajor -and $min -ge $minMinor))
+        }
+    } catch {}
+    return $false
+}
+
+function Get-Zip($url, $destDir, $label) {
+    Write-Host "-> Downloading $label ..."
+    $zipPath = Join-Path $ToolsDir ((New-Guid).Guid + ".zip")
+    Invoke-WebRequest -Uri $url -OutFile $zipPath
+    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+    Expand-Archive -Path $zipPath -DestinationPath $destDir -Force
+    Remove-Item $zipPath
+}
+
+# ---------------------------------------------------------------------
+# Python 3.11+ — prefer whatever's already on the machine (via the py
+# launcher, so we pick an exact version even when an older Python also
+# shadows python/python3), otherwise fetch the official portable
+# "embeddable" build and bootstrap pip into it ourselves.
+# ---------------------------------------------------------------------
 $PythonExe = $null
 $PythonArgs = @()
 if (Test-Command py) {
@@ -37,61 +83,79 @@ if (Test-Command py) {
 }
 if (-not $PythonExe) {
     foreach ($cmd in @("python3.11", "python3", "python")) {
-        if (Test-Command $cmd) {
-            $verOut = & $cmd --version 2>&1
-            if ($verOut -match "Python (\d+)\.(\d+)") {
-                $maj = [int]$matches[1]; $min = [int]$matches[2]
-                if ($maj -gt 3 -or ($maj -eq 3 -and $min -ge 11)) { $PythonExe = $cmd; $PythonArgs = @(); break }
-            }
-        }
+        if ((Test-Command $cmd) -and (Get-VersionOk $cmd 3 11)) { $PythonExe = $cmd; $PythonArgs = @(); break }
     }
 }
 if (-not $PythonExe) {
-    Write-Host "!! Python 3.11+ is required, but only an older version (or none) was found on PATH."
-    Write-Host "   Install Python 3.11+ from https://python.org (check 'Add to PATH' during setup), then re-run this command."
-    exit 1
+    $PyDir = Join-Path $ToolsDir "python"
+    if (-not (Test-Path (Join-Path $PyDir "python.exe"))) {
+        Get-Zip "${PYTHON_EMBED_URL}" $PyDir "Python 3.11 (portable, no install needed)"
+        # The embeddable build ships with site-packages disabled by
+        # default (a commented-out "import site" in its ._pth file) —
+        # without re-enabling it, pip and every installed package would
+        # be invisible to the interpreter.
+        $pthFile = Get-ChildItem $PyDir -Filter "*._pth" | Select-Object -First 1
+        (Get-Content $pthFile.FullName) -replace "^#import site$", "import site" | Set-Content $pthFile.FullName
+        Write-Host "-> Bootstrapping pip..."
+        $getPip = Join-Path $PyDir "get-pip.py"
+        Invoke-WebRequest -Uri "${GET_PIP_URL}" -OutFile $getPip
+        & "$PyDir\\python.exe" $getPip --no-warn-script-location --quiet
+    }
+    $PythonExe = "$PyDir\\python.exe"
+    $PythonArgs = @()
 }
 function Invoke-Python { & $PythonExe @PythonArgs @args }
 
-if (-not (Test-Command winget)) {
-    Write-Host "!! winget is required to auto-install Node/ffmpeg/cloudflared on this machine."
-    Write-Host "   Install App Installer from the Microsoft Store, then re-run this command."
-    exit 1
+# ---------------------------------------------------------------------
+# Node.js 20+ (for the Remotion render step) — same idea: use it if it's
+# already there and current enough, otherwise fetch the portable zip.
+# ---------------------------------------------------------------------
+$NodeBin = $null
+if ((Test-Command node) -and (Get-VersionOk node 20 0)) {
+    $NodeBin = Split-Path -Parent (Get-Command node).Source
+} else {
+    $NodeDir = Join-Path $ToolsDir "node"
+    $nodeExe = Get-ChildItem $NodeDir -Filter "node.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $nodeExe) {
+        Get-Zip "${NODE_ZIP_URL}" $NodeDir "Node.js 20 (portable, no install needed)"
+        $nodeExe = Get-ChildItem $NodeDir -Filter "node.exe" -Recurse | Select-Object -First 1
+    }
+    $NodeBin = $nodeExe.DirectoryName
 }
+$env:Path = "$NodeBin;$env:Path"
 
-if (-not (Test-Command node) -or ((node -v) -replace 'v(\\d+).*', '$1') -lt 20) {
-    Write-Host "-> Installing Node.js 20..."
-    winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
-}
-
+# --- ffmpeg ---
 if (-not (Test-Command ffmpeg)) {
-    Write-Host "-> Installing ffmpeg..."
-    winget install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
+    $FfmpegDir = Join-Path $ToolsDir "ffmpeg"
+    $ffmpegExe = Get-ChildItem $FfmpegDir -Filter "ffmpeg.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $ffmpegExe) {
+        Get-Zip "${FFMPEG_ZIP_URL}" $FfmpegDir "ffmpeg (portable, no install needed)"
+        $ffmpegExe = Get-ChildItem $FfmpegDir -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+    }
+    $env:Path = "$($ffmpegExe.DirectoryName);$env:Path"
 }
+# cloudflared is fetched automatically by local_worker/pair.py itself if
+# it isn't already on PATH, so nothing to do for it here.
 
-if (-not (Test-Command cloudflared)) {
-    Write-Host "-> Installing cloudflared..."
-    winget install -e --id Cloudflare.cloudflared --accept-source-agreements --accept-package-agreements
+# ---------------------------------------------------------------------
+# Download the worker source (no git required) and install dependencies.
+# ---------------------------------------------------------------------
+if (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) {
+    Write-Host "-> Downloading CaptionsEasy worker..."
+    $ZipPath = Join-Path $InstallDir "source.zip"
+    Invoke-WebRequest -Uri "${REPO_ZIP_URL}" -OutFile $ZipPath
+    Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
+    Remove-Item $ZipPath
+    $ExtractedDir = Get-ChildItem -Path $InstallDir -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
+    Get-ChildItem -Path $ExtractedDir.FullName | Move-Item -Destination $InstallDir -Force
+    Remove-Item $ExtractedDir.FullName -Recurse -Force
 }
-
-if (-not (Test-Command pnpm)) {
-    Write-Host "-> Installing pnpm..."
-    npm install -g pnpm
-}
-
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Write-Host "-> Downloading CaptionsEasy worker..."
-$ZipPath = Join-Path $InstallDir "source.zip"
-Invoke-WebRequest -Uri "${REPO_ZIP_URL}" -OutFile $ZipPath
-Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
-Remove-Item $ZipPath
-$ExtractedDir = Get-ChildItem -Path $InstallDir -Directory | Select-Object -First 1
-Get-ChildItem -Path $ExtractedDir.FullName | Move-Item -Destination $InstallDir -Force
-Remove-Item $ExtractedDir.FullName -Recurse -Force
 
 Set-Location $InstallDir
 Write-Host "-> Installing the Remotion render dependencies (first run only, ~1-2 min)..."
-pnpm install --filter remotion-pipeline... --frozen-lockfile
+# npx (bundled with Node) fetches pnpm on demand — no separate pnpm
+# install/shim step needed, and nothing touches the system PATH.
+& "$NodeBin\\npx.cmd" --yes pnpm@10 install --filter remotion-pipeline... --frozen-lockfile
 
 Set-Location "$InstallDir\\apps\\backend"
 Write-Host "-> Installing worker dependencies..."
