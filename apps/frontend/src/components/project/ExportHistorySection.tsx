@@ -1,9 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Project } from "@/services/types";
 import { projectsService } from "@/services/projects";
 import { jobsService, JobStatusResponse } from "@/services/jobs";
+
+// Matches the backend's NO_WORKER_PAIRED / WORKER_OFFLINE AppError messages
+// (app/worker/dispatcher.py) — both start with the same phrase, so a
+// substring check is enough without threading the error code through.
+const isNoWorkerError = (message: string | null | undefined) =>
+  !!message && (message.includes("Connect your computer") || message.includes("computer appears to be offline"));
+
+function ConnectComputerCta() {
+  return (
+    <Link
+      href="/settings"
+      className="mt-1 block w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-sora font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 text-center transition-colors"
+    >
+      Connect your computer
+    </Link>
+  );
+}
 
 interface ExportHistorySectionProps {
   projectId: string;
@@ -401,12 +419,16 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                   <div className="font-mono text-[7px] leading-relaxed break-words opacity-80">
                     {jobStatus?.error_message || processingError || "Unknown processing error"}
                   </div>
-                  <button
-                    onClick={startProcessing}
-                    className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-sora font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 cursor-pointer text-center transition-colors"
-                  >
-                    Retry AI Processing
-                  </button>
+                  {isNoWorkerError(jobStatus?.error_message || processingError) ? (
+                    <ConnectComputerCta />
+                  ) : (
+                    <button
+                      onClick={startProcessing}
+                      className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-sora font-black uppercase text-[7px] tracking-wider py-1 border border-red-500/30 cursor-pointer text-center transition-colors"
+                    >
+                      Retry AI Processing
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -417,6 +439,7 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
                   <div className="font-mono text-[7px] leading-relaxed break-words opacity-80">
                     {renderError}
                   </div>
+                  {isNoWorkerError(renderError) && <ConnectComputerCta />}
                 </div>
               )}
             </div>
