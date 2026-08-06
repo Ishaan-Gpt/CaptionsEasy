@@ -25,9 +25,24 @@ if [[ "$(uname -s)" == "Darwin" ]] && ! command -v brew >/dev/null 2>&1; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
-# --- Python 3.11+ ---
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "!! Python 3.11+ is required. Install it from https://python.org, then re-run this command."
+# --- Python 3.11+ (checking existence isn't enough — an old python3 on
+# PATH fails deep inside this codebase's imports with a confusing
+# "'type' object is not subscriptable" error rather than a clear version
+# message, so check the actual reported version) ---
+PYTHON=""
+for cmd in python3.13 python3.12 python3.11 python3 python; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    ver="$("$cmd" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo 0.0)"
+    major="\${ver%%.*}"; minor="\${ver##*.}"
+    if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; }; then
+      PYTHON="$cmd"
+      break
+    fi
+  fi
+done
+if [ -z "$PYTHON" ]; then
+  echo "!! Python 3.11+ is required, but only an older version (or none) was found on PATH."
+  echo "   Install Python 3.11+ from https://python.org, then re-run this command."
   exit 1
 fi
 
@@ -75,12 +90,12 @@ pnpm install --filter remotion-pipeline... --frozen-lockfile
 
 cd "$INSTALL_DIR/apps/backend"
 echo "-> Installing worker dependencies..."
-python3 -m pip install --quiet -r local_worker/requirements.txt
+"$PYTHON" -m pip install --quiet -r local_worker/requirements.txt
 
 echo ""
 echo "Ready. Connecting..."
 echo ""
-CAPTIONSEASY_APP_URL="$APP_URL" CAPTIONSEASY_API_URL="${API_URL}" PYTHONPATH="$INSTALL_DIR:$INSTALL_DIR/apps/backend" python3 -m local_worker.pair
+CAPTIONSEASY_APP_URL="$APP_URL" CAPTIONSEASY_API_URL="${API_URL}" PYTHONPATH="$INSTALL_DIR:$INSTALL_DIR/apps/backend" "$PYTHON" -m local_worker.pair
 `;
 
   return new Response(script, {

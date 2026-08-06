@@ -20,11 +20,38 @@ function Test-Command($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
-if (-not (Test-Command python) -and -not (Test-Command python3)) {
-    Write-Host "!! Python 3.11+ is required. Install it from https://python.org (check 'Add to PATH'), then re-run this command."
+# Find a real 3.11+ interpreter — checking only "does python exist" isn't
+# enough: many Windows machines have an old Python (3.8, 3.9...) shadowing
+# python/python3 on PATH, which fails on this codebase's 3.11+ syntax with
+# a confusing "'type' object is not subscriptable" error deep in imports
+# rather than a clear version message. Prefer the py launcher (lets us pick
+# an exact version even when multiple are installed), then fall back to
+# checking python3/python's own reported version.
+$PythonExe = $null
+$PythonArgs = @()
+if (Test-Command py) {
+    foreach ($v in @("3.13", "3.12", "3.11")) {
+        & py "-$v" --version *> $null
+        if ($LASTEXITCODE -eq 0) { $PythonExe = "py"; $PythonArgs = @("-$v"); break }
+    }
+}
+if (-not $PythonExe) {
+    foreach ($cmd in @("python3.11", "python3", "python")) {
+        if (Test-Command $cmd) {
+            $verOut = & $cmd --version 2>&1
+            if ($verOut -match "Python (\d+)\.(\d+)") {
+                $maj = [int]$matches[1]; $min = [int]$matches[2]
+                if ($maj -gt 3 -or ($maj -eq 3 -and $min -ge 11)) { $PythonExe = $cmd; $PythonArgs = @(); break }
+            }
+        }
+    }
+}
+if (-not $PythonExe) {
+    Write-Host "!! Python 3.11+ is required, but only an older version (or none) was found on PATH."
+    Write-Host "   Install Python 3.11+ from https://python.org (check 'Add to PATH' during setup), then re-run this command."
     exit 1
 }
-$Python = if (Test-Command python) { "python" } else { "python3" }
+function Invoke-Python { & $PythonExe @PythonArgs @args }
 
 if (-not (Test-Command winget)) {
     Write-Host "!! winget is required to auto-install Node/ffmpeg/cloudflared on this machine."
@@ -68,7 +95,7 @@ pnpm install --filter remotion-pipeline... --frozen-lockfile
 
 Set-Location "$InstallDir\\apps\\backend"
 Write-Host "-> Installing worker dependencies..."
-& $Python -m pip install --quiet -r local_worker\\requirements.txt
+Invoke-Python -m pip install --quiet -r local_worker\\requirements.txt
 
 Write-Host ""
 Write-Host "Ready. Connecting..."
@@ -76,7 +103,7 @@ Write-Host ""
 $env:CAPTIONSEASY_APP_URL = $AppUrl
 $env:CAPTIONSEASY_API_URL = "${API_URL}"
 $env:PYTHONPATH = "$InstallDir;$InstallDir\\apps\\backend"
-& $Python -m local_worker.pair
+Invoke-Python -m local_worker.pair
 `;
 
   return new Response(script, {
