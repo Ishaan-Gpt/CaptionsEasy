@@ -152,14 +152,34 @@ if (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) {
 }
 
 Set-Location $InstallDir
-Write-Host "-> Installing the Remotion render dependencies (first run only, ~1-2 min)..."
-# npx (bundled with Node) fetches pnpm on demand — no separate pnpm
-# install/shim step needed, and nothing touches the system PATH.
-& "$NodeBin\\npx.cmd" --yes pnpm@10 install --filter remotion-pipeline... --frozen-lockfile
+# Skip work already done: hash the lockfile/requirements and compare
+# against what we installed last time, so a repeat run by the same user
+# (or a dev machine that already has everything) is instant instead of
+# re-running pnpm/pip on every reconnect.
+$LockHashFile = Join-Path $InstallDir ".captionseasy_pnpm_lock_hash"
+$CurrentLockHash = (Get-FileHash "pnpm-lock.yaml" -Algorithm SHA256).Hash
+if (-not (Test-Path $LockHashFile) -or (Get-Content $LockHashFile -Raw).Trim() -ne $CurrentLockHash) {
+    Write-Host "-> Installing the Remotion render dependencies (first run only, ~1-2 min)..."
+    # npx (bundled with Node) fetches pnpm on demand — pinned to an exact
+    # version so npx uses its local cache instantly on repeat runs instead
+    # of hitting the registry to resolve a floating tag. No separate pnpm
+    # install/shim step, nothing touches the system PATH.
+    & "$NodeBin\\npx.cmd" --yes pnpm@10.34.5 install --filter remotion-pipeline... --frozen-lockfile
+    Set-Content $LockHashFile $CurrentLockHash
+} else {
+    Write-Host "-> Remotion dependencies already up to date, skipping."
+}
 
 Set-Location "$InstallDir\\apps\\backend"
-Write-Host "-> Installing worker dependencies..."
-Invoke-Python -m pip install --quiet -r local_worker\\requirements.txt
+$ReqHashFile = Join-Path $InstallDir ".captionseasy_requirements_hash"
+$CurrentReqHash = (Get-FileHash "local_worker\\requirements.txt" -Algorithm SHA256).Hash
+if (-not (Test-Path $ReqHashFile) -or (Get-Content $ReqHashFile -Raw).Trim() -ne $CurrentReqHash) {
+    Write-Host "-> Installing worker dependencies..."
+    Invoke-Python -m pip install --quiet -r local_worker\\requirements.txt
+    Set-Content $ReqHashFile $CurrentReqHash
+} else {
+    Write-Host "-> Worker dependencies already up to date, skipping."
+}
 
 Write-Host ""
 Write-Host "Ready. Connecting..."

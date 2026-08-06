@@ -79,18 +79,45 @@ if ! command -v cloudflared >/dev/null 2>&1; then
   else echo "!! Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads" && exit 1; fi
 fi
 
-# --- Download the worker source (no git required) ---
-mkdir -p "$INSTALL_DIR"
-echo "-> Downloading CaptionsEasy worker..."
-curl -fsSL "${REPO_TARBALL_URL}" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
+# --- Download the worker source (no git required) — skip if this machine
+# already has it, so a repeat run by the same user is instant instead of
+# re-downloading the whole repo every time. ---
+if [ ! -d "$INSTALL_DIR/apps/backend" ]; then
+  mkdir -p "$INSTALL_DIR"
+  echo "-> Downloading CaptionsEasy worker..."
+  curl -fsSL "${REPO_TARBALL_URL}" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
+else
+  echo "-> CaptionsEasy worker already downloaded, skipping."
+fi
+
+# macOS ships shasum, not sha256sum; Linux is the reverse — support both.
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  else shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
 
 cd "$INSTALL_DIR"
-echo "-> Installing the Remotion render dependencies (first run only, ~1-2 min)..."
-pnpm install --filter remotion-pipeline... --frozen-lockfile
+LOCK_HASH_FILE="$INSTALL_DIR/.captionseasy_pnpm_lock_hash"
+CURRENT_LOCK_HASH="$(hash_file pnpm-lock.yaml)"
+if [ ! -f "$LOCK_HASH_FILE" ] || [ "$(cat "$LOCK_HASH_FILE")" != "$CURRENT_LOCK_HASH" ]; then
+  echo "-> Installing the Remotion render dependencies (first run only, ~1-2 min)..."
+  pnpm install --filter remotion-pipeline... --frozen-lockfile
+  echo "$CURRENT_LOCK_HASH" > "$LOCK_HASH_FILE"
+else
+  echo "-> Remotion dependencies already up to date, skipping."
+fi
 
 cd "$INSTALL_DIR/apps/backend"
-echo "-> Installing worker dependencies..."
-"$PYTHON" -m pip install --quiet -r local_worker/requirements.txt
+REQ_HASH_FILE="$INSTALL_DIR/.captionseasy_requirements_hash"
+CURRENT_REQ_HASH="$(hash_file local_worker/requirements.txt)"
+if [ ! -f "$REQ_HASH_FILE" ] || [ "$(cat "$REQ_HASH_FILE")" != "$CURRENT_REQ_HASH" ]; then
+  echo "-> Installing worker dependencies..."
+  "$PYTHON" -m pip install --quiet -r local_worker/requirements.txt
+  echo "$CURRENT_REQ_HASH" > "$REQ_HASH_FILE"
+else
+  echo "-> Worker dependencies already up to date, skipping."
+fi
 
 echo ""
 echo "Ready. Connecting..."
