@@ -144,7 +144,22 @@ export function buildCardsFromTimeline(
   return captions.map((cap, i) => {
     const next = captions[i + 1];
     const endMs = next ? Math.min(cap.end_ms, next.start_ms) : cap.end_ms;
-    const tokens = String(cap.payload.text).split(/\s+/).filter(Boolean);
+
+    const inWindow = transcriptWords.filter(
+      (w) => w.startMs >= cap.start_ms - 1 && w.endMs <= cap.end_ms + 1,
+    );
+
+    // Prefer the live transcript's current word text over the
+    // planner-authored payload.text — payload.text is only ever
+    // regenerated on a full AI-pipeline re-run, so it goes stale the
+    // moment someone edits a word in the timeline editor. Previously this
+    // always split payload.text, and transcriptWords was only ever used
+    // below for timing/highlight state, never for the text itself — caught
+    // live: timeline edits weren't reflecting in the preview at all.
+    const tokens =
+      inWindow.length > 0
+        ? inWindow.map((w) => w.text)
+        : String(cap.payload.text).split(/\s+/).filter(Boolean);
 
     // Per-word timing authored by the planner as highlight events.
     const cardHighlights = timeline.filter(
@@ -164,9 +179,6 @@ export function buildCardsFromTimeline(
       }
     }
 
-    const inWindow = transcriptWords.filter(
-      (w) => w.startMs >= cap.start_ms - 1 && w.endMs <= cap.end_ms + 1,
-    );
     const span = Math.max(1, endMs - cap.start_ms);
 
     const cardWords: EngineWord[] = tokens.map((t, j) => {

@@ -17,6 +17,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 import httpx
+from unidecode import unidecode
 
 from app.ai.providers.speech.audio_extractor import (
     AudioExtractor,
@@ -42,6 +43,21 @@ TRANSCRIPT_VERSION = "1.0"
 # ("Return confidence values when available" — when not available, a neutral
 # default is used rather than omitting the field).
 FALLBACK_CONFIDENCE = 0.5
+
+# Captions must always render in the Latin/English alphabet, even for
+# Hindi (or other non-Latin-script) speech — this is romanization
+# ("kaisa hai"), not translation (Whisper would otherwise transcribe in
+# the spoken language's native script, e.g. Devanagari for Hindi). Two
+# layers: this prompt nudges Whisper's own output toward Latin script
+# (a documented Whisper technique — it conditions on the prompt's style,
+# not just vocabulary), which usually produces natural-reading results;
+# `_to_latin_alphabet` below is the deterministic fallback that guarantees
+# it even if a word slips through in native script.
+ROMANIZATION_PROMPT_HINT = "Yaar tum kaise ho, sab kuch theek hai kya, chalo shuru karte hain."
+
+
+def _to_latin_alphabet(text: str) -> str:
+    return text if text.isascii() else unidecode(text)
 
 
 class GroqSpeechProvider(SpeechProvider):
@@ -72,8 +88,12 @@ class GroqSpeechProvider(SpeechProvider):
             video_bytes=video_bytes, content_type=content_type
         )
 
+        combined_prompt = (
+            f"{ROMANIZATION_PROMPT_HINT} {prompt}" if prompt else ROMANIZATION_PROMPT_HINT
+        )
+
         start = time.monotonic()
-        response_json = await self._call_groq(audio_bytes, prompt=prompt, language=language)
+        response_json = await self._call_groq(audio_bytes, prompt=combined_prompt, language=language)
         latency_ms = (time.monotonic() - start) * 1000
 
         data = _map_response_to_transcript(response_json)
@@ -172,7 +192,7 @@ def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]
         confidence = _confidence_for_word(start_ms / 1000, segment_confidence_by_range)
         words.append(
             {
-                "text": word["word"].strip(),
+                "text": _to_latin_alphabet(word["word"].strip()),
                 "start_ms": start_ms,
                 "end_ms": end_ms,
                 "confidence": confidence,
