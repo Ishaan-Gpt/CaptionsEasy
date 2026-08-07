@@ -158,15 +158,22 @@ if ($NeedsDownload) {
     Write-Host "-> Downloading CaptionsEasy worker..."
     $ZipPath = Join-Path $InstallDir "source.zip"
     Invoke-WebRequest -Uri "${REPO_ZIP_URL}" -OutFile $ZipPath
-    # Clear any previous extracted copy (but keep tools/ and the hash
-    # markers) so files removed upstream don't linger as stale leftovers.
-    Get-ChildItem -Path $InstallDir -Exclude "tools", ".captionseasy_*", "source.zip" |
-        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
+    $ExtractTemp = Join-Path $InstallDir "_extract_temp"
+    Remove-Item -Recurse -Force $ExtractTemp -ErrorAction SilentlyContinue
+    Expand-Archive -Path $ZipPath -DestinationPath $ExtractTemp -Force
     Remove-Item $ZipPath
-    $ExtractedDir = Get-ChildItem -Path $InstallDir -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
-    Get-ChildItem -Path $ExtractedDir.FullName | Move-Item -Destination $InstallDir -Force
-    Remove-Item $ExtractedDir.FullName -Recurse -Force
+    $ExtractedDir = Get-ChildItem -Path $ExtractTemp -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
+    # robocopy, not Move-Item/Copy-Item: it's built to merge one directory
+    # tree onto another and overwrite changed files in place, so an
+    # existing (possibly partial, from an earlier failed run) install
+    # doesn't collide the way Move-Item does — "Cannot create a file when
+    # that file already exists" hitting a real user's re-run, caught live.
+    # It also handles deep node_modules paths past Windows' MAX_PATH
+    # better than PowerShell's own cmdlets, which is almost certainly why
+    # a prior cleanup attempt here silently left stale files behind.
+    robocopy $ExtractedDir.FullName $InstallDir /E /NFL /NDL /NJH /NJS | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "robocopy failed to place CaptionsEasy source (exit $LASTEXITCODE)" }
+    Remove-Item -Recurse -Force $ExtractTemp
     if ($RemoteSha) { Set-Content $ShaMarkerFile $RemoteSha }
 } else {
     Write-Host "-> CaptionsEasy worker already up to date, skipping."
