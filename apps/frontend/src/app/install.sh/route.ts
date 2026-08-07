@@ -86,7 +86,7 @@ fi
 # only re-fetch when it's actually changed. ---
 mkdir -p "$INSTALL_DIR"
 SHA_MARKER_FILE="$INSTALL_DIR/.captionseasy_commit_sha"
-REMOTE_SHA="$(curl -fsSL -H "User-Agent: captionseasy-installer" https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main 2>/dev/null | grep -o '"sha": *"[a-f0-9]*"' | head -1 | grep -o '[a-f0-9]\{40\}' || true)"
+REMOTE_SHA="$(curl -fsSL -H "User-Agent: captionseasy-installer" https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main 2>/dev/null | grep -o '"sha": *"[a-f0-9]*"' | head -1 | grep -oE '[a-f0-9]{40}' || true)"
 LOCAL_SHA="$([ -f "$SHA_MARKER_FILE" ] && cat "$SHA_MARKER_FILE" || true)"
 
 if [ ! -d "$INSTALL_DIR/apps/backend" ] || { [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; }; then
