@@ -192,8 +192,15 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
       
       const finalStatus = await jobsService.getJobStatus(jobId);
       if (finalStatus.stage.toLowerCase() === "completed" || finalStatus.progress === 100) {
+        // refetchExports() is react-query's refetch — it resolves to a
+        // QueryObserverResult ({ data, error, ... }), not the raw array.
+        // `freshExports || []` never caught this: the result object is
+        // truthy, so .filter() was called on it directly and threw
+        // "(intermediate value).filter is not a function" — which then
+        // got caught below and shown as "Rendering failed", even though
+        // the render had actually completed successfully on the backend.
         const freshExports = await refetchExports();
-        const exportsList = freshExports || [];
+        const exportsList = freshExports.data || [];
         const latestCompleted = exportsList
           .filter((e: any) => e.status === "completed" && e.download_url)
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
