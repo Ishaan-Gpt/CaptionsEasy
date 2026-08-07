@@ -164,7 +164,11 @@ async def _run_render(
 
         await _post_progress(http_client, callback_base, job_id, worker_token, "Rendering", 40)
 
-        engine = RenderEngine(ffmpeg_binary=settings.ffmpeg_binary, ffprobe_binary=settings.ffprobe_binary)
+        engine = RenderEngine(
+            ffmpeg_binary=settings.ffmpeg_binary,
+            ffprobe_binary=settings.ffprobe_binary,
+            use_remotion_render=settings.use_remotion_render,
+        )
         output_local_path = os.path.join(tmp_dir, f"output_{uuid.uuid4()}.mp4")
         render_meta = engine.render(
             motion_script=motion_script, video_path=video_local_path, output_path=output_local_path

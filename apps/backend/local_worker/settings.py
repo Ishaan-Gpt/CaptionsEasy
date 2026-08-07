@@ -43,6 +43,7 @@ class LocalWorkerSettings(BaseSettings):
     # --- Render ---
     ffmpeg_binary: str = Field(default="ffmpeg", alias="FFMPEG_BINARY")
     ffprobe_binary: str = Field(default="ffprobe", alias="FFPROBE_BINARY")
+    use_remotion_render: bool = Field(default=True, alias="USE_REMOTION_RENDER")
 
 
 @lru_cache

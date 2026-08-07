@@ -43,6 +43,7 @@ def build_render_stages(
     engine = RenderEngine(
         ffmpeg_binary=settings.ffmpeg_binary if hasattr(settings, "ffmpeg_binary") else "ffmpeg",
         ffprobe_binary=settings.ffprobe_binary if hasattr(settings, "ffprobe_binary") else "ffprobe",
+        use_remotion_render=getattr(settings, "use_remotion_render", True),
     )
 
     # Temporary directory helper to ensure cleanup on error or completion

@@ -162,9 +162,15 @@ def resolve_box_margins(cap_payload, margin_l: int, margin_r: int, width: int) -
 
 
 class RenderEngine:
-    def __init__(self, ffmpeg_binary: str = "ffmpeg", ffprobe_binary: str = "ffprobe") -> None:
+    def __init__(
+        self,
+        ffmpeg_binary: str = "ffmpeg",
+        ffprobe_binary: str = "ffprobe",
+        use_remotion_render: bool = True,
+    ) -> None:
         self.ffmpeg_binary = ffmpeg_binary
         self.ffprobe_binary = ffprobe_binary
+        self.use_remotion_render = use_remotion_render
 
     def ms_to_ass_time(self, ms: int) -> str:
         """Converts milliseconds to ASS timestamp format (H:MM:SS.cs)."""
@@ -1101,9 +1107,6 @@ class RenderEngine:
         progress_callback=None
     ) -> dict:
         """Executes the pipeline stages to render a video with subtitles."""
-        from app.core.config import get_settings
-        settings = get_settings()
-
         # Remotion is the single rendering engine for every caption template.
         # The ASS/libass path (render_ass, below) used to own word_by_word /
         # sentence_highlight / sentence_clean because they had no layered
@@ -1115,7 +1118,7 @@ class RenderEngine:
         # reason left to keep them apart. render_ass is retained only as a
         # manual fallback (use_remotion_render=False) while the unified path
         # is verified in production; it is otherwise unreachable.
-        if settings.use_remotion_render:
+        if self.use_remotion_render:
             return self.render_remotion(motion_script, video_path, output_path, progress_callback)
         else:
             return self.render_ass(motion_script, video_path, output_path, progress_callback)
