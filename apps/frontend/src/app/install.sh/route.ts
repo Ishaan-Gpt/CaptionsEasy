@@ -4,6 +4,13 @@
 // in DEPLOYMENT.md for the full architecture this sets up.
 const REPO_TARBALL_URL = "https://codeload.github.com/Ishaan-Gpt/CaptionsEasy/tar.gz/refs/heads/main";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Beta-only: the local worker calls Groq directly (see DEPLOYMENT.md,
+// "local-worker processing") and has no other way to get a key — the
+// backend never proxies these calls. Server-side only (not NEXT_PUBLIC_*),
+// so this is embedded into the generated script text, not shipped to the
+// browser bundle.
+const GROQ_API_KEY = process.env.GROQ_API_KEY ?? "";
+const GROQ_API_KEY_BACKUP = process.env.GROQ_API_KEY_BACKUP ?? "";
 
 export async function GET(request: Request) {
   const appUrl = new URL(request.url).origin;
@@ -12,6 +19,8 @@ set -euo pipefail
 
 APP_URL="\${CAPTIONSEASY_APP_URL:-${appUrl}}"
 INSTALL_DIR="\${CAPTIONSEASY_HOME:-$HOME/.captionseasy}"
+export GROQ_API_KEY="\${GROQ_API_KEY:-${GROQ_API_KEY}}"
+export GROQ_API_KEY_BACKUP="\${GROQ_API_KEY_BACKUP:-${GROQ_API_KEY_BACKUP}}"
 
 echo ""
 echo "======================================================"

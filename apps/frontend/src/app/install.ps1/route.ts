@@ -17,6 +17,13 @@ const NODE_ZIP_URL = "https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip
 // release CDN was consistently fast. Includes ffprobe.exe alongside
 // ffmpeg.exe in the same bin/ folder, which is all this script needs.
 const FFMPEG_ZIP_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
+// Beta-only: the local worker calls Groq directly (see DEPLOYMENT.md,
+// "local-worker processing") and has no other way to get a key — the
+// backend never proxies these calls. Server-side only (not NEXT_PUBLIC_*),
+// so this is embedded into the generated script text, not shipped to the
+// browser bundle.
+const GROQ_API_KEY = process.env.GROQ_API_KEY ?? "";
+const GROQ_API_KEY_BACKUP = process.env.GROQ_API_KEY_BACKUP ?? "";
 
 export async function GET(request: Request) {
   const appUrl = new URL(request.url).origin;
@@ -35,6 +42,8 @@ $AppUrl = if ($env:CAPTIONSEASY_APP_URL) { $env:CAPTIONSEASY_APP_URL } else { "$
 $InstallDir = if ($env:CAPTIONSEASY_HOME) { $env:CAPTIONSEASY_HOME } else { "$HOME\\.captionseasy" }
 $ToolsDir = Join-Path $InstallDir "tools"
 New-Item -ItemType Directory -Force -Path $ToolsDir | Out-Null
+if (-not $env:GROQ_API_KEY) { $env:GROQ_API_KEY = "${GROQ_API_KEY}" }
+if (-not $env:GROQ_API_KEY_BACKUP) { $env:GROQ_API_KEY_BACKUP = "${GROQ_API_KEY_BACKUP}" }
 
 Write-Host ""
 Write-Host "======================================================"

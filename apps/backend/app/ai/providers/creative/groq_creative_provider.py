@@ -115,3 +115,9 @@ class GroqCreativeProvider(CreativeProvider):
             finally:
                 if owns_client:
                     await client.aclose()
+
+        # Every key in keys_to_try was falsy — see the identical fix (with
+        # full explanation) in app.ai.providers.speech.groq_speech_provider.
+        raise RuntimeError(
+            "No Groq API key is configured (GROQ_API_KEY is missing/empty) — cannot analyze transcript."
+        )

@@ -133,6 +133,18 @@ class GroqSpeechProvider(SpeechProvider):
                 if owns_client:
                     await client.aclose()
 
+        # Every key in keys_to_try was falsy (GROQ_API_KEY unset/empty, no
+        # backup either) — the loop above never entered its try/except, so
+        # it falls through here instead of returning or raising. Previously
+        # this method then implicitly returned None, and the caller's
+        # `response_json.get("duration")` crashed with a confusing
+        # "'NoneType' object has no attribute 'get'" — caught live from a
+        # real local-worker run with no GROQ_API_KEY configured. Fail loud
+        # and specific instead.
+        raise RuntimeError(
+            "No Groq API key is configured (GROQ_API_KEY is missing/empty) — cannot transcribe audio."
+        )
+
 
 def _content_type_for_path(storage_path: str) -> str:
     extension = PurePosixPath(storage_path).suffix.lower()
