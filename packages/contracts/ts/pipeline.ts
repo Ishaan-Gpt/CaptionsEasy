@@ -5,6 +5,8 @@ export interface TranscriptWord {
   start_ms: number;
   end_ms: number;
   confidence: number;
+  /** User-toggled emphasis from the timeline editor (right-click a word). */
+  highlighted?: boolean;
 }
 
 export interface Transcript {

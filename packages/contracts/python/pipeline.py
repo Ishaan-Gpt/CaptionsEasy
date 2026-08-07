@@ -24,6 +24,17 @@ class TranscriptWord(StrictModel):
     start_ms: int = Field(ge=0)
     end_ms: int = Field(ge=0)
     confidence: float = Field(ge=0, le=1)
+    # User-toggled emphasis from the timeline editor (right-click a word).
+    # Was already being saved to transcript_json by PUT
+    # /projects/{id}/transcript (a raw JSONB merge, no schema check there),
+    # but every OTHER endpoint that re-validates a stored transcript against
+    # this StrictModel (extra="forbid") — GET/POST /motion-script, POST
+    # /export — crashed with "N validation errors for Transcript" the
+    # moment a project had even one highlighted word. Caught live: a real
+    # export request failed this way, which surfaced in the browser as a
+    # misleading CORS error (the crashed request never got as far as
+    # producing a response for CORSMiddleware to attach headers to).
+    highlighted: bool = False
 
 
 class Transcript(StrictModel):
