@@ -24,6 +24,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -60,6 +61,28 @@ def _find_or_download_cloudflared() -> str:
     if os.name != "nt":
         local_bin.chmod(local_bin.stat().st_mode | stat.S_IEXEC)
     return str(local_bin)
+
+
+def _wake_backend(api_url: str) -> None:
+    """The Render free-tier backend sleeps after ~15min idle and takes
+    30-60s+ to wake on the next request — measured 32s directly, which is
+    already past a "reasonable" default timeout. Polling /health first
+    (a plain liveness check, no DB/heavy work) means the actual pair/start
+    call below hits an already-warm server, and the user sees why it's
+    slow instead of a silent hang that eventually crashes."""
+    parsed = urlparse(api_url)
+    health_url = f"{parsed.scheme}://{parsed.netloc}/health"
+    print("[captionseasy] Waking up the server (can take up to a minute on first connect)...")
+    deadline = time.monotonic() + 90
+    with httpx.Client(timeout=10.0) as c:
+        while time.monotonic() < deadline:
+            try:
+                if c.get(health_url).status_code == 200:
+                    return
+            except Exception:
+                pass
+            time.sleep(2)
+    raise RuntimeError(f"Backend at {health_url} did not respond within 90s.")
 
 
 def main() -> None:
@@ -123,7 +146,8 @@ def main() -> None:
         print(f"[captionseasy] Tunnel ready: {tunnel_url}")
 
         api_url = settings.backend_api_url.rstrip("/")
-        with httpx.Client(timeout=30.0) as client:
+        _wake_backend(api_url)
+        with httpx.Client(timeout=60.0) as client:
             resp = client.post(
                 f"{api_url}/pair/start",
                 json={"worker_name": settings.worker_name, "worker_token": worker_token, "worker_url": tunnel_url},
