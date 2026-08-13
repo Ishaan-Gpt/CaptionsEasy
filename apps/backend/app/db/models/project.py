@@ -27,6 +27,12 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     thumbnail_url: Mapped[str | None] = mapped_column(String, nullable=True)
     style: Mapped[str | None] = mapped_column(String, nullable=True)
     caption_template: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ISO-639-1 code (e.g. "en", "hi") hinting Whisper's transcription
+    # language for this project. None means auto-detect. Purely an input
+    # to the speech provider (app.ai.providers.speech.groq_speech_provider)
+    # — captions themselves always render in Latin script regardless of
+    # the spoken language (see ROMANIZATION_PROMPT_HINT).
+    language: Mapped[str | None] = mapped_column(String, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Sparse map of {"<start_ms_bucket>": {"box": {...}}} — per-caption-card
     # bounding-box overrides, keyed by the card's own start_ms (the most

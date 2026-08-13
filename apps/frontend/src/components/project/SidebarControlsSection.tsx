@@ -44,17 +44,16 @@ interface SidebarControlsSectionProps {
   // Custom Styles state & setters
   customFont: string; setCustomFont: (v: string) => void;
   customSize: number; setCustomSize: (v: number) => void;
-  customWeight: string; setCustomWeight: (v: string) => void;
   customColor: string; setCustomColor: (v: string) => void;
   customHighlightColor: string; setCustomHighlightColor: (v: string) => void;
   customShadow: number; setCustomShadow: (v: number) => void;
   customOutline: number; setCustomOutline: (v: number) => void;
-  customBackgroundStyle: string; setCustomBackgroundStyle: (v: string) => void;
   customYPositionPercent: number; setCustomYPositionPercent: (v: number) => void;
   customCaptionTemplate: string; setCustomCaptionTemplate: (v: string) => void;
   customStaggeredLayout: "splash" | "centre"; setCustomStaggeredLayout: (v: "splash" | "centre") => void;
   customWordLimit: number; setCustomWordLimit: (v: number) => void;
   customCaptionSpacingMs: number; setCustomCaptionSpacingMs: (v: number) => void;
+  customWordPacing: string; setCustomWordPacing: (v: string) => void;
   customPauseHandling: string; setCustomPauseHandling: (v: string) => void;
   customAccentPeriodEnabled: boolean; setCustomAccentPeriodEnabled: (v: boolean) => void;
 
@@ -117,17 +116,16 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   activeTab, setActiveTab,
   customFont, setCustomFont,
   customSize, setCustomSize,
-  customWeight, setCustomWeight,
   customColor, setCustomColor,
   customHighlightColor, setCustomHighlightColor,
   customShadow, setCustomShadow,
   customOutline, setCustomOutline,
-  customBackgroundStyle, setCustomBackgroundStyle,
   customYPositionPercent, setCustomYPositionPercent,
   customCaptionTemplate, setCustomCaptionTemplate,
   customStaggeredLayout, setCustomStaggeredLayout,
   customWordLimit, setCustomWordLimit,
   customCaptionSpacingMs, setCustomCaptionSpacingMs,
+  customWordPacing, setCustomWordPacing,
   customPauseHandling, setCustomPauseHandling,
   customAccentPeriodEnabled, setCustomAccentPeriodEnabled,
   customFontFace, setCustomFontFace,
@@ -658,6 +656,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                 </div>
               </div>
 
+              {capabilities.hero && (
               <div className="space-y-1">
                 <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Spoken-Word Highlight</label>
                 <div className="grid grid-cols-4 border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5 gap-0.5">
@@ -677,6 +676,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
             {/* TIMING & LAYOUT */}
@@ -780,6 +780,21 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                 >
                   <option value="hold">Hold last card through silence</option>
                   <option value="clear">Clear during silence</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Word Pacing</label>
+                <select
+                  value={customWordPacing}
+                  onChange={(e) => {
+                    setCustomWordPacing(e.target.value);
+                    saveStyleImmediate({ word_pacing: e.target.value });
+                  }}
+                  className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
+                >
+                  <option value="dynamic">Dynamic — follows actual speech timing</option>
+                  <option value="even">Even — evenly spaced per card</option>
                 </select>
               </div>
             </div>

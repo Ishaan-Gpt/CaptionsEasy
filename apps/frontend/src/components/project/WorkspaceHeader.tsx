@@ -5,6 +5,33 @@ import { useRouter } from "next/navigation";
 import { Project } from "@/services/types";
 import { JobStatusResponse } from "@/services/jobs";
 
+// ISO-639-1 codes Whisper (Groq speech provider) supports well — the
+// language hint only steers transcription accuracy; captions still always
+// render in Latin script regardless of what's picked here.
+export const TRANSCRIPTION_LANGUAGES: { code: string; label: string }[] = [
+  { code: "", label: "Auto-detect" },
+  { code: "en", label: "English" },
+  { code: "hi", label: "Hindi" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ar", label: "Arabic" },
+  { code: "id", label: "Indonesian" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+  { code: "ru", label: "Russian" },
+  { code: "tr", label: "Turkish" },
+  { code: "it", label: "Italian" },
+  { code: "vi", label: "Vietnamese" },
+  { code: "bn", label: "Bengali" },
+  { code: "ta", label: "Tamil" },
+  { code: "te", label: "Telugu" },
+  { code: "mr", label: "Marathi" },
+  { code: "ur", label: "Urdu" },
+];
+
 interface WorkspaceHeaderProps {
   project: Project | null | undefined;
   processingError: string | null;
@@ -16,6 +43,10 @@ interface WorkspaceHeaderProps {
   historyVersion: number;
   uploadProgress: number | null;
   handleUploadFile: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  projectLanguage: string;
+  onLanguageChange: (v: string) => void;
+  languageDirty: boolean;
+  onRetranscribe: () => void;
 }
 
 export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
@@ -29,6 +60,10 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
   historyVersion,
   uploadProgress,
   handleUploadFile,
+  projectLanguage,
+  onLanguageChange,
+  languageDirty,
+  onRetranscribe,
 }) => {
   const router = useRouter();
 
@@ -93,6 +128,36 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
 
       {/* Upload / pipeline widgets */}
       <div className="flex items-center gap-4">
+        {/* Global project language/script — steers transcription; captions
+            still always render in Latin script regardless of this pick. */}
+        <div className="flex items-center gap-2">
+          <label className="font-mono text-[9px] uppercase tracking-wider text-sand-500 hidden lg:block">
+            Language
+          </label>
+          <select
+            value={projectLanguage}
+            onChange={(e) => onLanguageChange(e.target.value)}
+            title="Transcription language — captions always render in Latin script"
+            className="bg-[#281F10] border border-[#3B301C] text-[10px] rounded px-2 py-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-sand-100"
+          >
+            {TRANSCRIPTION_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+          {languageDirty && (project?.status === "COMPLETED" || project?.status === "PROCESSING") && (
+            <button
+              onClick={onRetranscribe}
+              disabled={project?.status === "PROCESSING"}
+              className="font-sora text-[10px] font-semibold text-[#171208] bg-[#DCC8A4] hover:bg-[#C9AF83] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap"
+              title="Re-run transcription with the newly selected language"
+            >
+              Re-transcribe
+            </button>
+          )}
+        </div>
+
+        <div className="h-4 w-px bg-[#3B301C]" />
+
         {project?.status === "CREATED" && uploadProgress === null && (
           <div className="relative">
             <input

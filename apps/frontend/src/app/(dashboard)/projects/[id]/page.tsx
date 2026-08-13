@@ -111,20 +111,24 @@ export default function ProjectWorkspacePage() {
   const [processingError, setProcessingError] = useState<string | null>(null);
   const processingStartedRef = useRef(false);
 
+  // Global project transcription language/script — separate from caption
+  // *display* styling below; this steers Whisper, not how captions render.
+  const [projectLanguage, setProjectLanguage] = useState<string>("");
+  const [savedProjectLanguage, setSavedProjectLanguage] = useState<string>("");
+
   // Styling inputs
   const [customFont, setCustomFont] = useState<string>("Outfit");
   const [customSize, setCustomSize] = useState<number>(48);
-  const [customWeight, setCustomWeight] = useState<string>("800");
   const [customColor, setCustomColor] = useState<string>("#FFFFFF");
   const [customHighlightColor, setCustomHighlightColor] = useState<string>("#00F5C4");
   const [customShadow, setCustomShadow] = useState<number>(0.0);
   const [customOutline, setCustomOutline] = useState<number>(2.0);
-  const [customBackgroundStyle, setCustomBackgroundStyle] = useState<string>("none");
   const [customYPositionPercent, setCustomYPositionPercent] = useState<number>(71.4);
   const [customCaptionTemplate, setCustomCaptionTemplate] = useState<string>("staggered_3line");
   const [customStaggeredLayout, setCustomStaggeredLayout] = useState<"splash" | "centre">("splash");
   const [customWordLimit, setCustomWordLimit] = useState<number>(5);
   const [customCaptionSpacingMs, setCustomCaptionSpacingMs] = useState<number>(50);
+  const [customWordPacing, setCustomWordPacing] = useState<string>("dynamic");
   const [customPauseHandling, setCustomPauseHandling] = useState<string>("hold");
   const [customAccentPeriodEnabled, setCustomAccentPeriodEnabled] = useState<boolean>(true);
 
@@ -256,6 +260,35 @@ export default function ProjectWorkspacePage() {
   }, [customFont]);
 
   useEffect(() => {
+    if (project?.id) {
+      const lang = project.language || "";
+      setProjectLanguage(lang);
+      setSavedProjectLanguage(lang);
+    }
+  }, [project?.id, project?.language]);
+
+  const handleLanguageChange = async (lang: string) => {
+    setProjectLanguage(lang);
+    try {
+      // Persisted immediately so it's ready the moment re-transcription
+      // runs, but `savedProjectLanguage` (below) deliberately only tracks
+      // what the *last completed transcription* actually used — it's
+      // re-synced from `project.language` after refetchProject() inside
+      // startProcessing(), so the "Re-transcribe" prompt stays visible
+      // until a new transcription has actually run with this language.
+      await projectsService.updateProjectLanguage(projectId, lang);
+    } catch (err) {
+      console.error("Error saving project language:", err);
+    }
+  };
+
+  const handleRetranscribe = () => {
+    processingStartedRef.current = false;
+    setJobStatus(null);
+    startProcessing();
+  };
+
+  useEffect(() => {
     const templateStyle = getTemplateStyle(customCaptionTemplate);
     if (templateStyle.keywordFont) {
       ensureFontLoaded(templateStyle.keywordFont);
@@ -299,12 +332,10 @@ export default function ProjectWorkspacePage() {
           if (res) {
             setCustomFont(res.font || "Outfit");
             setCustomSize(res.size || 48);
-            setCustomWeight(res.weight || "800");
             setCustomColor(res.color || "#FFFFFF");
             setCustomHighlightColor(res.highlight_color || "#00F5C4");
             setCustomShadow(res.shadow || 0.0);
             setCustomOutline(res.outline || 2.0);
-            setCustomBackgroundStyle(res.background_style || "none");
             setCustomYPositionPercent(res.y_position_percent || 75.0);
             setCustomXPositionPercent(res.x_position_percent !== undefined ? res.x_position_percent : 50.0);
             if (res.box_left !== undefined) setCustomBoxLeft(res.box_left);
@@ -316,6 +347,7 @@ export default function ProjectWorkspacePage() {
             setCustomStaggeredLayout((res.staggered_layout as "splash" | "centre") || "splash");
             setCustomWordLimit(res.word_limit || 5);
             setCustomCaptionSpacingMs(res.caption_spacing_ms || 50);
+            setCustomWordPacing(res.word_pacing || "dynamic");
             setCustomPauseHandling(res.pause_handling || "hold");
             setCustomAccentPeriodEnabled(res.accent_period_enabled !== undefined ? res.accent_period_enabled : true);
 
@@ -467,6 +499,7 @@ export default function ProjectWorkspacePage() {
       accent_period_enabled: customAccentPeriodEnabled,
       word_limit: customWordLimit,
       caption_spacing_ms: customCaptionSpacingMs,
+      word_pacing: customWordPacing,
       pause_handling: customPauseHandling,
       text_transform: customCasing,
       underline: customUnderline,
@@ -540,7 +573,8 @@ export default function ProjectWorkspacePage() {
         accent_period_enabled: customAccentPeriodEnabled,
         word_limit: customWordLimit,
         caption_spacing_ms: customCaptionSpacingMs,
-          pause_handling: customPauseHandling,
+        word_pacing: customWordPacing,
+        pause_handling: customPauseHandling,
         text_transform: customCasing,
         underline: customUnderline,
         letter_spacing: customLetterSpacing,
@@ -640,6 +674,24 @@ export default function ProjectWorkspacePage() {
     };
     setLocalWords(updated);
     saveTranscriptBackground(updated);
+  };
+
+  // Timeline drag-to-resize (per-word duration). One history snapshot per
+  // drag gesture (taken on mousedown, before any change), not per pixel.
+  const handleWordResizeStart = () => {
+    pushWordsHistory(localWords);
+  };
+
+  // `commit` is false for every intermediate mousemove frame (live preview
+  // only, cheap) and true on mouseup, which is the only frame that persists
+  // to the backend/export pipeline via the existing debounced save path.
+  const handleWordResize = (wordIdx: number, newStartMs: number, newEndMs: number, commit: boolean) => {
+    setLocalWords((prev) => {
+      const updated = [...prev];
+      updated[wordIdx] = { ...updated[wordIdx], start_ms: newStartMs, end_ms: newEndMs };
+      if (commit) saveTranscriptBackground(updated);
+      return updated;
+    });
   };
 
   const pickKeywordIndex = (wordsList: any[]) => {
@@ -777,7 +829,6 @@ export default function ProjectWorkspacePage() {
     setCustomHighlightColor(preset.highlight_color);
     setCustomShadow(preset.shadow);
     setCustomOutline(preset.outline);
-    setCustomBackgroundStyle(preset.background_style);
     setCustomYPositionPercent(preset.y_position_percent);
     setCustomCaptionTemplate(preset.caption_template);
     setCustomStaggeredLayout(preset.staggered_layout || "splash");
@@ -958,6 +1009,10 @@ export default function ProjectWorkspacePage() {
         historyVersion={historyVersion}
         uploadProgress={uploadProgress}
         handleUploadFile={handleUploadFile}
+        projectLanguage={projectLanguage}
+        onLanguageChange={handleLanguageChange}
+        languageDirty={projectLanguage !== savedProjectLanguage}
+        onRetranscribe={handleRetranscribe}
       />
 
       {/* 2. Main content container */}
@@ -972,8 +1027,6 @@ export default function ProjectWorkspacePage() {
           setCustomFont={setCustomFont}
           customSize={customSize}
           setCustomSize={setCustomSize}
-          customWeight={customWeight}
-          setCustomWeight={setCustomWeight}
           customFontFace={customFontFace}
           setCustomFontFace={setCustomFontFace}
           customColorMode={customColorMode}
@@ -1008,8 +1061,6 @@ export default function ProjectWorkspacePage() {
           setBackgroundEnabled={setBackgroundEnabled}
           selectedBackgroundStyle={selectedBackgroundStyle}
           setSelectedBackgroundStyle={setSelectedBackgroundStyle}
-          customBackgroundStyle={customBackgroundStyle}
-          setCustomBackgroundStyle={setCustomBackgroundStyle}
           customXPositionPercent={customXPositionPercent}
           setCustomXPositionPercent={setCustomXPositionPercent}
           customYPositionPercent={customYPositionPercent}
@@ -1028,6 +1079,8 @@ export default function ProjectWorkspacePage() {
           setCustomWordLimit={setCustomWordLimit}
           customCaptionSpacingMs={customCaptionSpacingMs}
           setCustomCaptionSpacingMs={setCustomCaptionSpacingMs}
+          customWordPacing={customWordPacing}
+          setCustomWordPacing={setCustomWordPacing}
           customPauseHandling={customPauseHandling}
           setCustomPauseHandling={setCustomPauseHandling}
           customAccentPeriodEnabled={customAccentPeriodEnabled}
@@ -1146,6 +1199,8 @@ export default function ProjectWorkspacePage() {
             handleRedo={handleRedo}
             handleWordEditSave={handleWordEditSave}
             handleToggleHighlight={handleToggleHighlight}
+            handleWordResizeStart={handleWordResizeStart}
+            handleWordResize={handleWordResize}
           />
         </div>
 

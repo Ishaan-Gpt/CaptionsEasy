@@ -15,6 +15,8 @@ export interface Project {
   status: ProjectStatus;
   style?: string;
   thumbnail_url?: string;
+  /** ISO-639-1 transcription language hint (e.g. "en", "hi"); undefined/"" = auto-detect. */
+  language?: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

@@ -80,6 +80,7 @@ class ProjectRepository:
         style: str | None = None,
         caption_template: str | None = None,
         custom_style_json: dict | None = None,
+        language: str | None = None,
     ) -> Project:
         """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite)."""
         if title is not None:
@@ -96,6 +97,12 @@ class ProjectRepository:
             project.caption_template = caption_template
         if custom_style_json is not None:
             project.custom_style_json = custom_style_json
+        # "" is a valid, meaningful value here ("explicitly reset to
+        # auto-detect"), so only None (field omitted) means "leave as is" —
+        # unlike the other str fields above, empty string must not be
+        # treated as absent.
+        if language is not None:
+            project.language = language or None
         await self._db.commit()
         await self._db.refresh(project)
         return project

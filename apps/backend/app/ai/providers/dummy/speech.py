@@ -13,7 +13,9 @@ DUMMY_MODEL_NAME = "dummy-speech-v1"
 
 
 class DummySpeechProvider(SpeechProvider):
-    async def transcribe(self, *, video_storage_path: str) -> ProviderOutput:
+    async def transcribe(
+        self, *, video_storage_path: str, prompt: str | None = None, language: str | None = None
+    ) -> ProviderOutput:
         start = time.monotonic()
 
         data = {

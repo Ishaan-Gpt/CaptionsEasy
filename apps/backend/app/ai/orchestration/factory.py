@@ -53,7 +53,10 @@ def build_stage_registry(
             "video_storage_path"
         )
         prompt = ctx.config.get("prompt")
-        return await speech_provider.transcribe(video_storage_path=video_storage_path, prompt=prompt)
+        language = ctx.config.get("language")
+        return await speech_provider.transcribe(
+            video_storage_path=video_storage_path, prompt=prompt, language=language
+        )
 
     async def run_creative(ctx: PipelineContext):
         transcript = ctx.stage_outputs[PipelineStage.TRANSCRIPT_VALIDATION]

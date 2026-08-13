@@ -1,6 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
+
+// Shortest a word is allowed to stay on screen once dragged — small enough
+// to feel unrestricted, large enough that a word can't collapse to zero and
+// disappear from the caption entirely.
+const MIN_WORD_DURATION_MS = 60;
 
 interface TimelineEditorSectionProps {
   currentTimeMs: number;
@@ -28,6 +33,8 @@ interface TimelineEditorSectionProps {
   handleRedo: () => void;
   handleWordEditSave: (idx: number) => void;
   handleToggleHighlight: (idx: number) => void;
+  handleWordResizeStart: () => void;
+  handleWordResize: (idx: number, newStartMs: number, newEndMs: number, commit: boolean) => void;
 }
 
 export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
@@ -42,7 +49,74 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
   videoRef, waveformRef, wordsHistoryRef,
   handleUndo, handleRedo,
   handleWordEditSave, handleToggleHighlight,
+  handleWordResizeStart, handleWordResize,
 }) => {
+  // Live drag state for the word-edge trim handles — kept in a ref (not
+  // React state) since it's written on every pointermove; the visible
+  // feedback comes from handleWordResize driving the parent's localWords,
+  // which is what actually re-renders this word's left/width.
+  const dragRef = useRef<{
+    idx: number;
+    side: "left" | "right";
+    startClientX: number;
+    startMs: number;
+    endMs: number;
+  } | null>(null);
+
+  const beginWordResize = (
+    e: React.MouseEvent,
+    idx: number,
+    side: "left" | "right",
+    word: any
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleWordResizeStart();
+    dragRef.current = {
+      idx,
+      side,
+      startClientX: e.clientX,
+      startMs: word.start_ms,
+      endMs: word.end_ms,
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const deltaMs = (moveEvent.clientX - drag.startClientX) / PX_PER_MS;
+      let newStart = drag.startMs;
+      let newEnd = drag.endMs;
+      if (drag.side === "left") {
+        newStart = Math.min(Math.max(0, drag.startMs + deltaMs), drag.endMs - MIN_WORD_DURATION_MS);
+      } else {
+        newEnd = Math.max(drag.endMs + deltaMs, drag.startMs + MIN_WORD_DURATION_MS);
+        if (durationMs) newEnd = Math.min(newEnd, durationMs);
+      }
+      handleWordResize(drag.idx, newStart, newEnd, false);
+    };
+
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      const drag = dragRef.current;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      if (!drag) return;
+      const deltaMs = (upEvent.clientX - drag.startClientX) / PX_PER_MS;
+      let newStart = drag.startMs;
+      let newEnd = drag.endMs;
+      if (drag.side === "left") {
+        newStart = Math.min(Math.max(0, drag.startMs + deltaMs), drag.endMs - MIN_WORD_DURATION_MS);
+      } else {
+        newEnd = Math.max(drag.endMs + deltaMs, drag.startMs + MIN_WORD_DURATION_MS);
+        if (durationMs) newEnd = Math.min(newEnd, durationMs);
+      }
+      handleWordResize(drag.idx, newStart, newEnd, true);
+      dragRef.current = null;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
 
   const groupWordsIntoLines = (words: any[]) => {
     const MAX_GROUP_WORDS = 8;
@@ -238,7 +312,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                 return (
                   <div
                     key={idx}
-                    className={`absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
+                    className={`group absolute h-11 rounded border flex flex-col items-center justify-center px-1 text-center transition-all cursor-pointer shadow-sm select-none ${
                       isActive
                         ? "bg-[#DCC8A4] border-[#C9AF83] text-[#171208] scale-102 z-20"
                         : word.highlighted
@@ -265,7 +339,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                       e.preventDefault();
                       handleToggleHighlight(idx);
                     }}
-                    title="Double-click to edit, right-click to highlight"
+                    title="Double-click to edit, right-click to highlight, drag edges to retime"
                   >
                     {editingWordIndex === idx ? (
                       <input
@@ -286,10 +360,26 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
                           {word.text}
                         </span>
                         <span className={`text-[6px] tracking-tighter opacity-60 font-medium w-full truncate block mt-0.5 ${isActive ? "text-[#171208]/80" : "text-[#2E2415]/70"}`}>
-                          ♩ Text
+                          {Math.round(word.end_ms - word.start_ms)}ms
                         </span>
                       </>
                     )}
+
+                    {/* Trim handles — drag to lengthen/shorten how long this
+                        word stays on screen. Free resize: no ripple onto
+                        neighbors, so gaps/overlaps are possible on purpose. */}
+                    <div
+                      onMouseDown={(e) => beginWordResize(e, idx, "left", word)}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Drag to change when this word appears"
+                      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-[#171208]/40 hover:bg-[#171208]/70 rounded-l"
+                    />
+                    <div
+                      onMouseDown={(e) => beginWordResize(e, idx, "right", word)}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Drag to change how long this word stays on screen"
+                      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-[#171208]/40 hover:bg-[#171208]/70 rounded-r"
+                    />
                   </div>
                 );
               })}
@@ -345,7 +435,7 @@ export const TimelineEditorSection: React.FC<TimelineEditorSectionProps> = ({
             className="absolute top-0 bottom-0 w-[2px] bg-[#DCC8A4] z-20 pointer-events-none"
             style={{ left: `${currentTimeMs * PX_PER_MS}px` }}
           >
-            <div className="w-3 h-3 rounded-full bg-[#DCC8A4] -ml-[5px] -mt-[2px] border border-[#171208] shadow shadow-[#DCC8A4]/50 cursor-ew-resize" />
+            <div className="w-3 h-3 rounded-full bg-[#DCC8A4] -ml-[5px] -mt-[2px] border border-[#171208] shadow shadow-[#DCC8A4]/50" />
           </div>
         </div>
       </div>

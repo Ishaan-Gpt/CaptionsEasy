@@ -21,6 +21,7 @@ class ProjectUpdate(BaseModel):
     thumbnail_url: str | None = None
     style: str | None = None
     caption_template: str | None = None
+    language: str | None = None
 
 
 class ProjectRead(ProjectBase):
@@ -32,6 +33,7 @@ class ProjectRead(ProjectBase):
     thumbnail_url: str | None = None
     style: str | None = None
     caption_template: str | None = None
+    language: str | None = None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None

@@ -15,6 +15,7 @@ interface BackendProject {
   status: string | null;
   style: string | null;
   thumbnail_url: string | null;
+  language: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -29,6 +30,7 @@ function toProject(p: BackendProject): Project {
     status: (p.status as ProjectStatus) ?? "CREATED",
     style: p.style ?? undefined,
     thumbnail_url: p.thumbnail_url ?? undefined,
+    language: p.language ?? undefined,
     created_at: p.created_at,
     updated_at: p.updated_at,
     deleted_at: p.deleted_at ?? undefined,
@@ -117,6 +119,12 @@ export const projectsService = {
 
   async updateProjectStyle(id: string, style: string): Promise<Project> {
     const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { style } });
+    return toProject(project);
+  },
+
+  /** language="" explicitly resets to auto-detect. */
+  async updateProjectLanguage(id: string, language: string): Promise<Project> {
+    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { language } });
     return toProject(project);
   },
 

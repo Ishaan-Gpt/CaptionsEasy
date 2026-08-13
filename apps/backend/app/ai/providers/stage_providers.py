@@ -42,7 +42,9 @@ class SpeechProvider(ABC):
     """Produces transcript-shaped JSON from a video. contracts/ai.md > Stage 1."""
 
     @abstractmethod
-    async def transcribe(self, *, video_storage_path: str) -> ProviderOutput:
+    async def transcribe(
+        self, *, video_storage_path: str, prompt: str | None = None, language: str | None = None
+    ) -> ProviderOutput:
         raise NotImplementedError
 
 

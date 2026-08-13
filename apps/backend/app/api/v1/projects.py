@@ -75,6 +75,7 @@ class UpdateProjectRequest(BaseModel):
     thumbnail_url: str | None = None
     style: str | None = None
     caption_template: str | None = None
+    language: str | None = None
 
 
 @router.get("/projects")
@@ -123,6 +124,7 @@ async def update_project(
         thumbnail_url=body.thumbnail_url,
         style=body.style,
         caption_template=body.caption_template,
+        language=body.language,
     )
     return success_response(ProjectRead.model_validate(updated).model_dump(mode="json"))
 
