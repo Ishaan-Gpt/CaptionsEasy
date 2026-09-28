@@ -104,11 +104,11 @@ interface SidebarControlsSectionProps {
 /** What each template locks by design — shown as a hint so the controls
  * that a template overrides don't feel broken when they have no effect. */
 const TEMPLATE_LOCK_HINTS: Record<string, string> = {
-  glow_stack: "Body font is fixed to Baloo 2 — hero font, colors, and motion stay editable.",
-  cartoon_stack: "Body font is fixed to Caveat handwriting; the bubble outline color follows the highlight color.",
-  serif_pop: "Body is always white with the spoken word flashing the highlight color; the hero pop-dot uses the highlight color.",
-  cinematic_emerald: "Hero word is always an italic gradient of the highlight color with a glow halo.",
-  staggered_3line: "Body and hero both carry the outline; the splash layout anchors lines to the hero's edges.",
+  glow_stack: "Body font and weight are fixed to Baloo 2 Extra Bold, always white — hero font, colors, and motion stay editable.",
+  cartoon_stack: "Body font and weight are fixed to Caveat; the bubble outline color follows the highlight color.",
+  serif_pop: "Body font, weight, and color are fixed (Playfair Display, gold); the spoken word flashes the highlight color and the hero pop-dot uses it too.",
+  cinematic_emerald: "Body color is fixed to white; hero word is always an italic gradient of the highlight color with a glow halo.",
+  staggered_3line: "Body weight is fixed; body and hero both carry the outline; the splash layout anchors lines to the hero's edges.",
   sentence_clean: "Uniform by design — no hero word or per-word highlight.",
 };
 
@@ -164,6 +164,14 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
   // conditional show/hide instead of static hint prose (see capabilities
   // on TemplateStyleConfig in @/config/captionTemplates).
   const capabilities = getTemplateStyle(customCaptionTemplate).capabilities;
+  // staggered_3line/glow_stack's splash layout ignores style.alignment —
+  // but switching their own "Staggered Layout" control to "centre" turns
+  // splash off (CaptionEngine.tsx: useSplash = skin.splash && layout !==
+  // "centre"), and alignment starts applying exactly like any other
+  // template. capabilities.alignment alone can't express that (it's a
+  // static per-template constant), so it's combined with the live layout
+  // state here instead of gating the control off entirely for these two.
+  const effectiveAlignment = capabilities.alignment || (capabilities.stagger && customStaggeredLayout === "centre");
 
   return (
     <section className="w-80 bg-[#1E170D] border-r border-[#3B301C] flex flex-col shrink-0">
@@ -249,11 +257,13 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                       <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Font Style</label>
                       <select
                         value={customFontFace}
+                        disabled={!capabilities.weight}
+                        title={capabilities.weight ? undefined : "This template's body weight is fixed by design"}
                         onChange={(e) => {
                           setCustomFontFace(e.target.value);
                           saveStyleImmediate({ fontFace: e.target.value });
                         }}
-                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] cursor-pointer text-white"
+                        className="w-full bg-[#281F10] border border-[#3B301C] text-[10px] rounded p-1.5 focus:outline-none focus:border-[#DCC8A4] text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                       >
                         {["Thin", "Extra Light", "Light", "Regular", "Medium", "Semi Bold", "Bold", "Extra Bold", "Black"].map((style) => (
                           <option key={style} value={style}>{style}</option>
@@ -344,7 +354,7 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             {/* FORMAT OPTIONS */}
             <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
               <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Format & Case</span>
-              <div className={`grid gap-3 ${capabilities.alignment ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div className={`grid gap-3 ${effectiveAlignment ? "grid-cols-2" : "grid-cols-1"}`}>
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Casing</label>
                   <select
@@ -365,8 +375,12 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
                 {/* This template's layout anchors lines to fixed positions
                     (splash/hero-centered) — a generic left/center/right
                     alignment control would have no visible effect, so it's
-                    hidden rather than shown as a no-op. */}
-                {capabilities.alignment && (
+                    hidden rather than shown as a no-op. staggered_3line/
+                    glow_stack are the exception: splash turns off (and
+                    alignment starts applying) once their own Staggered
+                    Layout control is set to "centre" — effectiveAlignment
+                    accounts for that live, not just the static capability. */}
+                {effectiveAlignment && (
                   <div className="space-y-1">
                     <label className="block text-[7px] font-bold uppercase tracking-wider text-white/60">Alignment</label>
                     <div className="flex border border-[#3B301C] rounded overflow-hidden bg-[#171208] p-0.5">
@@ -417,25 +431,34 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
             <div className="space-y-3.5 border-b border-[#3B301C]/50 pb-4">
               <div className="flex justify-between items-center">
                 <span className="text-[8px] font-bold uppercase tracking-widest text-[#DCC8A4]">Colors & Fill Mode</span>
-                
-                <div className="flex bg-[#171208] border border-[#3B301C] p-0.5 rounded-full">
+
+                <div
+                  className={`flex bg-[#171208] border border-[#3B301C] p-0.5 rounded-full ${!capabilities.color ? "opacity-40" : ""}`}
+                  title={capabilities.color ? undefined : "This template's body color is fixed by design"}
+                >
                   <button
+                    disabled={!capabilities.color}
                     onClick={() => {
                       setCustomColorMode("solid");
                       saveStyleImmediate({ color_mode: "solid" });
                     }}
-                    className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all ${
+                      capabilities.color ? "cursor-pointer" : "cursor-not-allowed"
+                    } ${
                       customColorMode === "solid" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
                     }`}
                   >
                     Solid
                   </button>
                   <button
+                    disabled={!capabilities.color}
                     onClick={() => {
                       setCustomColorMode("gradient");
                       saveStyleImmediate({ color_mode: "gradient" });
                     }}
-                    className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all ${
+                      capabilities.color ? "cursor-pointer" : "cursor-not-allowed"
+                    } ${
                       customColorMode === "gradient" ? "bg-[#DCC8A4] text-[#171208]" : "text-white/40 hover:text-white"
                     }`}
                   >
@@ -447,21 +470,25 @@ export const SidebarControlsSection: React.FC<SidebarControlsSectionProps> = ({
               <div className="grid grid-cols-3 gap-2.5 items-end">
                 <div className="space-y-1">
                   <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Body Color</label>
-                  <div className="flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded">
+                  <div
+                    className={`flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded ${!capabilities.color ? "opacity-40" : ""}`}
+                    title={capabilities.color ? undefined : "This template's body color is fixed by design"}
+                  >
                     <input
                       type="color"
                       value={customColor}
+                      disabled={!capabilities.color}
                       onChange={(e) => {
                         setCustomColor(e.target.value);
                         saveStyleBackground({ color: e.target.value });
                       }}
-                      className="w-6 h-5 bg-transparent border-0 cursor-pointer"
+                      className="w-6 h-5 bg-transparent border-0 disabled:cursor-not-allowed cursor-pointer"
                     />
                     <span className="text-[8px] font-mono uppercase text-white/80">{customColor.replace("#", "")}</span>
                   </div>
                 </div>
 
-                {customColorMode === "gradient" && (
+                {capabilities.color && customColorMode === "gradient" && (
                   <div className="space-y-1">
                     <label className="block text-[7px] font-bold uppercase tracking-wider text-white/40">Gradient Color 2</label>
                     <div className="flex gap-1.5 items-center bg-[#281F10] border border-[#3B301C] p-1 rounded">

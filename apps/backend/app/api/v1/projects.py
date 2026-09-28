@@ -569,6 +569,11 @@ async def generate_motion_script(
 class ExportRequest(BaseModel):
     resolution: str
     quality: str
+    # "9:16" | "16:9" | "1:1" | "4:5" | "original" | None. Matches the
+    # studio's aspect-ratio selector so the export is cropped to what the
+    # preview actually showed (app.render.engine.RenderEngine.compute_crop)
+    # instead of always rendering the full uncropped source frame.
+    aspect_ratio: str | None = None
 
 
 @router.post("/projects/{project_id}/export", status_code=202)
@@ -577,6 +582,7 @@ async def export_project(
     project: Project = Depends(get_owned_project),
     job_repository: JobRepository = Depends(get_job_repository),
     job_dispatcher: JobDispatcherProtocol = Depends(get_job_dispatcher),
+    project_repository: ProjectRepository = Depends(get_project_repository),
     motion_script_repository: MotionScriptRepository = Depends(get_motion_script_repository),
     transcript_repository: TranscriptRepository = Depends(get_transcript_repository),
     creative_plan_repository: CreativePlanRepository = Depends(get_creative_plan_repository),
@@ -615,6 +621,7 @@ async def export_project(
         project_id=project.id,
         motion_script_json=output.data,
     )
+    await project_repository.update_fields(project, aspect_ratio=body.aspect_ratio or "original")
 
     job = await job_repository.create_queued(project_id=project.id, job_type="render")
     await job_dispatcher.dispatch(str(job.id))

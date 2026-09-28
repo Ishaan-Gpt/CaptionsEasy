@@ -7,6 +7,7 @@ smart captioning, emotion mapping, hook detection, and timing engine rules.
 import time
 import re
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Optional
 
 from app.ai.providers.stage_providers import ProviderOutput, RenderPlanProvider
@@ -194,6 +195,19 @@ def get_segment_word_timings(segment, tx_words, last_tx_idx):
             w_start = int(segment.start_ms + i * word_duration)
             w_end = int(w_start + word_duration)
             word_timings.append((seg_words[i], w_start, w_end, i))
+        # No confident transcript match for this segment (fell back to the
+        # LLM's own retyped/evenly-spaced text above) — but last_tx_idx must
+        # still advance. Leaving it unchanged used to permanently orphan
+        # every transcript word from here to wherever the *next* segment's
+        # search window happened to land: the next call searches forward
+        # from the same stale position, and any transcript words it skips
+        # over to find its own match are never matched by ANY segment and
+        # silently vanish from the final captions. Advancing by n_seg (the
+        # same assumption the matched branch makes: one caption-plan word
+        # ≈ one transcript word) keeps the pointer tracking real position
+        # even when a single segment's fuzzy match fails, so a later
+        # segment's search window still covers the words this one missed.
+        last_tx_idx = min(last_tx_idx + n_seg, len(tx_words))
 
     return word_timings, last_tx_idx
 
@@ -479,7 +493,33 @@ class DummyRenderPlanProvider(RenderPlanProvider):
         # read as more broken than the sparse cards it replaced. Getting
         # the segmentation right at the source (the prompt) instead keeps
         # every card's text a genuine, coherent phrase.
-        for segment_idx, segment in enumerate(caption_plan.caption_segments):
+        # Guarantee no transcript word is ever silently dropped, even when
+        # the caption-planning LLM's own segmentation under-covers the
+        # transcript (segments that don't sum to every transcript word) or
+        # a segment's fuzzy match against the transcript fails outright.
+        # Dry-run the same matching get_segment_word_timings does for every
+        # real segment (cheap, pure text matching — no card/timeline state
+        # touched) purely to find out where the real loop below will end
+        # up; if that leaves transcript words unconsumed at the end, wrap
+        # them in one synthetic trailing segment so they still go through
+        # the exact same card-building path everything else does, instead
+        # of duplicating that ~140-line block for an "orphaned words" case.
+        _scan_idx = 0
+        for _segment in caption_plan.caption_segments:
+            _, _scan_idx = get_segment_word_timings(_segment, transcript.words, _scan_idx)
+
+        segments_to_process = list(caption_plan.caption_segments)
+        if _scan_idx < len(transcript.words):
+            orphan_words = transcript.words[_scan_idx:]
+            segments_to_process.append(SimpleNamespace(
+                text=" ".join(_clean_transcript_word(w.text) for w in orphan_words),
+                start_ms=orphan_words[0].start_ms,
+                end_ms=orphan_words[-1].end_ms,
+                emphasis=[],
+                emoji_suggestions=[],
+            ))
+
+        for segment_idx, segment in enumerate(segments_to_process):
             is_first = (segment_idx == 0)
 
             # Align with transcript timestamps

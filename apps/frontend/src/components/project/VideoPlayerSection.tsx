@@ -317,20 +317,45 @@ export const VideoPlayerSection: React.FC<VideoPlayerSectionProps> = ({
           {/* Live caption layer — the shared CaptionEngine (same component the
               export renders), driven by a 60fps rAF clock. */}
           {!activeExportId && (() => {
-            // Canvas must match what's actually displayed: the export burns
-            // onto the real video dimensions, so the preview does too. The
-            // planner's global_settings.canvas is a fixed 1080x1920 that has
-            // nothing to do with this video — trusting it put captions
-            // outside the visible frame for any non-9:16 upload.
+            // Canvas must match what's actually displayed AND what export
+            // actually renders at. Two parts, both now mirrored exactly on
+            // the backend (RenderEngine.compute_crop, app/render/engine.py):
+            //   1. Real pixel dimensions, not a fixed 1080 guess — a fixed
+            //      width made fixed-px box margins (captionTemplates.ts
+            //      presets) represent a different fraction of the frame in
+            //      preview vs. export for any source that isn't ~1080px
+            //      wide, shifting caption position/wrapping between them.
+            //   2. The aspect-ratio crop itself — the video element already
+            //      visually crops via CSS `object-fit: cover`; previously
+            //      the *caption* canvas didn't crop to match, and export
+            //      never cropped the video at all, so picking any ratio
+            //      other than "Original" produced a preview cropped one way
+            //      and an export not cropped at all.
             const getCanvasDimensions = () => {
-              const width = 1080;
-              const ratio = selectedRatio === "original"
-                ? naturalAspectRatio
-                : selectedRatio === "9:16" ? 9 / 16
+              const video = videoRef.current;
+              const srcWidth = video?.videoWidth || 1080;
+              const srcHeight = video?.videoHeight || Math.round(srcWidth / (naturalAspectRatio || 9 / 16));
+
+              if (selectedRatio === "original") {
+                return { width: srcWidth, height: srcHeight };
+              }
+
+              const targetRatio = selectedRatio === "9:16" ? 9 / 16
                 : selectedRatio === "16:9" ? 16 / 9
                 : selectedRatio === "1:1" ? 1
                 : 4 / 5;
-              return { width, height: width / ratio };
+              const srcRatio = srcWidth / srcHeight;
+
+              // Same "wider source crops width, narrower crops height"
+              // object-fit: cover math as compute_crop on the backend.
+              if (srcRatio > targetRatio) {
+                const height = srcHeight;
+                const width = Math.round(height * targetRatio);
+                return { width, height };
+              }
+              const width = srcWidth;
+              const height = Math.round(width / targetRatio);
+              return { width, height };
             };
             const { width: canvasWidth, height: canvasHeight } = getCanvasDimensions();
             return (

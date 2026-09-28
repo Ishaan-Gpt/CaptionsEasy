@@ -174,6 +174,21 @@ def _content_type_for_path(storage_path: str) -> str:
         raise UnsupportedMediaTypeError(f"Unsupported video extension: {extension}") from exc
 
 
+# A word's own on-screen slice must be readable, not just as short as it
+# was spoken — 250ms is roughly the shortest a single short word (a, the,
+# is) can flash and still be legible; longer words need proportionally
+# more (word_by_word shows exactly one word at a time, so this directly
+# bounds its per-word display time; for multi-word cards it bounds how
+# long a word keeps its own highlighted-while-spoken window).
+MIN_WORD_READ_MS = 250
+MS_PER_LETTER = 45
+
+
+def _min_readable_duration_ms(text: str) -> int:
+    letters = sum(1 for c in text if c.isalnum())
+    return max(MIN_WORD_READ_MS, letters * MS_PER_LETTER)
+
+
 def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]:
     duration_seconds = response_json.get("duration") or 0.0
     language = response_json.get("language") or "unknown"
@@ -217,6 +232,23 @@ def _map_response_to_transcript(response_json: dict[str, Any]) -> dict[str, Any]
                     curr["start_ms"] = prev["end_ms"]
                     if curr["end_ms"] <= curr["start_ms"]:
                         curr["end_ms"] = curr["start_ms"] + 100
+
+        # Every word must stay on screen long enough to actually read it —
+        # raw ASR timestamps reflect how fast it was *spoken*, not how long
+        # it takes to *read* (a word spoken in 80ms is unreadable at that
+        # duration regardless of card grouping). Extends end_ms up to a
+        # reading-speed floor, but only ever into a gap that's already
+        # there (capped at the next word's start_ms) — never encroaches on
+        # the next word or cascades shifts through the rest of the
+        # transcript, so this is always a strict improvement, never a new
+        # overlap.
+        for i, w in enumerate(words):
+            floor_ms = _min_readable_duration_ms(w["text"])
+            next_start_ms = words[i + 1]["start_ms"] if i + 1 < len(words) else None
+            desired_end_ms = w["start_ms"] + floor_ms
+            if next_start_ms is not None:
+                desired_end_ms = min(desired_end_ms, next_start_ms)
+            w["end_ms"] = max(w["end_ms"], desired_end_ms)
 
     return {
         "version": TRANSCRIPT_VERSION,

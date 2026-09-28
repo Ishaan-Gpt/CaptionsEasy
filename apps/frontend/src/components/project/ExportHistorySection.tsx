@@ -32,7 +32,12 @@ interface ExportHistorySectionProps {
   activeExportId: string | null;
   setActiveExportId: (id: string | null) => void;
   customCaptionTemplate: string;
-  
+  selectedRatio: string;
+  // Style/transcript saves are debounced (1-1.2s) — exporting inside that
+  // window would render whatever was last persisted, not what's on screen.
+  // Awaiting this before POST /export closes that race.
+  flushPendingSaves: () => Promise<void>;
+
   // AI stage parameters
   jobStatus: JobStatusResponse | null;
   setJobStatus: (s: JobStatusResponse | null) => void;
@@ -72,6 +77,8 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
   activeExportId,
   setActiveExportId,
   customCaptionTemplate,
+  selectedRatio,
+  flushPendingSaves,
   jobStatus,
   setJobStatus,
   processingError,
@@ -185,7 +192,8 @@ export const ExportHistorySection: React.FC<ExportHistorySectionProps> = ({
     setRenderJobStatus(null);
     
     try {
-      const { jobId } = await projectsService.startExport(projectId);
+      await flushPendingSaves();
+      const { jobId } = await projectsService.startExport(projectId, "1080p", "high", selectedRatio);
       await jobsService.pollJobStatus(jobId, {
         onUpdate: (status) => setRenderJobStatus(status),
       });

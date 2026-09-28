@@ -22,6 +22,7 @@ class RenderPipelineContext:
         self.video_local_path = None
         self.output_local_path = None
         self.motion_script = None
+        self.aspect_ratio = None
         self.meta = {}
 
 def run_async(coro):
@@ -82,6 +83,7 @@ def build_render_stages(
         if project_row and project_row.style and project_row.style.startswith("custom_") and project_row.custom_style_json:
             from app.render.presets import StylePresetManager
             StylePresetManager.register(project_row.style, project_row.custom_style_json)
+        ctx.aspect_ratio = project_row.aspect_ratio if project_row else None
 
         # Validate MotionScript
         try:
@@ -118,6 +120,7 @@ def build_render_stages(
                 motion_script=ctx.motion_script,
                 video_path=ctx.video_local_path,
                 output_path=ctx.output_local_path,
+                aspect_ratio=ctx.aspect_ratio,
             )
             ctx.meta.update(render_meta)
         except Exception as exc:

@@ -53,6 +53,14 @@ export interface TemplateStyleConfig {
     alignment: boolean;
     stagger: boolean;
     accentPeriod: boolean;
+    /** Whether the Font Style (weight) control has any visible effect —
+     * false for the 4 STACK_SKINS that hardcode their own bodyWeight
+     * regardless of style.weight (see CaptionEngine.tsx STACK_SKINS). */
+    weight: boolean;
+    /** Whether the Body Color swatch / gradient toggle has any visible
+     * effect — false for the 3 STACK_SKINS that hardcode their own
+     * bodyColor regardless of style.color/colorMode. */
+    color: boolean;
   };
 }
 
@@ -75,7 +83,8 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordSizeScale: 1.5,
     keywordWeight: "900",
     keywordFont: DEFAULT_KEYWORD_FONT,
-    capabilities: { hero: true, alignment: false, stagger: true, accentPeriod: false },
+    // bodyWeight is hardcoded "700" in this skin; bodyColor honors style.color.
+    capabilities: { hero: true, alignment: false, stagger: true, accentPeriod: false, weight: false, color: true },
   },
   word_by_word: {
     id: "word_by_word",
@@ -88,7 +97,7 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordSizeScale: 1.15,
     keywordWeight: "900",
     keywordFont: null,
-    capabilities: { hero: true, alignment: false, stagger: false, accentPeriod: false },
+    capabilities: { hero: true, alignment: false, stagger: false, accentPeriod: false, weight: true, color: true },
   },
   sentence_highlight: {
     id: "sentence_highlight",
@@ -101,7 +110,7 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordSizeScale: 1.5,
     keywordWeight: "900",
     keywordFont: DEFAULT_KEYWORD_FONT,
-    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false },
+    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false, weight: true, color: true },
   },
   sentence_clean: {
     id: "sentence_clean",
@@ -115,7 +124,7 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordSizeScale: 1.1,
     keywordWeight: "800",
     keywordFont: null,
-    capabilities: { hero: false, alignment: true, stagger: false, accentPeriod: false },
+    capabilities: { hero: false, alignment: true, stagger: false, accentPeriod: false, weight: true, color: true },
   },
   // "3D glow stack" — rounded white body text (natural case) with dark
   // extrusion, gradient glowing hero word, soft dark backdrop blob.
@@ -132,7 +141,8 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordWeight: "900",
     keywordFont: DEFAULT_KEYWORD_FONT,
     baseFont: "Baloo 2",
-    capabilities: { hero: true, alignment: false, stagger: true, accentPeriod: false },
+    // bodyWeight hardcoded "800"; bodyColor hardcoded white.
+    capabilities: { hero: true, alignment: false, stagger: true, accentPeriod: false, weight: false, color: false },
   },
   cartoon_stack: {
     id: "cartoon_stack",
@@ -146,7 +156,8 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordWeight: "700",
     keywordFont: "Fredoka",
     baseFont: "Caveat",
-    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false },
+    // bodyWeight hardcoded "700"; bodyColor honors style.color.
+    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false, weight: false, color: true },
   },
   serif_pop: {
     id: "serif_pop",
@@ -159,7 +170,8 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordSizeScale: 1.8,
     keywordWeight: "900",
     keywordFont: "Kaushan Script",
-    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: true },
+    // bodyWeight hardcoded "900"; bodyColor hardcoded gold.
+    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: true, weight: false, color: false },
   },
   cinematic_emerald: {
     id: "cinematic_emerald",
@@ -173,7 +185,8 @@ export const TEMPLATE_STYLES: Record<string, TemplateStyleConfig> = {
     keywordWeight: "800",
     keywordFont: "Playfair Display",
     baseFont: "Outfit",
-    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false },
+    // bodyWeight honors style.weight (only skin that does); bodyColor hardcoded white.
+    capabilities: { hero: true, alignment: true, stagger: false, accentPeriod: false, weight: true, color: false },
   },
 };
 

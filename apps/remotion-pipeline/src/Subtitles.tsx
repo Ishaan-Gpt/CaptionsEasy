@@ -35,7 +35,6 @@ const CardSequence: React.FC<{
 };
 
 export const Subtitles: React.FC = () => {
-  ensureFontsLoaded();
   const inputProps = getInputProps() as any;
   const { fps, width, height } = useVideoConfig();
 
@@ -46,6 +45,11 @@ export const Subtitles: React.FC = () => {
       style: styleFromMotionScript(inputProps),
     };
   }, [inputProps]);
+
+  // Whatever font families this render's style actually asks for, on top of
+  // the bundled skin fonts every template hardcodes — see fonts.ts for why
+  // this is a Google Fonts fetch rather than a fixed local allowlist.
+  ensureFontsLoaded([style.font, style.heroFont]);
 
   return (
     <AbsoluteFill>

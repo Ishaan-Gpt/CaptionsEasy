@@ -17,6 +17,7 @@ import { CaptionStyle } from "@motion-ai/caption-engine";
 
 // Modular Project Detail Components
 import { WorkspaceHeader } from "@/components/project/WorkspaceHeader";
+import { MIN_WORD_DURATION_MS } from "@/components/project/TimelineEditorSection";
 import { SidebarControlsSection } from "@/components/project/SidebarControlsSection";
 import { VideoPlayerSection } from "@/components/project/VideoPlayerSection";
 import { TimelineEditorSection } from "@/components/project/TimelineEditorSection";
@@ -258,6 +259,16 @@ export default function ProjectWorkspacePage() {
       ensureFontLoaded(customFont);
     }
   }, [customFont]);
+
+  // heroFont had no load effect at all — picking a Hero Font in the
+  // sidebar never injected its <link>, so even the preview itself silently
+  // fell back to a system font for it (on top of export's separate font
+  // gap, now fixed in apps/remotion-pipeline/src/fonts.ts).
+  useEffect(() => {
+    if (heroFont) {
+      ensureFontLoaded(heroFont);
+    }
+  }, [heroFont]);
 
   useEffect(() => {
     if (project?.id) {
@@ -652,6 +663,32 @@ export default function ProjectWorkspacePage() {
     }, 1200);
   };
 
+  // Both saveStyleBackground and saveTranscriptBackground debounce their
+  // actual network write (1000ms / 1200ms) behind a setTimeout. Exporting
+  // inside that window rendered whatever was last *persisted*, not what was
+  // on screen — a real, easy-to-hit mismatch between preview and the
+  // downloaded video. Called before every export kicks off.
+  const flushPendingSaves = async () => {
+    if (styleSaveTimeoutRef.current) {
+      clearTimeout(styleSaveTimeoutRef.current);
+      styleSaveTimeoutRef.current = null;
+      await saveStyleImmediate();
+    }
+    if (transcriptSaveTimeoutRef.current) {
+      clearTimeout(transcriptSaveTimeoutRef.current);
+      transcriptSaveTimeoutRef.current = null;
+      try {
+        await transcriptService.updateTranscript(projectId, localWords);
+        if (project?.status === "COMPLETED") {
+          await projectsService.generateMotionScript(projectId);
+          refetchMotionScript();
+        }
+      } catch (err) {
+        console.error("Error flushing pending transcript save:", err);
+      }
+    }
+  };
+
   const handleWordEditSave = (wordIdx: number) => {
     if (!editingWordText.trim()) return;
     pushWordsHistory(localWords);
@@ -692,6 +729,83 @@ export default function ProjectWorkspacePage() {
       if (commit) saveTranscriptBackground(updated);
       return updated;
     });
+  };
+
+  // Shared "begin drag" for the timeline's move gestures (single word or a
+  // whole line dragged as a unit) — same one-snapshot-per-gesture history
+  // rule as handleWordResizeStart, kept as its own handler only so the
+  // intent reads clearly at each call site.
+  const handleWordsMoveStart = () => {
+    pushWordsHistory(localWords);
+  };
+
+  // Generic multi-word time setter backing every "move" gesture: a single
+  // word dragged by its body (start/end shift together, duration constant)
+  // or an entire line dragged as a unit (every word in it shifts by the
+  // same delta). `commit` mirrors handleWordResize's mousemove/mouseup split.
+  const handleWordsSetTimes = (entries: { idx: number; start: number; end: number }[], commit: boolean) => {
+    setLocalWords((prev) => {
+      const updated = [...prev];
+      entries.forEach(({ idx, start, end }) => {
+        if (!updated[idx]) return;
+        updated[idx] = { ...updated[idx], start_ms: start, end_ms: end };
+      });
+      if (commit) saveTranscriptBackground(updated);
+      return updated;
+    });
+  };
+
+  // "Re-align" wand: for the selected words whose ASR confidence is low
+  // (the timeline shows these amber — see AMBER_CONFIDENCE_THRESHOLD in
+  // TimelineEditorSection), redistribute their timing evenly — weighted by
+  // character length — across the span between their nearest non-selected
+  // neighbors. This is a deterministic proportional-redistribution
+  // heuristic, not a real re-transcription; it's meant to straighten out
+  // words whose individual timestamps drifted, using their trusted
+  // neighbors as anchors. Realigned words get confidence reset to 1 so
+  // they read as verified afterward (confidence is the same field that
+  // drives the amber styling — no new schema field needed, which matters
+  // since Transcript/TranscriptWord is a strict extra="forbid" model).
+  const handleRealignWords = (indices: number[]) => {
+    if (indices.length === 0) return;
+    pushWordsHistory(localWords);
+    const updated = [...localWords];
+    const sorted = [...new Set(indices)].sort((a, b) => a - b);
+
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i;
+      while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+      const startIdx = sorted[i];
+      const endIdx = sorted[j];
+
+      const lowerBound = startIdx > 0 ? updated[startIdx - 1].end_ms : updated[startIdx].start_ms;
+      const upperBoundRaw = endIdx < updated.length - 1 ? updated[endIdx + 1].start_ms : updated[endIdx].end_ms;
+      const runLength = endIdx - startIdx + 1;
+      const span = Math.max(upperBoundRaw - lowerBound, MIN_WORD_DURATION_MS * runLength);
+
+      const weights: number[] = [];
+      let totalWeight = 0;
+      for (let k = startIdx; k <= endIdx; k++) {
+        const w = Math.max(1, (updated[k].text || "").trim().length);
+        weights.push(w);
+        totalWeight += w;
+      }
+
+      let cursor = lowerBound;
+      for (let k = startIdx; k <= endIdx; k++) {
+        const share = (weights[k - startIdx] / totalWeight) * span;
+        const wordStart = cursor;
+        const wordEnd = cursor + share;
+        updated[k] = { ...updated[k], start_ms: wordStart, end_ms: wordEnd, confidence: 1 };
+        cursor = wordEnd;
+      }
+
+      i = j + 1;
+    }
+
+    setLocalWords(updated);
+    saveTranscriptBackground(updated);
   };
 
   const pickKeywordIndex = (wordsList: any[]) => {
@@ -1201,6 +1315,9 @@ export default function ProjectWorkspacePage() {
             handleToggleHighlight={handleToggleHighlight}
             handleWordResizeStart={handleWordResizeStart}
             handleWordResize={handleWordResize}
+            handleWordsMoveStart={handleWordsMoveStart}
+            handleWordsSetTimes={handleWordsSetTimes}
+            handleRealignWords={handleRealignWords}
           />
         </div>
 
@@ -1214,6 +1331,8 @@ export default function ProjectWorkspacePage() {
           activeExportId={activeExportId}
           setActiveExportId={setActiveExportId}
           customCaptionTemplate={customCaptionTemplate}
+          selectedRatio={selectedRatio}
+          flushPendingSaves={flushPendingSaves}
           jobStatus={jobStatus}
           setJobStatus={setJobStatus}
           processingError={processingError}

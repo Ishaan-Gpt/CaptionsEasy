@@ -405,6 +405,24 @@ function boxContainerStyle(
   };
 }
 
+/** Captions never show punctuation on screen — strips it from the DISPLAY
+ * text only, right here where every card type finalizes what to render.
+ * The underlying word text (still fully punctuated, exactly as
+ * transcribed) is untouched everywhere it's used for actual logic:
+ * sentence-boundary card grouping (this file's own `endsSentence` in
+ * buildCardsFromWords, and the backend's group_words), the timeline
+ * editor's word blocks, and text-correction matching — only the pixels
+ * change. Keeps apostrophes/hyphens that are part of a word (don't, it's,
+ * well-known) since those aren't punctuation in the sense that matters
+ * here; strips sentence/clause punctuation and quote/bracket characters,
+ * including the curly-quote variants Whisper sometimes emits. */
+function stripPunctuation(text: string): string {
+  return text
+    .replace(/[.,!?;:"“”‘’`…()[\]{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function applyCasing(text: string, casing: CaptionStyle["casing"]): string {
   switch (casing) {
     case "uppercase":
@@ -437,6 +455,25 @@ function sharedTextStyle(style: CaptionStyle): React.CSSProperties {
     style.outline > 0 ? `${style.outline}px ${style.outlineColor || "#000000"}` : "0px transparent";
   (css as any).paintOrder = style.outline > 0 ? "stroke fill" : "normal";
   return css;
+}
+
+/** The subset of sharedTextStyle that's safe to apply to a STACK_SKINS hero
+ * word unconditionally. Underline/letter/word spacing had no effect on the
+ * hero word before this — every skin left them fully unset, so toggling
+ * Underline or dragging the spacing sliders silently only touched the
+ * surrounding body words, never the hero. Deliberately excludes
+ * textShadow/WebkitTextStroke: those two ARE part of each STACK_SKINS
+ * template's own hero visual identity (glow_stack's hero glow, serif_pop's
+ * gold outline text, etc. — see each skin's own heroCss), so folding the
+ * generic Drop Shadow/Outline toggle in here would blank out that signature
+ * look by default (shadowEnabled/strokeEnabled off) instead of adding to
+ * it. Outline already has the same carve-out via each skin's own heroCss. */
+function sharedHeroTextStyle(style: CaptionStyle): React.CSSProperties {
+  return {
+    letterSpacing: `${style.letterSpacing}px`,
+    wordSpacing: `${style.wordSpacing}px`,
+    textDecoration: style.underline ? "underline" : "none",
+  };
 }
 
 function backgroundWrapStyle(style: CaptionStyle): React.CSSProperties {
@@ -588,7 +625,7 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
   const hero = card.words[card.heroIndex];
   const line1 = card.words.slice(0, card.heroIndex);
   const line3 = card.words.slice(card.heroIndex + 1);
-  const heroTextRaw = hero?.text ?? "";
+  const heroTextRaw = stripPunctuation(hero?.text ?? "");
   const heroText =
     skin.heroCasing === "uppercase"
       ? heroTextRaw.toUpperCase()
@@ -598,8 +635,8 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
 
   const bodyWeight = typeof skin.bodyWeight === "function" ? skin.bodyWeight(style) : skin.bodyWeight;
   const bodySizeRaw = style.size * skin.bodySizeScale;
-  const line1Size = fitFontSizePx(bodySizeRaw, line1.map((w) => w.text).join(" "), maxWidthPx);
-  const line3Size = fitFontSizePx(bodySizeRaw, line3.map((w) => w.text).join(" "), maxWidthPx);
+  const line1Size = fitFontSizePx(bodySizeRaw, line1.map((w) => stripPunctuation(w.text)).join(" "), maxWidthPx);
+  const line3Size = fitFontSizePx(bodySizeRaw, line3.map((w) => stripPunctuation(w.text)).join(" "), maxWidthPx);
   const heroSizeRaw = style.size * skin.heroSizeScale(style);
   const heroSize = fitFontSizePx(heroSizeRaw, heroText, maxWidthPx);
 
@@ -661,7 +698,7 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
           <BodyWord
             key={`${w.startMs}-${i}`}
             word={w}
-            display={applyCasing(w.text, style.casing)}
+            display={applyCasing(stripPunctuation(w.text), style.casing)}
             timeMs={timeMs}
             style={style}
             baseColor={skin.bodyColor(style)}
@@ -704,6 +741,7 @@ function ThreeLineStack({ card, timeMs, style, canvas, skin, settled }: CardView
               opacity: heroVisible ? 1 : 0,
               transform: `scale(${0.85 + heroPop * 0.15})`,
               ...skin.heroCss(style, heroSize, heroPop),
+              ...sharedHeroTextStyle(style),
             }}
           >
             {heroText}
@@ -873,7 +911,7 @@ function WordByWordCard({ card, timeMs, style, canvas, settled }: CardViewProps)
   const word = card.words[activeIdx];
   if (!word) return null;
 
-  const display = applyCasing(word.text, style.casing === "none" ? "uppercase" : style.casing);
+  const display = applyCasing(stripPunctuation(word.text), style.casing === "none" ? "uppercase" : style.casing);
   const size = fitFontSizePx(style.size * 1.35, display, maxWidthPx);
   const pop = settled ? 1 : popSpring(timeMs, word.startMs, 13, 240);
 
@@ -940,10 +978,10 @@ function SentenceCard({ card, timeMs, style, canvas, animateActive, settled }: C
         }}
       >
         {card.words.map((w, i) => (
-          <span key={`${w.startMs}-${i}`} style={{ fontSize: `${fitFontSizePx(style.size, w.text, maxWidthPx)}px`, ...sharedTextStyle(style) }}>
+          <span key={`${w.startMs}-${i}`} style={{ fontSize: `${fitFontSizePx(style.size, stripPunctuation(w.text), maxWidthPx)}px`, ...sharedTextStyle(style) }}>
             <BodyWord
               word={w}
-              display={applyCasing(w.text, style.casing)}
+              display={applyCasing(stripPunctuation(w.text), style.casing)}
               timeMs={timeMs}
               style={style}
               baseColor={style.color}

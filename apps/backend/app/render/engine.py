@@ -1099,12 +1099,64 @@ class RenderEngine:
                 "size_bytes": 0,
             }
 
+    # Ratio ids the studio's aspect-ratio selector can send (matches
+    # VideoPlayerSection.tsx's selectedRatio values 1:1). "original"/None
+    # means no crop — export renders the full source frame, same as the
+    # preview's default.
+    _ASPECT_RATIOS: dict[str, float] = {
+        "9:16": 9 / 16,
+        "16:9": 16 / 9,
+        "1:1": 1.0,
+        "4:5": 4 / 5,
+    }
+
+    @classmethod
+    def compute_crop(cls, src_width: int, src_height: int, aspect_ratio: str | None) -> dict | None:
+        """Centered crop-to-ratio matching the studio preview's own crop
+        (the video element's CSS `object-fit: cover` inside a container
+        sized to the target ratio, VideoPlayerSection.tsx) — same
+        wider-crops-width / narrower-crops-height math, so exported
+        captions land exactly where the user saw them in preview instead
+        of on the full uncropped source frame. Returns None for no crop.
+        """
+        if not aspect_ratio or aspect_ratio not in cls._ASPECT_RATIOS:
+            return None
+        if not src_width or not src_height:
+            return None
+
+        target_ratio = cls._ASPECT_RATIOS[aspect_ratio]
+        src_ratio = src_width / src_height
+
+        if src_ratio > target_ratio:
+            # Source is relatively wider than the target — height fills the
+            # frame, width overflows and gets cropped (left/right).
+            crop_h = src_height
+            crop_w = round(crop_h * target_ratio)
+        else:
+            # Source is relatively taller/narrower — width fills the frame,
+            # height overflows and gets cropped (top/bottom).
+            crop_w = src_width
+            crop_h = round(crop_w / target_ratio)
+
+        crop_w = min(crop_w, src_width)
+        crop_h = min(crop_h, src_height)
+        # libx264 requires even dimensions.
+        crop_w -= crop_w % 2
+        crop_h -= crop_h % 2
+        if crop_w <= 0 or crop_h <= 0:
+            return None
+
+        x = (src_width - crop_w) // 2
+        y = (src_height - crop_h) // 2
+        return {"width": crop_w, "height": crop_h, "x": x, "y": y}
+
     def render(
         self,
         motion_script: MotionScript,
         video_path: str,
         output_path: str,
-        progress_callback=None
+        progress_callback=None,
+        aspect_ratio: str | None = None,
     ) -> dict:
         """Executes the pipeline stages to render a video with subtitles."""
         # Remotion is the single rendering engine for every caption template.
@@ -1119,7 +1171,7 @@ class RenderEngine:
         # manual fallback (use_remotion_render=False) while the unified path
         # is verified in production; it is otherwise unreachable.
         if self.use_remotion_render:
-            return self.render_remotion(motion_script, video_path, output_path, progress_callback)
+            return self.render_remotion(motion_script, video_path, output_path, progress_callback, aspect_ratio)
         else:
             return self.render_ass(motion_script, video_path, output_path, progress_callback)
 
@@ -1128,7 +1180,8 @@ class RenderEngine:
         motion_script: MotionScript,
         video_path: str,
         output_path: str,
-        progress_callback=None
+        progress_callback=None,
+        aspect_ratio: str | None = None,
     ) -> dict:
         if progress_callback:
             progress_callback("Preparing Remotion Render", 5)
@@ -1141,6 +1194,17 @@ class RenderEngine:
         # Default to 30 fps
         fps = 30
         duration_frames = max(1, int(duration_s * fps))
+
+        src_width = meta.get("width") or 1080
+        src_height = meta.get("height") or 1920
+        crop = self.compute_crop(src_width, src_height, aspect_ratio)
+        # The Remotion composition (and every box-margin/font-fit
+        # calculation inside CaptionEngine) renders at exactly this canvas
+        # size — cropped when the user picked a non-original ratio, so
+        # captions land where the studio preview showed them instead of on
+        # the full uncropped source frame.
+        render_width = crop["width"] if crop else src_width
+        render_height = crop["height"] if crop else src_height
 
         # Write temp input props JSON
         temp_json = Path(output_path).with_suffix(".json")
@@ -1181,8 +1245,8 @@ class RenderEngine:
             "--prores-profile=4444",
             "--image-format=png",
             "--pixel-format=yuva444p10le",
-            f"--width={meta.get('width', 1080)}",
-            f"--height={meta.get('height', 1920)}",
+            f"--width={render_width}",
+            f"--height={render_height}",
             # durationInFrames is exclusive of the end index (valid frames
             # are 0..duration_frames-1) — requesting duration_frames itself
             # is one past the end and Remotion rejects the whole range.
@@ -1221,12 +1285,24 @@ class RenderEngine:
         if progress_callback:
             progress_callback("Merging layers with FFmpeg", 65)
 
+        # Crop the source video to the same rect the overlay was rendered
+        # at, so the two layers line up — the overlay's alpha frame is
+        # already sized to render_width/render_height, and without this the
+        # `overlay` filter would either fail on mismatched dimensions or
+        # (with libavfilter's implicit behavior) silently place the crop-
+        # sized captions over the wrong region of the full source frame.
+        video_filter = (
+            f"[0:v]crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}[cropped];[cropped][1:v]overlay[outv]"
+            if crop
+            else "[0:v][1:v]overlay[outv]"
+        )
+
         ffmpeg_cmd = [
             self.ffmpeg_binary,
             "-y",
             "-i", video_path,
             "-i", str(temp_overlay.resolve()),
-            "-filter_complex", "[0:v][1:v]overlay[outv]",
+            "-filter_complex", video_filter,
             "-map", "[outv]",
             "-map", "0:a?",
             "-c:v", "libx264",

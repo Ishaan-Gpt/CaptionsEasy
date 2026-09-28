@@ -81,6 +81,7 @@ class ProjectRepository:
         caption_template: str | None = None,
         custom_style_json: dict | None = None,
         language: str | None = None,
+        aspect_ratio: str | None = None,
     ) -> Project:
         """Source: contracts/api.md > PATCH /projects/{id} (Rename / Archive / Favorite)."""
         if title is not None:
@@ -103,6 +104,8 @@ class ProjectRepository:
         # treated as absent.
         if language is not None:
             project.language = language or None
+        if aspect_ratio is not None:
+            project.aspect_ratio = aspect_ratio
         await self._db.commit()
         await self._db.refresh(project)
         return project

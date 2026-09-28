@@ -33,6 +33,13 @@ class Project(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     # — captions themselves always render in Latin script regardless of
     # the spoken language (see ROMANIZATION_PROMPT_HINT).
     language: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Studio's aspect-ratio selector (VideoPlayerSection.tsx selectedRatio):
+    # "9:16" | "16:9" | "1:1" | "4:5" | None ("original" / no crop). Stored
+    # here (not on the export/job row, which doesn't exist yet at request
+    # time) purely as a relay from POST /export to the render worker's
+    # stage_preparing, which already reads this row's style/caption_template
+    # the same way. Always reflects the *last requested* export's ratio.
+    aspect_ratio: Mapped[str | None] = mapped_column(String, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Sparse map of {"<start_ms_bucket>": {"box": {...}}} — per-caption-card
     # bounding-box overrides, keyed by the card's own start_ms (the most

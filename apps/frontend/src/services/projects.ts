@@ -134,9 +134,14 @@ export const projectsService = {
     return apiClient.post<{ jobId: string }>(`/projects/${id}/process`);
   },
 
-  async startExport(id: string, resolution: string = "1080p", quality: string = "high"): Promise<{ jobId: string }> {
+  async startExport(
+    id: string,
+    resolution: string = "1080p",
+    quality: string = "high",
+    aspectRatio?: string
+  ): Promise<{ jobId: string }> {
     return apiClient.post<{ jobId: string }>(`/projects/${id}/export`, {
-      json: { resolution, quality }
+      json: { resolution, quality, aspect_ratio: aspectRatio ?? "original" }
     });
   },
 
