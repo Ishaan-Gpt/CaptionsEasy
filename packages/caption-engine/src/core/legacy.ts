@@ -66,7 +66,7 @@ export function legacyStyleToV2(legacy: unknown, templateId?: string): CaptionSt
       scale: 1.08,
       boxRadius: 12,
     },
-    stroke: { enabled: outline > 0, width: outline * 2, color: str(ty.outline_color) ?? "#000000" },
+    stroke: { enabled: outline > 0, width: outline, color: str(ty.outline_color) ?? "#000000" },
     shadows: shadow > 0 ? [{ x: 0, y: shadow, blur: Math.max(2, shadow * 1.4), color: str(ty.shadow_color) ?? "rgba(0,0,0,0.6)" }] : [],
     background: {
       type: ty.background_style === "pill" ? "pill" : ty.background_style === "shadow-box" ? "box" : "none",

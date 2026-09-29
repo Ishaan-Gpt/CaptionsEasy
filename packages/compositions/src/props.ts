@@ -1,0 +1,24 @@
+import { z } from "zod";
+import { CaptionDocSchema, CaptionStyleSchema, ProjectSettingsSchema, emptyDoc } from "@capseasy/shared";
+
+export const MediaMetaSchema = z.object({
+  width: z.number().int().positive().default(1080),
+  height: z.number().int().positive().default(1920),
+  fps: z.number().positive().default(30),
+  durationMs: z.number().nonnegative().default(0),
+  rotation: z.number().default(0),
+});
+
+/** The one input contract for preview (Player) and export (renderMedia). */
+export const CaptionedVideoProps = z.object({
+  /** video URL; null renders captions only (stills, overlay exports) */
+  src: z.string().nullable().default(null),
+  media: MediaMetaSchema.default({}),
+  doc: CaptionDocSchema.default(emptyDoc()),
+  style: CaptionStyleSchema.default({}),
+  settings: ProjectSettingsSchema.default({}),
+  /** "burn" composites over the video; "overlay" is transparent captions only */
+  mode: z.enum(["burn", "overlay"]).default("burn"),
+});
+export type CaptionedVideoProps = z.infer<typeof CaptionedVideoProps>;
+export type CaptionedVideoInput = z.input<typeof CaptionedVideoProps>;

@@ -861,7 +861,7 @@ renders are deterministic. Ignore `custom_<uuid>` keys (junk).
 | `desi_clean` | Desi Clean | Regional | sentence | Mukta 700 | white / #FFB703 | color, romanized or Devanagari |
 | `bilingual` | Bilingual | Global | dual | Inter 700 + Inter 500 | white / 70% white | fade |
 
-Result: 8 templates → **~12 layouts, ~58 looks** (28 legacy + 30 new). Gallery groups by
+Result: 8 templates → **~12 layouts, ~55 looks** (25 legacy + 30 new). Gallery groups by
 category with search, favorites, "Recently used", and "My looks".
 
 ### 8.5 Emotion engine ("captions that feel what's said")
@@ -1414,7 +1414,7 @@ use the documented default and note it in §17.
 | P0 Foundation | ✅ done | Remotion pinned to 4.0.484; shared/templates/compositions/companion skeletons; typecheck + frontend build green |
 | P1 DB v2 | ✅ done 2026-09-30 | Applied to live project via MCP (migrations `p1_identity`, `p1_schema_v2`, `p1_rls_storage_realtime`, `p1_cron_reaper`, `p1_revoke_definer_exec`). Verified by a rolled-back SQL test: 2 claims → distinct jobs, lease expiry requeues, revoked worker blocked, stale `save_caption_doc` conflicts, RLS isolates user B from user A. Advisors: only INFO (legacy tables w/o policies) + dashboard-only "leaked password protection" (**user: enable in Supabase Auth settings**). Deferred: `supabase gen types` → `packages/shared/src/db.types.ts` (needs Supabase CLI); snapshot migrations into `supabase/migrations/` with `supabase db pull` once CLI is installed. |
 | P2 Engine core | ✅ done | `@capseasy/shared` (zod contracts) + pure `@motion-ai/caption-engine/core` (normalize, derive, ops, filters, exporters, SRT/VTT import, legacy migrate, color); 31 vitest tests incl. 10k-word perf. Legacy React engine untouched until P3. Emotion/hero LLM + `romanize` transliterator deferred to P6 |
-| P3 Templates parity | ☐ | next up |
+| P3 Templates parity | ✅ done (visual, by eye) | `@capseasy/templates`: defineable template registry, 3 layouts (sentence/word/stack3) + 5 stack skins, motion lib (fps-aware springs, 12 entrances, 5 exits, 12 active effects), real text measurement (`@remotion/layout-utils`), font loader gated by `delayRender`, 8 legacy templates, **25** legacy looks generated from the old presets (12 frontend + 13 backend; the plan's "28" was a miscount; system fonts swapped to Google equivalents). `@capseasy/compositions`: props-only `CaptionedVideo` (+overlay mode, ProRes 4444 defaults) normalizing props with zod because Remotion does not parse inputProps at render time. Verified by rendering real stills for all 8 templates + 25 looks (`pnpm --filter @capseasy/compositions still`). NOT done: pixel-diff vs legacy goldens, Player-vs-renderStill diff (Player wired in P7). Known nit: pop-scaled active word can visually touch its neighbour (same as legacy). |
 | P4 API v2 | ◐ partial | Hotfix landed early: B4 IDOR closed on `motion-script`, `video` (signed URL leak) and `upload/status` via shared `userOwnsProject()`; B5 mass-assignment closed with a PATCH allow-list. Still open: cookie-session `withAuth`, RLS-scoped client, worker/device routes, job state machine, zod on every route |
 | P5 Companion | ☐ | |
 | P6 Cloud path | ☐ | |
