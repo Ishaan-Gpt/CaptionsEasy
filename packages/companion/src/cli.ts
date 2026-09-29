@@ -34,6 +34,8 @@ program
     process.on("SIGINT", () => ac.abort());
     process.on("SIGTERM", () => ac.abort());
     await runCompanion(loadConfig(), { once: o.once, signal: ac.signal });
+    // Chrome/ffmpeg/whisper children can keep the event loop alive after an aborted job; the work is done, so leave.
+    process.exit(0);
   });
 
 program

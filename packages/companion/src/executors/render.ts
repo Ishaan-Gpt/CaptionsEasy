@@ -11,6 +11,9 @@ import { serveFile } from "../media-server";
 import { downloadTo, uploadSigned } from "../transfer";
 import { extOf, jobDir, mediaCacheDir, slice, type JobContext } from "./context";
 
+/** Slow machines / cold video decoders need more than Remotion's 30 s default per delayRender. */
+const FRAME_TIMEOUT_MS = 120_000;
+
 let sitePromise: Promise<string> | null = null;
 
 /** Bundles the shared composition once per process (the same code the browser Player runs). */
@@ -67,7 +70,7 @@ export async function runRender(ctx: JobContext) {
       settings: job.settings,
       mode: burn ? "burn" : "overlay",
     };
-    const composition = await selectComposition({ serveUrl, id: burn ? "CaptionedVideo" : "CaptionsOverlay", inputProps });
+    const composition = await selectComposition({ serveUrl, id: burn ? "CaptionedVideo" : "CaptionsOverlay", inputProps, timeoutInMilliseconds: FRAME_TIMEOUT_MS });
 
     const { ext, mime } = OUT[job.format];
     const output = join(dir, `export.${ext}`);
@@ -75,7 +78,7 @@ export async function runRender(ctx: JobContext) {
     signal.addEventListener("abort", () => cancel(), { once: true });
 
     await report("Rendering", 15);
-    const common = { composition, serveUrl, inputProps, outputLocation: output, cancelSignal, concurrency: Math.max(1, Math.floor(cpus().length / 2)) } as const;
+    const common = { composition, serveUrl, inputProps, outputLocation: output, cancelSignal, timeoutInMilliseconds: FRAME_TIMEOUT_MS, concurrency: Math.max(1, Math.floor(cpus().length / 2)) } as const;
     const onProgress = ({ progress }: { progress: number }) => void report("Rendering", slice(15, 88, progress));
 
     if (job.format === "mp4") {

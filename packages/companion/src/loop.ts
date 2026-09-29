@@ -65,32 +65,42 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
     const a: Active = { id: claimed.job.id, controller: new AbortController(), reason: null };
     active = a;
     let lastSent = 0;
-    let lastStage = "";
+    let lastStage = "Starting";
+    let lastPercent = 0;
+    // sends progress AND renews the server-side lease; cancellation/lease loss abort the signal instead of throwing
+    const send = async (stage: string, percent: number, message?: string) => {
+      try {
+        const r = await api.progress(claimed.job.id, stage, percent, message);
+        if (r?.cancelRequested && !a.reason) {
+          a.reason = "cancelled";
+          a.controller.abort();
+        }
+      } catch (e) {
+        if (e instanceof ApiError && e.code === "LEASE_LOST" && !a.reason) {
+          a.reason = "lease";
+          a.controller.abort();
+        }
+      }
+    };
     const ctx: JobContext = {
       api,
       cfg,
       claimed,
       signal: a.controller.signal,
-      // never throws: cancellation/lease loss abort the signal instead, and the executor stops at its next await
       report: async (stage, percent, message) => {
         const now = Date.now();
-        if (stage === lastStage && now - lastSent < 1000) return;
+        const changed = stage !== lastStage;
         lastStage = stage;
+        lastPercent = percent;
+        if (!changed && now - lastSent < 1000) return;
         lastSent = now;
-        try {
-          const r = await api.progress(claimed.job.id, stage, percent, message);
-          if (r?.cancelRequested && !a.reason) {
-            a.reason = "cancelled";
-            a.controller.abort();
-          }
-        } catch (e) {
-          if (e instanceof ApiError && e.code === "LEASE_LOST" && !a.reason) {
-            a.reason = "lease";
-            a.controller.abort();
-          }
-        }
+        await send(stage, percent, message);
       },
     };
+    // long silent steps (first-run browser/model downloads) must not let the 90 s lease expire
+    const keepalive = setInterval(() => {
+      if (!a.controller.signal.aborted) void send(lastStage, lastPercent);
+    }, 20_000);
     log.info(`job ${claimed.job.id.slice(0, 8)} ${claimed.job.kind} started (attempt ${claimed.job.attempts})`);
     try {
       if (claimed.job.kind === "transcribe") await runTranscribe(ctx);
@@ -110,6 +120,7 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
         await api.fail(claimed.job.id, c.code, c.message, c.retryable).catch((err) => log.error(`could not report failure: ${err instanceof Error ? err.message : err}`));
       }
     } finally {
+      clearInterval(keepalive);
       active = null;
       idleSince = Date.now();
     }

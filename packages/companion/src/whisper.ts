@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { downloadWhisperModel, installWhisperCpp, toCaptions, transcribe, type Language, type WhisperModel } from "@remotion/install-whisper-cpp";
 import { fromWhisperCaptions, type NormalizeOptions } from "@motion-ai/caption-engine/core";
@@ -8,49 +8,58 @@ import { log } from "./log";
 
 // pinned: newer whisper.cpp releases change the CLI flags Remotion relies on
 export const WHISPER_CPP_VERSION = "1.5.5";
-export const whisperDir = () => join(dirs.data, "whisper");
+/** Binary only. installWhisperCpp() silently does NOTHING if this folder already exists, so never pre-create it. */
+export const whisperDir = () => join(dirs.data, "whisper-bin");
+/** Models live apart from the binary so a half-downloaded model can never block (re)installing the binary. */
+export const modelsDir = () => join(dirs.data, "whisper-models");
+const exePath = () => join(whisperDir(), process.platform === "win32" ? "main.exe" : "main");
+
+export const whisperInstalled = () => existsSync(exePath());
 
 let installing: Promise<void> | null = null;
 
-/** Installs whisper.cpp once (prebuilt on Windows, built from source elsewhere). Concurrent callers share the same install. */
+/** Installs whisper.cpp once (prebuilt zip on Windows; git clone + make elsewhere). Concurrent callers share one install. */
 export function ensureWhisperBinary(): Promise<void> {
+  if (whisperInstalled()) return Promise.resolve();
   installing ??= (async () => {
-    mkdirSync(whisperDir(), { recursive: true });
-    const r = await installWhisperCpp({ to: whisperDir(), version: WHISPER_CPP_VERSION, printOutput: false });
-    log.info(r.alreadyExisted ? "whisper.cpp already installed" : "whisper.cpp installed");
+    // a previous failed install can leave a folder without the executable, which makes the installer skip work
+    rmSync(whisperDir(), { recursive: true, force: true });
+    mkdirSync(dirs.cache, { recursive: true });
+    mkdirSync(dirs.data, { recursive: true });
+    const prev = process.cwd();
+    try {
+      process.chdir(dirs.cache); // the installer drops its download zip into the current directory
+      await installWhisperCpp({ to: whisperDir(), version: WHISPER_CPP_VERSION, printOutput: false });
+    } finally {
+      process.chdir(prev);
+    }
+    if (!whisperInstalled()) throw new Error(`the whisper executable was not found at ${exePath()} after installing`);
+    log.info("whisper.cpp installed");
   })().catch((e) => {
     installing = null; // allow a retry on the next job
     throw new Error(
       `Could not set up whisper.cpp: ${e instanceof Error ? e.message : e}. ` +
-        (process.platform === "win32" ? "Check your internet connection and free disk space." : "On macOS install Xcode command line tools (xcode-select --install); on Linux install build-essential + cmake."),
+        (process.platform === "win32" ? "Check your internet connection and free disk space." : "It needs git and make (macOS: xcode-select --install; Linux: build-essential)."),
     );
   });
   return installing;
 }
 
 export async function ensureModel(model: WhisperModel, onProgress?: (fraction: number) => void, signal?: AbortSignal) {
-  mkdirSync(whisperDir(), { recursive: true });
-  const r = await downloadWhisperModel({ model, folder: whisperDir(), printOutput: false, signal, onProgress: (downloaded, total) => onProgress?.(total ? downloaded / total : 0) });
+  mkdirSync(modelsDir(), { recursive: true });
+  const r = await downloadWhisperModel({ model, folder: modelsDir(), printOutput: false, signal, onProgress: (downloaded, total) => onProgress?.(total ? downloaded / total : 0) });
   if (!r.alreadyExisted) log.info(`whisper model ${model} downloaded`);
 }
 
 export function installedModels(): string[] {
   try {
-    return readdirSync(whisperDir())
+    return readdirSync(modelsDir())
       .filter((f) => /^ggml-.*\.bin$/.test(f))
       .map((f) => f.replace(/^ggml-/, "").replace(/\.bin$/, ""));
   } catch {
     return [];
   }
 }
-
-export const whisperInstalled = () => {
-  try {
-    return readdirSync(whisperDir()).length > 0;
-  } catch {
-    return false;
-  }
-};
 
 export interface TranscribeOptions {
   wavPath: string;
@@ -71,9 +80,8 @@ export async function transcribeWav(o: TranscribeOptions): Promise<{ words: Word
     whisperPath: whisperDir(),
     whisperCppVersion: WHISPER_CPP_VERSION,
     model: o.model,
-    modelFolder: whisperDir(),
+    modelFolder: modelsDir(),
     tokenLevelTimestamps: true,
-    splitOnWord: true,
     language: (englishOnly ? "en" : o.language) as Language,
     printOutput: false,
     signal: o.signal,
