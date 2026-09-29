@@ -10,7 +10,20 @@ import { CaptionComposition, CaptionStyleSettings } from "@/remotion/CaptionComp
 import { Caption } from "@remotion/captions";
 
 // Simple UI Components
-import { ArrowLeft, Play, Pause, Download, Type, LayoutTemplate } from "lucide-react";
+import { ArrowLeft, Play, Pause, Download, Type, ChevronDown, ChevronUp } from "lucide-react";
+
+const Accordion = ({ title, isOpen, onToggle, children }: any) => (
+  <div className="border-b border-white/10 last:border-0">
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between py-3 px-4 text-xs font-bold text-white/40 uppercase tracking-wider hover:bg-white/5 transition"
+    >
+      {title}
+      {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+    </button>
+    {isOpen && <div className="p-4 pt-0">{children}</div>}
+  </div>
+);
 
 export default function RemotionStudioPage() {
   const params = useParams();
@@ -48,28 +61,53 @@ export default function RemotionStudioPage() {
     backgroundEnabled: false,
   });
 
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({
+    Fonts: true,
+    Position: false,
+    Color: false,
+    Emphasis: false,
+    Spacing: false,
+    Effects: false
+  });
+  
+  const toggleDropdown = (key: string) => setOpenDropdowns(prev => ({...prev, [key]: !prev[key]}));
+
   // Video State
   const [isPlaying, setIsPlaying] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
-  // Derive captions from project
-  const transcriptTokens = useMemo<Caption[]>(() => {
-    if (!project?.transcript?.transcript_json?.words) return [];
-    return project.transcript.transcript_json.words.map((w: any) => ({
-      text: w.word,
-      startMs: Math.round(w.start * 1000),
-      endMs: Math.round(w.end * 1000),
-      timestampMs: null,
-      confidence: w.probability ?? null,
-    }));
-  }, [project]);
+  // Editable Captions State
+  const [transcriptTokens, setTranscriptTokens] = useState<Caption[]>([]);
+
+  useEffect(() => {
+    if (project?.transcript?.transcript_json?.words && transcriptTokens.length === 0) {
+      setTranscriptTokens(project.transcript.transcript_json.words.map((w: any) => ({
+        text: w.word,
+        startMs: Math.round(w.start * 1000),
+        endMs: Math.round(w.end * 1000),
+        timestampMs: null,
+        confidence: w.probability ?? null,
+      })));
+    }
+  }, [project, transcriptTokens.length]);
+
+  const handleTextChange = (index: number, newText: string) => {
+    setTranscriptTokens(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], text: newText };
+      return copy;
+    });
+  };
 
   const videoUrl = project?.video?.storage_path ? 
     `https://obxugkghzszatjmqoigf.supabase.co/storage/v1/object/public/videos/${project.video.storage_path}` : null;
 
-  // We should fetch dimensions dynamically, but for now fallback to 9:16 standard
   const aspectW = project?.aspect_ratio === "16:9" ? 1920 : project?.aspect_ratio === "1:1" ? 1080 : 1080;
   const aspectH = project?.aspect_ratio === "16:9" ? 1080 : project?.aspect_ratio === "1:1" ? 1080 : 1920;
-  const durationInFrames = Math.max(1, Math.round((project?.video?.duration_ms ?? 10000) / 1000 * 30));
+  
+  const durationMs = project?.video?.duration_ms ?? 10000;
+  const durationInFrames = Math.max(1, Math.round(durationMs / 1000 * 30));
+  const timelineTotalWidth = (durationMs / 10) * zoom; // Base: 100px per second
 
   if (isLoading) return <div className="min-h-screen bg-[#111111] flex items-center justify-center text-white">Loading...</div>;
 
@@ -91,7 +129,7 @@ export default function RemotionStudioPage() {
         </div>
       </header>
 
-      {/* Main Layout */}
+      {/* Main Layout Area */}
       <div className="flex flex-1 overflow-hidden">
         
         {/* Left Sidebar: Captions List */}
@@ -106,16 +144,24 @@ export default function RemotionStudioPage() {
               transcriptTokens.map((token, i) => (
                 <div 
                   key={i} 
-                  onClick={() => {
-                    if (playerRef.current) {
-                      const frame = Math.floor((token.startMs / 1000) * 30);
-                      playerRef.current.seekTo(frame);
-                    }
-                  }}
-                  className="flex gap-3 text-sm p-2 hover:bg-white/5 rounded-md cursor-pointer transition"
+                  className="flex gap-3 text-sm p-2 hover:bg-white/5 rounded-md transition items-center"
                 >
-                  <span className="text-white/40 w-4">{i + 1}</span>
-                  <span className="text-white/90">{token.text}</span>
+                  <span 
+                    className="text-white/40 w-4 cursor-pointer hover:text-emerald-500" 
+                    onClick={() => {
+                      if (playerRef.current) {
+                        const frame = Math.floor((token.startMs / 1000) * 30);
+                        playerRef.current.seekTo(frame);
+                      }
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <input
+                    className="bg-transparent border-b border-transparent hover:border-white/20 focus:border-emerald-500 outline-none text-white/90 w-full px-1"
+                    value={token.text}
+                    onChange={(e) => handleTextChange(i, e.target.value)}
+                  />
                 </div>
               ))
             )}
@@ -174,7 +220,7 @@ export default function RemotionStudioPage() {
         {/* Right Sidebar: Tools */}
         <aside className="w-[320px] border-l border-white/10 flex flex-col bg-[#161616]">
           {/* Tabs */}
-          <div className="flex border-b border-white/10">
+          <div className="flex border-b border-white/10 shrink-0">
             <button 
               onClick={() => setActiveTab("text")}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${activeTab === "text" ? "border-emerald-500 text-emerald-500" : "border-transparent text-white/60 hover:text-white"}`}
@@ -190,13 +236,11 @@ export default function RemotionStudioPage() {
           </div>
 
           {/* Tools Content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto">
             {activeTab === "text" ? (
-              <div className="space-y-6">
-                
-                {/* FONTS */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Fonts</h3>
+              <div>
+                {/* 1. FONTS */}
+                <Accordion title="Fonts" isOpen={openDropdowns.Fonts} onToggle={() => toggleDropdown("Fonts")}>
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs text-white/70 block mb-1">Font Family</label>
@@ -234,45 +278,17 @@ export default function RemotionStudioPage() {
                             onChange={(e) => setStyleSettings({...styleSettings, fontSize: Number(e.target.value)})}
                             className="w-full accent-emerald-500" 
                           />
-                          <span className="text-xs">{styleSettings.fontSize}px</span>
+                          <span className="text-xs">{styleSettings.fontSize}</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Accordion>
 
-                <div className="border-t border-white/10" />
-
-                {/* COLOR */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Color</h3>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-white/80">Text Color</span>
-                    <input 
-                      type="color" 
-                      value={styleSettings.color}
-                      onChange={(e) => setStyleSettings({...styleSettings, color: e.target.value})}
-                      className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-white/80">Highlight Color</span>
-                    <input 
-                      type="color" 
-                      value={styleSettings.highlightColor}
-                      onChange={(e) => setStyleSettings({...styleSettings, highlightColor: e.target.value})}
-                      className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t border-white/10" />
-
-                {/* POSITION */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Position</h3>
+                {/* 2. POSITION */}
+                <Accordion title="Position" isOpen={openDropdowns.Position} onToggle={() => toggleDropdown("Position")}>
                   <div>
-                    <label className="text-xs text-white/70 block mb-1">Y-Axis</label>
+                    <label className="text-xs text-white/70 block mb-1">Y-Axis Placement</label>
                     <input 
                       type="range" min="10" max="90" 
                       value={styleSettings.yPositionPercent}
@@ -280,49 +296,47 @@ export default function RemotionStudioPage() {
                       className="w-full accent-emerald-500" 
                     />
                   </div>
-                </div>
+                </Accordion>
 
-                <div className="border-t border-white/10" />
-
-                {/* SPACING */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Spacing</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-white/70 block mb-1">Alignment</label>
-                      <select 
-                        value={styleSettings.alignment}
-                        onChange={(e) => setStyleSettings({...styleSettings, alignment: e.target.value as any})}
-                        className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
-                      >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
+                {/* 3. COLOR */}
+                <Accordion title="Color" isOpen={openDropdowns.Color} onToggle={() => toggleDropdown("Color")}>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/80">Text Color</span>
+                      <input 
+                        type="color" 
+                        value={styleSettings.color}
+                        onChange={(e) => setStyleSettings({...styleSettings, color: e.target.value})}
+                        className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/80">Highlight Color</span>
+                      <input 
+                        type="color" 
+                        value={styleSettings.highlightColor}
+                        onChange={(e) => setStyleSettings({...styleSettings, highlightColor: e.target.value})}
+                        className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
+                      />
                     </div>
                   </div>
-                </div>
+                </Accordion>
 
-                <div className="border-t border-white/10" />
-
-                {/* EMPHASIS */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Emphasis</h3>
+                {/* 4. EMPHASIS */}
+                <Accordion title="Emphasis" isOpen={openDropdowns.Emphasis} onToggle={() => toggleDropdown("Emphasis")}>
                   <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <label className="text-xs text-white/70 block mb-1">Casing</label>
-                        <select 
-                          value={styleSettings.casing}
-                          onChange={(e) => setStyleSettings({...styleSettings, casing: e.target.value as any})}
-                          className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
-                        >
-                          <option value="none">None</option>
-                          <option value="uppercase">UPPERCASE</option>
-                          <option value="lowercase">lowercase</option>
-                          <option value="capitalize">Capitalize</option>
-                        </select>
-                      </div>
+                    <div>
+                      <label className="text-xs text-white/70 block mb-1">Casing</label>
+                      <select 
+                        value={styleSettings.casing}
+                        onChange={(e) => setStyleSettings({...styleSettings, casing: e.target.value as any})}
+                        className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
+                      >
+                        <option value="none">None</option>
+                        <option value="uppercase">UPPERCASE</option>
+                        <option value="lowercase">lowercase</option>
+                        <option value="capitalize">Capitalize</option>
+                      </select>
                     </div>
                     <div className="flex gap-2">
                       <div className="flex-1">
@@ -351,13 +365,26 @@ export default function RemotionStudioPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Accordion>
 
-                <div className="border-t border-white/10" />
+                {/* 5. SPACING */}
+                <Accordion title="Spacing" isOpen={openDropdowns.Spacing} onToggle={() => toggleDropdown("Spacing")}>
+                  <div>
+                    <label className="text-xs text-white/70 block mb-1">Alignment</label>
+                    <select 
+                      value={styleSettings.alignment}
+                      onChange={(e) => setStyleSettings({...styleSettings, alignment: e.target.value as any})}
+                      className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
+                    >
+                      <option value="left">Left</option>
+                      <option value="center">Center</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
+                </Accordion>
 
-                {/* EFFECTS */}
-                <div>
-                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Effects</h3>
+                {/* 6. EFFECTS */}
+                <Accordion title="Effects" isOpen={openDropdowns.Effects} onToggle={() => toggleDropdown("Effects")}>
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input 
@@ -387,11 +414,11 @@ export default function RemotionStudioPage() {
                       Highlight Box
                     </label>
                   </div>
-                </div>
+                </Accordion>
 
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="p-4 grid grid-cols-2 gap-2">
                 {/* Placeholder templates */}
                 <div className="aspect-video bg-[#222] rounded flex items-center justify-center border border-white/10 hover:border-emerald-500 cursor-pointer transition">
                   <span className="text-xs font-bold text-emerald-400 uppercase">Hormozi</span>
@@ -415,17 +442,40 @@ export default function RemotionStudioPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-white/40">Zoom</span>
-            <input type="range" className="w-24 accent-emerald-500" />
+            <input 
+              type="range" min="0.5" max="3" step="0.1"
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-24 accent-emerald-500" 
+            />
           </div>
         </div>
-        <div className="flex-1 bg-[#111] border border-white/10 rounded relative overflow-hidden flex flex-col">
-          {/* Baby timeline representation */}
-          <div className="h-8 border-b border-white/5 bg-[#1a1a1a] flex items-center px-2">
-            <span className="text-[10px] text-emerald-500 font-medium">T Captions</span>
-          </div>
-          <div className="flex-1 p-2 relative">
-             <div className="absolute top-2 left-10 w-20 h-6 bg-emerald-500/20 border border-emerald-500/50 rounded flex items-center justify-center text-[10px] text-emerald-400">talking</div>
-             <div className="absolute top-2 left-32 w-24 h-6 bg-emerald-500/20 border border-emerald-500/50 rounded flex items-center justify-center text-[10px] text-emerald-400">about their</div>
+        <div className="flex-1 bg-[#111] border border-white/10 rounded relative overflow-x-auto overflow-y-hidden flex flex-col custom-scrollbar">
+          <div style={{ width: `${timelineTotalWidth}px`, minWidth: '100%', position: 'relative' }} className="flex-1 flex flex-col">
+            <div className="h-8 border-b border-white/5 bg-[#1a1a1a] flex items-center px-2 sticky left-0 z-10 w-32 shadow-[2px_0_4px_rgba(0,0,0,0.5)]">
+              <span className="text-[10px] text-emerald-500 font-medium tracking-wide">T CAPTIONS</span>
+            </div>
+            <div className="flex-1 relative">
+               {transcriptTokens.map((token, i) => {
+                 const leftPercent = (token.startMs / durationMs) * 100;
+                 const widthPercent = ((token.endMs - token.startMs) / durationMs) * 100;
+                 return (
+                   <div 
+                     key={i}
+                     className="absolute top-2 h-6 bg-emerald-500/20 border border-emerald-500/50 rounded flex items-center px-2 text-[10px] text-emerald-400 overflow-hidden cursor-pointer hover:bg-emerald-500/30 whitespace-nowrap transition-colors"
+                     style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                     onClick={() => {
+                        if (playerRef.current) {
+                          const frame = Math.floor((token.startMs / 1000) * 30);
+                          playerRef.current.seekTo(frame);
+                        }
+                     }}
+                   >
+                     {token.text}
+                   </div>
+                 )
+               })}
+            </div>
           </div>
         </div>
       </footer>
