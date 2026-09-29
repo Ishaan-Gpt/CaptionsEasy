@@ -70,6 +70,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   });
 }
 
+const PATCHABLE_FIELDS = [
+  "title", "description", "style", "caption_template", "language", "aspect_ratio", "fragment_overrides_json",
+  "custom_style_json", "look_id", "template_id", "style_json", "platform", "settings_json",
+] as const;
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUserFromRequest(req);
   if (!user) {
@@ -78,11 +83,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
-  const body = await req.json();
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ success: false, error: { code: "VALIDATION", message: "Invalid body" } }, { status: 422 });
+  }
+  // Allow-list: never let a client set owner_id, status, deleted_at, etc. (mass-assignment)
+  const patch: Record<string, unknown> = {};
+  for (const key of PATCHABLE_FIELDS) if (key in body) patch[key] = body[key];
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ success: false, error: { code: "VALIDATION", message: "No editable fields provided" } }, { status: 422 });
+  }
 
   const { data, error } = await supabaseAdmin
     .from("projects")
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
     .in("owner_id", ownerIds)
     .is("deleted_at", null)

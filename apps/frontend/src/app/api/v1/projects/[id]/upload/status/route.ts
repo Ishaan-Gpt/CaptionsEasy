@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { supabaseAdmin, getUserFromRequest, userOwnsProject } from "@/utils/supabaseAdmin";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUserFromRequest(req);
@@ -8,6 +8,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
+
+  if (!(await userOwnsProject(user, id))) {
+    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
+  }
 
   // Get job
   const { data: job } = await supabaseAdmin

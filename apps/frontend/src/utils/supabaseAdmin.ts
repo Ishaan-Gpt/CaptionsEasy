@@ -65,3 +65,19 @@ export async function getUserFromRequest(req: NextRequest) {
   };
 }
 
+
+/** True when `user` owns a live (not soft-deleted) project. Every project-scoped route must call this. */
+export async function userOwnsProject(
+  user: { id: string; auth_user_id: string },
+  projectId: string,
+): Promise<boolean> {
+  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
+  const { data } = await supabaseAdmin
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .in("owner_id", ownerIds)
+    .is("deleted_at", null)
+    .maybeSingle();
+  return Boolean(data);
+}

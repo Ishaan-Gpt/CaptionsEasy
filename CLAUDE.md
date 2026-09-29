@@ -1414,8 +1414,8 @@ use the documented default and note it in §17.
 | P0 Foundation | ✅ done | Remotion pinned to 4.0.484; shared/templates/compositions/companion skeletons; typecheck + frontend build green |
 | P1 DB v2 | ✅ done 2026-09-30 | Applied to live project via MCP (migrations `p1_identity`, `p1_schema_v2`, `p1_rls_storage_realtime`, `p1_cron_reaper`, `p1_revoke_definer_exec`). Verified by a rolled-back SQL test: 2 claims → distinct jobs, lease expiry requeues, revoked worker blocked, stale `save_caption_doc` conflicts, RLS isolates user B from user A. Advisors: only INFO (legacy tables w/o policies) + dashboard-only "leaked password protection" (**user: enable in Supabase Auth settings**). Deferred: `supabase gen types` → `packages/shared/src/db.types.ts` (needs Supabase CLI); snapshot migrations into `supabase/migrations/` with `supabase db pull` once CLI is installed. |
 | P2 Engine core | ✅ done | `@capseasy/shared` (zod contracts) + pure `@motion-ai/caption-engine/core` (normalize, derive, ops, filters, exporters, SRT/VTT import, legacy migrate, color); 31 vitest tests incl. 10k-word perf. Legacy React engine untouched until P3. Emotion/hero LLM + `romanize` transliterator deferred to P6 |
-| P3 Templates parity | ☐ | |
-| P4 API v2 | ☐ | |
+| P3 Templates parity | ☐ | next up |
+| P4 API v2 | ◐ partial | Hotfix landed early: B4 IDOR closed on `motion-script`, `video` (signed URL leak) and `upload/status` via shared `userOwnsProject()`; B5 mass-assignment closed with a PATCH allow-list. Still open: cookie-session `withAuth`, RLS-scoped client, worker/device routes, job state machine, zod on every route |
 | P5 Companion | ☐ | |
 | P6 Cloud path | ☐ | |
 | P7 Studio | ☐ | |
