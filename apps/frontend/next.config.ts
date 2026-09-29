@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     "@remotion/player",
     "@remotion/media",
     "@motion-ai/caption-engine",
+    "@capseasy/shared",
+    "@capseasy/templates",
+    "@capseasy/compositions",
   ],
 };
 

@@ -1,0 +1,53 @@
+import { CreateVideoBody, VIDEO_MIME_TYPES, newId, planFor } from "@capseasy/shared";
+import { requireUser } from "@/lib/api/auth";
+import { ApiFailure, notFound, ok, parseBody, route, type Ctx } from "@/lib/api/http";
+import { extFromMime, signedPut } from "@/lib/api/storage";
+
+/** Step 1 of upload: validate against the plan, register the video, hand back a signed upload URL. */
+export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  const user = await requireUser(req);
+  const { id: projectId } = await params;
+  const body = await parseBody(req, CreateVideoBody);
+
+  const { data: project } = await user.db.from("projects").select("id").eq("id", projectId).is("deleted_at", null).maybeSingle();
+  if (!project) throw notFound("Project");
+
+  if (!(VIDEO_MIME_TYPES as readonly string[]).includes(body.mime)) {
+    throw new ApiFailure("UNSUPPORTED_MEDIA", "Unsupported video type. Use MP4, MOV, WebM or MKV.");
+  }
+  const { data: profile } = await user.db.from("profiles").select("plan").eq("id", user.id).maybeSingle();
+  const limits = planFor(profile?.plan);
+  if (body.size > limits.maxUploadBytes) {
+    throw new ApiFailure("LIMIT_EXCEEDED", `This file is larger than your plan allows (${Math.round(limits.maxUploadBytes / 1048576)} MB).`, { maxUploadBytes: limits.maxUploadBytes });
+  }
+  if (body.probe && body.probe.durationMs / 1000 > limits.maxDurationSec) {
+    throw new ApiFailure("LIMIT_EXCEEDED", `Videos longer than ${Math.round(limits.maxDurationSec / 60)} minutes are not allowed on your plan.`, { maxDurationSec: limits.maxDurationSec });
+  }
+
+  const videoId = crypto.randomUUID();
+  const path = `${user.id}/${projectId}/source/${videoId}.${extFromMime(body.mime, body.filename)}`;
+  const p = body.probe;
+  const { error } = await user.db.from("videos").insert({
+    id: videoId,
+    project_id: projectId,
+    owner_id: user.id,
+    storage_path: path,
+    status: "uploading",
+    original_filename: body.filename,
+    mime_type: body.mime,
+    file_size: body.size,
+    duration_ms: p ? Math.round(p.durationMs) : null,
+    width: p?.width ?? null,
+    height: p?.height ?? null,
+    fps: p?.fps ? Math.round(p.fps) : null,
+    rotation: p?.rotation ?? 0,
+    video_codec: p?.videoCodec ?? null,
+    audio_codec: p?.audioCodec ?? null,
+    has_audio: p?.hasAudio ?? null,
+    probe_json: p ?? null,
+  });
+  if (error) throw new ApiFailure("INTERNAL", "Could not register the video", error.message);
+
+  const up = await signedPut(path);
+  return ok({ videoId, bucket: "media", path, uploadUrl: up.url, token: up.token, uploadId: newId() }, 201);
+});

@@ -10,6 +10,6 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   LEASE_LOST: 409, INTERNAL: 500,
 };
 
-export interface ApiOk<T> { ok: true; data: T }
-export interface ApiErr { ok: false; error: { code: ErrorCode; message: string; details?: unknown } }
+export interface ApiOk<T> { success: true; data: T }
+export interface ApiErr { success: false; error: { code: ErrorCode; message: string; details?: unknown } }
 export type ApiResponse<T> = ApiOk<T> | ApiErr;
