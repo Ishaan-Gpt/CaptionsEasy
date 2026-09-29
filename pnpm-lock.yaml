@@ -191,19 +191,43 @@ importers:
 
   packages/companion:
     dependencies:
+      '@capseasy/compositions':
+        specifier: workspace:*
+        version: link:../compositions
       '@capseasy/shared':
         specifier: workspace:*
         version: link:../shared
+      '@motion-ai/caption-engine':
+        specifier: workspace:*
+        version: link:../caption-engine
+      '@remotion/bundler':
+        specifier: 4.0.484
+        version: 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/install-whisper-cpp':
+        specifier: 4.0.484
+        version: 4.0.484
+      '@remotion/renderer':
+        specifier: 4.0.484
+        version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      any-ascii:
+        specifier: ^0.3.2
+        version: 0.3.3
       commander:
         specifier: ^12.1.0
         version: 12.1.0
       env-paths:
         specifier: ^3.0.0
         version: 3.0.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20
         version: 20.19.43
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -224,13 +248,13 @@ importers:
         version: link:../caption-engine
       '@remotion/bundler':
         specifier: 4.0.484
-        version: 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/captions':
         specifier: 4.0.484
         version: 4.0.484
       '@remotion/cli':
         specifier: 4.0.484
-        version: 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/layout-utils':
         specifier: 4.0.484
         version: 4.0.484
@@ -1078,6 +1102,9 @@ packages:
   '@remotion/google-fonts@4.0.484':
     resolution: {integrity: sha512-ZFq0pbchI/BkOuFDYKeuJI9OWHzwE8+7qyOEcK6AXih4ppfip9VKVrLscXptSZpyda2lszHXChAFSTavTJc/VQ==}
 
+  '@remotion/install-whisper-cpp@4.0.484':
+    resolution: {integrity: sha512-zciDiE3b02pbQN6+Qfa4JIdMJXi4jbySFFfTfhilmwOwp2RBjet1u8nukWUdjem/0E/5peZBxFB4tVJ/GVyPzQ==}
+
   '@remotion/layout-utils@4.0.484':
     resolution: {integrity: sha512-OA/2x6DHM+V+pIk/GepfGIDwnEPlGOnPzUthZLGOzPfowEYYPF88cHmCKyz5pBNz7tACrWSUfmC0UirSPMiLxA==}
 
@@ -1843,6 +1870,10 @@ packages:
   ansi-styles@5.2.0:
     resolution: {integrity: sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==}
     engines: {node: '>=10'}
+
+  any-ascii@0.3.3:
+    resolution: {integrity: sha512-8hm+zPrc1VnlxD5eRgMo9F9k2wEMZhbZVLKwA/sPKIt6ywuz7bI9uV/yb27uvc8fv8q6Wl2piJT51q1saKX0Jw==}
+    engines: {node: '>=12.20'}
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -4422,6 +4453,40 @@ snapshots:
       - webpack-cli
       - webpack-hot-middleware
 
+  '@remotion/bundler@4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@remotion/media-parser': 4.0.484
+      '@remotion/studio': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/studio-shared': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/timeline-utils': 4.0.484
+      '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
+      '@rspack/plugin-react-refresh': 1.6.1(react-refresh@0.18.0)
+      css-loader: 7.1.4(@rspack/core@1.7.11(@swc/helpers@0.5.15))(webpack@5.105.0(esbuild@0.28.1))
+      esbuild: 0.28.1
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      react-refresh: 0.18.0
+      remotion: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      style-loader: 4.0.0(webpack@5.105.0(esbuild@0.28.1))
+      webpack: 5.105.0(esbuild@0.28.1)
+    transitivePeerDependencies:
+      - '@minify-html/node'
+      - '@swc/core'
+      - '@swc/css'
+      - '@swc/helpers'
+      - '@swc/html'
+      - bufferutil
+      - clean-css
+      - cssnano
+      - csso
+      - html-minifier-terser
+      - lightningcss
+      - postcss
+      - uglify-js
+      - utf-8-validate
+      - webpack-cli
+      - webpack-hot-middleware
+
   '@remotion/bundler@4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@remotion/media-parser': 4.0.484
@@ -4465,14 +4530,14 @@ snapshots:
 
   '@remotion/captions@4.0.484': {}
 
-  '@remotion/cli@4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@remotion/cli@4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@remotion/bundler': 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/bundler': 4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/media-utils': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/player': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/renderer': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/studio': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@remotion/studio-server': 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/studio-server': 4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/studio-shared': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       dotenv: 17.3.1
       minimist: 1.2.6
@@ -4566,6 +4631,10 @@ snapshots:
       - react
       - react-dom
 
+  '@remotion/install-whisper-cpp@4.0.484':
+    dependencies:
+      '@remotion/captions': 4.0.484
+
   '@remotion/layout-utils@4.0.484': {}
 
   '@remotion/licensing@4.0.484': {}
@@ -4618,11 +4687,11 @@ snapshots:
 
   '@remotion/streaming@4.0.484': {}
 
-  '@remotion/studio-server@4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@remotion/studio-server@4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@babel/parser': 7.24.1
       '@babel/types': 7.24.0
-      '@remotion/bundler': 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/bundler': 4.0.484(@swc/helpers@0.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/renderer': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/studio-shared': 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       memfs: 3.4.3
@@ -5378,6 +5447,8 @@ snapshots:
 
   ansi-styles@5.2.0: {}
 
+  any-ascii@0.3.3: {}
+
   argparse@2.0.1: {}
 
   aria-query@5.3.0:
@@ -5571,6 +5642,20 @@ snapshots:
     optionalDependencies:
       '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
       webpack: 5.105.0(esbuild@0.28.1)(postcss@8.5.15)
+
+  css-loader@7.1.4(@rspack/core@1.7.11(@swc/helpers@0.5.15))(webpack@5.105.0(esbuild@0.28.1)):
+    dependencies:
+      icss-utils: 5.1.0(postcss@8.5.15)
+      postcss: 8.5.15
+      postcss-modules-extract-imports: 3.1.0(postcss@8.5.15)
+      postcss-modules-local-by-default: 4.2.0(postcss@8.5.15)
+      postcss-modules-scope: 3.2.1(postcss@8.5.15)
+      postcss-modules-values: 4.0.0(postcss@8.5.15)
+      postcss-value-parser: 4.2.0
+      semver: 7.8.5
+    optionalDependencies:
+      '@rspack/core': 1.7.11(@swc/helpers@0.5.15)
+      webpack: 5.105.0(esbuild@0.28.1)
 
   css-loader@7.1.4(@rspack/core@1.7.11)(webpack@5.105.0(esbuild@0.28.1)):
     dependencies:
