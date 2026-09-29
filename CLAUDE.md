@@ -102,9 +102,11 @@ remotion.md, remotion2.md Remotion typography / ecosystem reference
   has `worker_id`), `transcripts`, `creative_plans`, `caption_plans`, `motion_scripts`,
   `exports`, `usage`, `workers`(1), `worker_pairings`(4), `alembic_version`.
 - Storage: bucket `videos` (private).
-- Data volume is tiny → schema v2 migration can be aggressive; still write it non-destructively
-  and check existing rows first (`profiles` has 0 rows while `projects.owner_id` FK → profiles:
-  inspect with SQL before adding constraints).
+- **CORRECTION (verified 2026-09-30):** the live DB holds REAL data — 9 auth users, 24 projects,
+  6 workers (table stats from `list_tables` were stale). Migrations must stay additive/non-destructive.
+  Legacy `projects.status` is still uppercase varchar (`COMPLETED`, `FAILED`, `PROCESSING`, `UPLOADED`);
+  new code must treat status case-insensitively until P11 normalizes it.
+- Identity is already unified: `profiles.id == auth.users.id` (P1 remap; FKs are `ON UPDATE CASCADE`).
 
 ### 2.3 Known bugs & blunders (fix or delete during the rebuild)
 
@@ -343,7 +345,7 @@ declare v int; begin
 
 ```sql
 create type job_kind as enum ('transcribe','enrich','render','proxy','thumbnail');
-alter type job_status add value if not exists 'waiting_worker';  -- queued but no companion online (UI hint only)
+-- NOTE: no 'waiting_worker' enum value; UI derives it from status='queued' + no online worker
 alter table jobs
   add column owner_id uuid references profiles(id),
   add column kind job_kind,                      -- replaces job_type text
@@ -1401,7 +1403,7 @@ use the documented default and note it in §17.
 | `Interactive.Div` from remotion2.md | Don't rely on it; build own canvas overlay | Unverified API; own overlay is predictable |
 | Companion distribution | Tarball served from Vercel + `npm i -g` | Keeps infra to Vercel; alt: npm registry / signed installers later |
 | Remotion license | Required for companies above Remotion's free-use threshold — confirm status | Legal requirement for commercial SaaS |
-| Existing dev data | Migrate the 1 project; OK to wipe if migration is messy | Tiny volume |
+| Existing data | Keep everything; 24 legacy projects migrate via `migrate/legacy.ts` in P11 | Real users exist — never wipe |
 
 ---
 
@@ -1410,7 +1412,7 @@ use the documented default and note it in §17.
 | Phase | Status | Notes |
 |---|---|---|
 | P0 Foundation | ✅ done | Remotion pinned to 4.0.484; shared/templates/compositions/companion skeletons; typecheck + frontend build green |
-| P1 DB v2 | ☐ | |
+| P1 DB v2 | ✅ done 2026-09-30 | Applied to live project via MCP (migrations `p1_identity`, `p1_schema_v2`, `p1_rls_storage_realtime`, `p1_cron_reaper`, `p1_revoke_definer_exec`). Verified by a rolled-back SQL test: 2 claims → distinct jobs, lease expiry requeues, revoked worker blocked, stale `save_caption_doc` conflicts, RLS isolates user B from user A. Advisors: only INFO (legacy tables w/o policies) + dashboard-only "leaked password protection" (**user: enable in Supabase Auth settings**). Deferred: `supabase gen types` → `packages/shared/src/db.types.ts` (needs Supabase CLI); snapshot migrations into `supabase/migrations/` with `supabase db pull` once CLI is installed. |
 | P2 Engine core | ☐ | |
 | P3 Templates parity | ☐ | |
 | P4 API v2 | ☐ | |
