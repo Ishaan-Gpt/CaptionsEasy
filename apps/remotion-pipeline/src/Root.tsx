@@ -1,6 +1,7 @@
 import React from "react";
 import { CalculateMetadataFunction, Composition } from "remotion";
 import { Subtitles } from "./Subtitles";
+import { VideoWithCaptions } from "./VideoWithCaptions";
 
 interface SubtitlesProps {
   timeline: { end_ms?: number }[];
@@ -31,6 +32,7 @@ const calculateMetadata: CalculateMetadataFunction<SubtitlesProps> = ({ props })
 
 export const Root: React.FC = () => {
   return (
+    <>
     <Composition
       id="Subtitles"
       component={Subtitles as any}
@@ -44,5 +46,20 @@ export const Root: React.FC = () => {
       }}
       calculateMetadata={calculateMetadata}
     />
+    <Composition
+      id="VideoWithCaptions"
+      component={VideoWithCaptions as any}
+      durationInFrames={150}
+      fps={30}
+      width={1080}
+      height={1920}
+      defaultProps={{
+        timeline: [] as any[],
+        global_settings: {} as any,
+        videoUrl: "",
+      }}
+      calculateMetadata={calculateMetadata}
+    />
+    </>
   );
 };

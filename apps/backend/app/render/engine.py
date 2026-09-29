@@ -1214,58 +1214,31 @@ class RenderEngine:
         # and Remotion rejects any --frames range beyond that.
         motion_script_dict["duration_frames"] = duration_frames
         motion_script_dict["fps"] = fps
+        # NEW: Provide absolute path for OffthreadVideo
+        # Use file:// protocol for safety, but Remotion can often parse absolute paths.
+        motion_script_dict["videoUrl"] = f"file:///{Path(video_path).resolve().as_posix()}"
         with open(temp_json, "w", encoding="utf-8") as f:
             json.dump(motion_script_dict, f)
 
-        # Generate transparent overlay (ProRes 4444, not WebM/VP9)
         if progress_callback:
-            progress_callback("Rendering transparent overlay in Remotion", 20)
+            progress_callback("Rendering video with captions natively", 20)
 
-        temp_overlay = Path(output_path).with_name(f"temp_overlay_{int(time.time())}.mov")
         repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
         remotion_dir = repo_root / "apps" / "remotion-pipeline"
 
         remotion_cmd = [
             "npx", "remotion", "render",
-            "Subtitles",
-            str(temp_overlay.resolve()),
+            "VideoWithCaptions",
+            str(Path(output_path).resolve()),
             f"--props={str(temp_json.resolve())}",
-            # codec=vp9 + pixel-format=yuva420p is the documented way to get
-            # a transparent WebM, but empirically this Remotion/ffmpeg build
-            # silently ignores --pixel-format for vp9's "pre-encoded" fast
-            # path and always emits an opaque yuv420p WebM — every frame of
-            # the "transparent" overlay was actually a solid rectangle, so
-            # the FFmpeg `overlay` merge below painted over the entire
-            # source video and produced a black screen. ProRes 4444 with
-            # yuva444p10le reliably keeps its alpha channel end to end
-            # (verified via ffprobe), so we use that as the overlay
-            # intermediate instead — same visual result, no format-specific
-            # alpha bug.
-            "--codec=prores",
-            "--prores-profile=4444",
-            "--image-format=png",
-            "--pixel-format=yuva444p10le",
+            "--codec=h264",
             f"--width={render_width}",
             f"--height={render_height}",
-            # durationInFrames is exclusive of the end index (valid frames
-            # are 0..duration_frames-1) — requesting duration_frames itself
-            # is one past the end and Remotion rejects the whole range.
             f"--frames=0-{duration_frames - 1}"
         ]
 
         start_time = time.monotonic()
         try:
-            # Run remotion CLI
-            # shell=True + a list argv only round-trips correctly on Windows
-            # (subprocess uses list2cmdline() to rebuild a command line, and
-            # npx needs shell resolution there to find its .cmd shim). On
-            # POSIX, shell=True with a sequence arg silently only passes
-            # remotion_cmd[0] ("npx") to sh -c and turns everything else
-            # into positional shell parameters ($0, $1, ...) instead of
-            # actual npx arguments — every Remotion render would silently
-            # run bare `npx` with no args on Linux (i.e. prod). PATH-based
-            # lookup of `npx` works fine under shell=False on POSIX, so
-            # only enable the shell on Windows where it's actually needed.
             subprocess.run(
                 remotion_cmd,
                 cwd=str(remotion_dir.resolve()),
@@ -1277,56 +1250,11 @@ class RenderEngine:
         except subprocess.CalledProcessError as err:
             if temp_json.exists():
                 temp_json.unlink()
-            if temp_overlay.exists():
-                temp_overlay.unlink()
             raise RuntimeError(f"Remotion render failure: {err.stderr.decode(errors='replace')}") from err
-
-        # Merge original video and transparent overlay using FFmpeg
-        if progress_callback:
-            progress_callback("Merging layers with FFmpeg", 65)
-
-        # Crop the source video to the same rect the overlay was rendered
-        # at, so the two layers line up — the overlay's alpha frame is
-        # already sized to render_width/render_height, and without this the
-        # `overlay` filter would either fail on mismatched dimensions or
-        # (with libavfilter's implicit behavior) silently place the crop-
-        # sized captions over the wrong region of the full source frame.
-        video_filter = (
-            f"[0:v]crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}[cropped];[cropped][1:v]overlay[outv]"
-            if crop
-            else "[0:v][1:v]overlay[outv]"
-        )
-
-        ffmpeg_cmd = [
-            self.ffmpeg_binary,
-            "-y",
-            "-i", video_path,
-            "-i", str(temp_overlay.resolve()),
-            "-filter_complex", video_filter,
-            "-map", "[outv]",
-            "-map", "0:a?",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "22",
-            "-c:a", "aac",
-            output_path
-        ]
-
-        try:
-            subprocess.run(
-                ffmpeg_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=True
-            )
-        except subprocess.CalledProcessError as err:
-            raise RuntimeError(f"FFmpeg layer merge failure: {err.stderr.decode(errors='replace')}") from err
         finally:
             # Clean up temp files
             if temp_json.exists():
                 temp_json.unlink()
-            if temp_overlay.exists():
-                temp_overlay.unlink()
 
         render_duration_ms = int((time.monotonic() - start_time) * 1000)
 

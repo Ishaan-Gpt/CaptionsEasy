@@ -154,13 +154,14 @@ async def _run_render(
 
     motion_script = validate_motion_script(payload["motionScript"])
 
-    video_resp = await http_client.get(video_signed_url)
-    video_resp.raise_for_status()
-
     with tempfile.TemporaryDirectory(prefix="captionseasy_render_") as tmp_dir:
         video_local_path = os.path.join(tmp_dir, f"input_{uuid.uuid4()}.mp4")
-        with open(video_local_path, "wb") as f:
-            f.write(video_resp.content)
+        
+        async with http_client.stream("GET", video_signed_url) as video_resp:
+            video_resp.raise_for_status()
+            with open(video_local_path, "wb") as f:
+                async for chunk in video_resp.aiter_bytes(chunk_size=8192):
+                    f.write(chunk)
 
         await _post_progress(http_client, callback_base, job_id, worker_token, "Rendering", 40)
 
@@ -177,19 +178,17 @@ async def _run_render(
         await _post_progress(http_client, callback_base, job_id, worker_token, "Uploading", 85)
 
         with open(output_local_path, "rb") as f:
-            output_bytes = f.read()
-
-        response = await http_client.post(
-            f"{callback_base}/internal/jobs/{job_id}/complete-render",
-            files={"file": ("export.mp4", output_bytes, "video/mp4")},
-            data={
-                "resolution_width": str(render_meta.get("width", 1080)),
-                "resolution_height": str(render_meta.get("height", 1920)),
-                "quality": (motion_script.export_settings.quality if motion_script.export_settings else "high"),
-                "render_duration_ms": str(render_meta.get("render_duration_ms", 0)),
-                "duration_s": str(render_meta.get("duration_s", 0.0)),
-            },
-            headers=_auth_headers(worker_token),
-            timeout=180.0,
-        )
-        response.raise_for_status()
+            response = await http_client.post(
+                f"{callback_base}/internal/jobs/{job_id}/complete-render",
+                files={"file": ("export.mp4", f, "video/mp4")},
+                data={
+                    "resolution_width": str(render_meta.get("width", 1080)),
+                    "resolution_height": str(render_meta.get("height", 1920)),
+                    "quality": (motion_script.export_settings.quality if motion_script.export_settings else "high"),
+                    "render_duration_ms": str(render_meta.get("render_duration_ms", 0)),
+                    "duration_s": str(render_meta.get("duration_s", 0.0)),
+                },
+                headers=_auth_headers(worker_token),
+                timeout=180.0,
+            )
+            response.raise_for_status()

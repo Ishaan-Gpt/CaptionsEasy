@@ -21,6 +21,9 @@ export interface Project {
   updated_at: string;
   deleted_at?: string;
   archived_at?: string;
+  aspect_ratio?: string;
+  video?: Video;
+  transcript?: Transcript;
 }
 
 export interface Video {
@@ -64,6 +67,7 @@ export interface Transcript {
   provider: string;
   version: string;
   words: TranscriptWord[];
+  transcript_json?: { words: any[] };
 }
 
 export interface CaptionSegment {

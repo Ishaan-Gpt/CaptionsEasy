@@ -8,7 +8,9 @@
     "start": "pnpm --filter frontend start"
   },
   "dependencies": {
+    "@remotion/captions": "^4.0.529",
     "@remotion/cli": "^4.0.484",
+    "@remotion/layout-utils": "^4.0.529",
     "@remotion/player": "^4.0.484",
     "@remotion/renderer": "^4.0.484",
     "remotion": "^4.0.484",

@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@remotion/captions':
+        specifier: ^4.0.529
+        version: 4.0.529
       '@remotion/cli':
         specifier: ^4.0.484
         version: 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/layout-utils':
+        specifier: ^4.0.529
+        version: 4.0.529
       '@remotion/player':
         specifier: ^4.0.484
         version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -871,6 +877,9 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/captions@4.0.529':
+    resolution: {integrity: sha512-zXHY/FCqKqxOid60dDUVYWV/yRsIg+7F6/Qs4OMsouNqL6fC6jKwjA/+lsbimdxRUv/VUeaVVyNEufXfenQGNA==}
+
   '@remotion/cli@4.0.484':
     resolution: {integrity: sha512-XtvQnQ/DEHYUmYhfDOK9CSRWSiqcHGHnTxeCqMlTE7XbEWcA5UO6FJJZLAqKo+zcF85hBmjq/31FLOY2omro6Q==}
     hasBin: true
@@ -916,6 +925,9 @@ packages:
     resolution: {integrity: sha512-MxTN7uCZ5zD+X7TaaYfAR4ewtH9BZ7Wh5xS+oRJ72XbNHV/d+nULtOG3VdphFo/HhaPRzTYO9i/sZjogE+In/g==}
     cpu: [x64]
     os: [win32]
+
+  '@remotion/layout-utils@4.0.529':
+    resolution: {integrity: sha512-XBn9UHEbWUXXs0SnVKHj3lj4HX98eDcGS1hIdr28INJjB6c85BNUHaxFgraQh8YfLM+6ZvD56mHFDfFB6Dj3wA==}
 
   '@remotion/licensing@4.0.484':
     resolution: {integrity: sha512-YtiERD4bC3n5yQtNgEZasdZXqDKjIJssjKDLL+YjGDU3mMcw/93my83UU6jJVCB7TBrIms8DVbCgqt4hhU8kMA==}
@@ -2114,6 +2126,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -4249,6 +4262,8 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
       remotion: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
 
+  '@remotion/captions@4.0.529': {}
+
   '@remotion/cli@4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@remotion/bundler': 4.0.484(@swc/helpers@0.5.15)(postcss@8.5.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -4302,6 +4317,8 @@ snapshots:
 
   '@remotion/compositor-win32-x64-msvc@4.0.484':
     optional: true
+
+  '@remotion/layout-utils@4.0.529': {}
 
   '@remotion/licensing@4.0.484': {}
 
