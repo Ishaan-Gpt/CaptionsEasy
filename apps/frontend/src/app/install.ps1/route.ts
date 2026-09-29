@@ -146,14 +146,14 @@ if (-not (Test-Command ffmpeg)) {
 # cloudflared is fetched automatically by local_worker/pair.py itself if
 # it isn't already on PATH, so nothing to do for it here.
 
-    // ---------------------------------------------------------------------
-    // Download the worker source (no git required) and install dependencies.
-    // This is under active development — "already downloaded" alone isn't
-    // enough to skip, or a stale local copy would silently miss bug fixes
-    // forever. On Vercel, we inject the exact deployment SHA so we can skip
-    // external API calls entirely and guarantee the worker perfectly matches
-    // the frontend version.
-    // ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Download the worker source (no git required) and install dependencies.
+# This is under active development — "already downloaded" alone isn't
+# enough to skip, or a stale local copy would silently miss bug fixes
+# forever. On Vercel, we inject the exact deployment SHA so we can skip
+# external API calls entirely and guarantee the worker perfectly matches
+# the frontend version.
+# ---------------------------------------------------------------------
     $InjectedSha = "${process.env.VERCEL_GIT_COMMIT_SHA ?? ""}"
     $ShaMarkerFile = Join-Path $InstallDir ".captionseasy_commit_sha"
     
