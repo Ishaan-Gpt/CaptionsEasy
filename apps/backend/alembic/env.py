@@ -2,7 +2,10 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
+
+load_dotenv()
 
 from app.db.base import Base
 from app.db.models import *  # noqa: F401,F403  (register all models on Base.metadata)

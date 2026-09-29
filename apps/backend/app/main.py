@@ -3,6 +3,12 @@
 import logging
 import threading
 
+import sys
+from pathlib import Path
+
+# Add monorepo root to sys.path so that 'packages.contracts.python' can be imported
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.deps import check_rate_limit

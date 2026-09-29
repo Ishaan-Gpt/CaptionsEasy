@@ -1,101 +1,129 @@
 @import "tailwindcss";
 
 @theme {
-  /* Legacy Dashboard Colors (kept for compatibility) */
-  --color-brand-orange: #FF5500;
-  --color-brand-orange-dim: #E04B00;
-  --color-brand-orange-dark: #A63700;
-  --color-bg-dark: #08080A;
-  --color-bg-panel: #121214;
-  --color-bg-panel-light: #161618;
-  --color-border-grey: #222225;
-  --color-border-orange: #E04B00;
-  --color-text-grey: #F5F5F7;
+  /* Exact User Color System */
+  --color-major: #FFFFEB;
+  --color-side: #F0D7FF;
+  --color-emerald-accent: #34D399;
+  --color-orange-accent: #FFA946;
+  --color-obsidian: #1A1A1A;
+  --color-muted-beige: #E4E4D0;
 
-  /* Legacy soft-brown workspace tokens (dashboard still references these) */
-  --color-brand-base: #FDFBF9;
-  --color-brand-accent: #8E7568;
-  --color-brand-accent-light: #F3EFEA;
-  --color-brand-accent-dim: #7A6256;
-  --color-brand-accent-dark: #4A3B34;
-  --color-text-primary: #1F1A17;
-  --color-text-secondary: #6E5D54;
-  --color-border-subtle: #ECE7E1;
-  --color-border-accent: #8E7568;
-  --color-bg-card: #FFFFFF;
+  /* Legacy compatibility aliases for workspace dashboard */
+  --color-bg-dark: #1A1A1A;
+  --color-bg-panel: #FFFFEB;
+  --color-bg-panel-light: #F0D7FF;
+  --color-border-grey: #E4E4D0;
+  --color-text-grey: #1A1A1A;
+  --color-brand-orange: #FFA946;
+  --color-dune-white: #FFFFEB;
+  --color-ink: #1A1A1A;
 
-  /* ————— CaptionsEasy brand system: Sand + White —————
-     Two hues only. White carries the canvas; sand carries the identity.
-     Everything else is a tint or shade of sand, with warm ink for text. */
-  --color-dune-white: #FDFCFA;
-  --color-sand-50: #FAF7F0;
-  --color-sand-100: #F4EDDF;
-  --color-sand-200: #EADDC5;
-  --color-sand-300: #DCC8A4;
-  --color-sand-400: #C9AF83;
-  --color-sand-500: #B29465;
-  --color-sand-600: #94764A;
-  --color-sand-700: #715836;
-  --color-sand-800: #4E3C24;
-  --color-sand-900: #2E2415;
-  --color-ink: #201910;
-
-  /* Typography variables */
-  --font-sans: var(--font-montserrat), sans-serif;
-  --font-serif: var(--font-serif), serif;
-  --font-mono: var(--font-mono), monospace;
-  --font-sora: var(--font-sora), sans-serif;
-
-  --shadow-sand-soft: 0 8px 24px -12px rgba(78, 60, 36, 0.25);
-  --shadow-sand-deep: 0 24px 60px -24px rgba(46, 36, 21, 0.35);
-
-  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-slide-up: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-caption-pop: caption-pop 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(40px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes caption-pop {
-  0% { opacity: 0; transform: translateY(0.35em) scale(0.92); }
-  60% { opacity: 1; transform: translateY(-0.04em) scale(1.03); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes subtle-float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-4px) scale(1.015); }
-}
-
-.animate-subtle-float {
-  animation: subtle-float 6s ease-in-out infinite;
+  /* Dual Typography System */
+  --font-sans: var(--font-normal-sys), sans-serif;
+  --font-styled: var(--font-styled-sys), display, sans-serif;
 }
 
 :root {
-  --background: #FDFCFA;
-  --foreground: #201910;
+  --background: #FFFFEB;
+  --foreground: #1A1A1A;
 }
 
 html {
   scroll-behavior: smooth;
+  background-color: #FFFFEB;
+  color: #1A1A1A;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: #FFFFEB;
+  color: #1A1A1A;
+  font-family: var(--font-normal-sys), sans-serif;
   overflow-x: hidden;
 }
 
-h1, h2, h3 {
-  text-wrap: balance;
+/* Dual Font Utility Classes */
+.font-normal {
+  font-family: var(--font-normal-sys), sans-serif;
+}
+
+.font-styled {
+  font-family: var(--font-styled-sys), display, sans-serif;
+}
+
+/* --- MOTION & EFFECT UTILITY CLASSES --- */
+
+/* 1. Conic-Gradient Rotating Border (2.2s loop) */
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-conic {
+  to {
+    --angle: 360deg;
+  }
+}
+
+.conic-glow-pill {
+  position: relative;
+  background: #FFFFEB;
+  border-radius: 16px;
+  z-index: 1;
+}
+
+.conic-glow-pill::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  background: conic-gradient(from var(--angle), #FFA946, #34D399, #F0D7FF, #1A1A1A, #FFA946);
+  animation: rotate-conic 2.2s linear infinite;
+  z-index: -1;
+}
+
+/* 2. Gradient Text Sweep */
+@keyframes text-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-text-sweep {
+  background: linear-gradient(90deg, #1A1A1A, #FFA946, #34D399, #1A1A1A);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-sweep 4s ease infinite;
+}
+
+/* 3. Infinite Marquee Animation */
+@keyframes marquee-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 28s linear infinite;
+}
+
+.animate-marquee-fast {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 14s linear infinite;
 }
 
 /* Lenis smooth-scroll integration */
@@ -109,83 +137,21 @@ html.lenis, html.lenis body {
   overflow: hidden;
 }
 
-/* Typography accent classes (legacy, referenced by workspace pages) */
-.hybrid-title {
-  font-family: var(--font-sora);
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.hybrid-serif {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 300;
-  text-transform: none;
-}
-
-/* Dense Solid Panels (legacy workspace) */
-.dense-panel {
-  background-color: #FFFFFF;
-  border: 1px solid #ECE7E1;
-  box-shadow: 0 4px 20px -2px rgba(142, 117, 104, 0.05);
-}
-
-.dense-panel-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dense-panel-hover:hover {
-  background-color: #FDFBF9;
-  border-color: #8E7568;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -4px rgba(142, 117, 104, 0.12);
-}
-
-/* Waveform Canvas Styling */
-.waveform-container {
-  background-color: #FBF9F6;
-  border: 1px solid #ECE7E1;
-}
-
-/* Custom scrollbars */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #FDFCFA;
+  background: #FFFFEB;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #EADDC5;
-  border-radius: 4px;
+  background: #F0D7FF;
+  border: 2px solid #1A1A1A;
+  border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B29465;
-}
-
-/* Custom sliders */
-input[type="range"] {
-  accent-color: #B29465;
-}
-
-input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-input[type="color"]::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  background: #FFA946;
 }

@@ -146,47 +146,56 @@ if (-not (Test-Command ffmpeg)) {
 # cloudflared is fetched automatically by local_worker/pair.py itself if
 # it isn't already on PATH, so nothing to do for it here.
 
-# ---------------------------------------------------------------------
-# Download the worker source (no git required) and install dependencies.
-# This is under active development — "already downloaded" alone isn't
-# enough to skip, or a stale local copy would silently miss bug fixes
-# forever. Compare against the latest commit on GitHub (one small API
-# call, not a re-download) and only re-fetch when it's actually changed.
-# ---------------------------------------------------------------------
-$ShaMarkerFile = Join-Path $InstallDir ".captionseasy_commit_sha"
-$RemoteSha = $null
-try {
-    $RemoteSha = (Invoke-RestMethod -Uri "https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main" -Headers @{ "User-Agent" = "captionseasy-installer" }).sha
-} catch {
-    Write-Host "   (couldn't check for updates — continuing with what's local, if any)"
-}
-$LocalSha = if (Test-Path $ShaMarkerFile) { (Get-Content $ShaMarkerFile -Raw).Trim() } else { $null }
-$NeedsDownload = (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) -or ($RemoteSha -and $RemoteSha -ne $LocalSha)
+    // ---------------------------------------------------------------------
+    // Download the worker source (no git required) and install dependencies.
+    // This is under active development — "already downloaded" alone isn't
+    // enough to skip, or a stale local copy would silently miss bug fixes
+    // forever. On Vercel, we inject the exact deployment SHA so we can skip
+    // external API calls entirely and guarantee the worker perfectly matches
+    // the frontend version.
+    // ---------------------------------------------------------------------
+    $InjectedSha = "${process.env.VERCEL_GIT_COMMIT_SHA ?? ""}"
+    $ShaMarkerFile = Join-Path $InstallDir ".captionseasy_commit_sha"
+    
+    if ($InjectedSha) {
+        $RemoteSha = $InjectedSha
+        $ZipUrl = "https://codeload.github.com/Ishaan-Gpt/CaptionsEasy/zip/$InjectedSha"
+    } else {
+        try {
+            $RemoteSha = (Invoke-RestMethod -Uri "https://api.github.com/repos/Ishaan-Gpt/CaptionsEasy/commits/main" -Headers @{ "User-Agent" = "captionseasy-installer" }).sha
+        } catch {
+            Write-Host "   (couldn't check for updates — continuing with what's local, if any)"
+        }
+        $ZipUrl = "${REPO_ZIP_URL}"
+    }
 
-if ($NeedsDownload) {
-    Write-Host "-> Downloading CaptionsEasy worker..."
-    $ZipPath = Join-Path $InstallDir "source.zip"
-    Invoke-WebRequest -Uri "${REPO_ZIP_URL}" -OutFile $ZipPath
-    $ExtractTemp = Join-Path $InstallDir "_extract_temp"
-    Remove-Item -Recurse -Force $ExtractTemp -ErrorAction SilentlyContinue
-    Expand-Archive -Path $ZipPath -DestinationPath $ExtractTemp -Force
-    Remove-Item $ZipPath
-    $ExtractedDir = Get-ChildItem -Path $ExtractTemp -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
-    # robocopy, not Move-Item/Copy-Item: it's built to merge one directory
-    # tree onto another and overwrite changed files in place, so an
-    # existing (possibly partial, from an earlier failed run) install
-    # doesn't collide the way Move-Item does — "Cannot create a file when
-    # that file already exists" hitting a real user's re-run, caught live.
-    # It also handles deep node_modules paths past Windows' MAX_PATH
-    # better than PowerShell's own cmdlets, which is almost certainly why
-    # a prior cleanup attempt here silently left stale files behind.
-    robocopy $ExtractedDir.FullName $InstallDir /E /NFL /NDL /NJH /NJS | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "robocopy failed to place CaptionsEasy source (exit $LASTEXITCODE)" }
-    Remove-Item -Recurse -Force $ExtractTemp
-    if ($RemoteSha) { Set-Content $ShaMarkerFile $RemoteSha }
-} else {
-    Write-Host "-> CaptionsEasy worker already up to date, skipping."
-}
+    $LocalSha = if (Test-Path $ShaMarkerFile) { (Get-Content $ShaMarkerFile -Raw).Trim() } else { $null }
+    $NeedsDownload = (-not (Test-Path (Join-Path $InstallDir "apps\\backend"))) -or ($RemoteSha -and $RemoteSha -ne $LocalSha)
+    
+    if ($NeedsDownload) {
+        Write-Host "-> Downloading CaptionsEasy worker..."
+        $ZipPath = Join-Path $InstallDir "source.zip"
+        Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath
+        $ExtractTemp = Join-Path $InstallDir "_extract_temp"
+        Remove-Item -Recurse -Force $ExtractTemp -ErrorAction SilentlyContinue
+        Expand-Archive -Path $ZipPath -DestinationPath $ExtractTemp -Force
+        Remove-Item $ZipPath
+        $ExtractedDir = Get-ChildItem -Path $ExtractTemp -Directory | Where-Object { $_.Name -like "CaptionsEasy-*" } | Select-Object -First 1
+        # robocopy, not Move-Item/Copy-Item: it's built to merge one directory
+        # tree onto another and overwrite changed files in place, so an
+        # existing (possibly partial, from an earlier failed run) install
+        # doesn't collide the way Move-Item does — "Cannot create a file when
+        # that file already exists" hitting a real user's re-run, caught live.
+        # It also handles deep node_modules paths past Windows' MAX_PATH
+        # better than PowerShell's own cmdlets, which is almost certainly why
+        # a prior cleanup attempt here silently left stale files behind.
+        robocopy $ExtractedDir.FullName $InstallDir /E /NFL /NDL /NJH /NJS | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "robocopy failed to place CaptionsEasy source (exit $LASTEXITCODE)" }
+        Remove-Item -Recurse -Force $ExtractTemp
+        if ($RemoteSha) { Set-Content $ShaMarkerFile $RemoteSha }
+    } else {
+        Write-Host "-> CaptionsEasy worker already up to date, skipping."
+    }
 
 Set-Location $InstallDir
 # Skip work already done: hash the lockfile/requirements and compare

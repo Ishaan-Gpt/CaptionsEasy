@@ -2,12 +2,16 @@
 
 import React, { useEffect } from "react";
 import Lenis from "lenis";
-import Nav from "@/components/landing/Nav";
-import Hero from "@/components/landing/Hero";
-import Contrast from "@/components/landing/Contrast";
-import Pipeline from "@/components/landing/Pipeline";
-import Control from "@/components/landing/Control";
-import Closing from "@/components/landing/Closing";
+import WisprNav from "@/components/landing/WisprNav";
+import WisprHero from "@/components/landing/WisprHero";
+import WisprLogos from "@/components/landing/WisprLogos";
+import WisprSpeed from "@/components/landing/WisprSpeed";
+import WisprFeatureTabs from "@/components/landing/WisprFeatureTabs";
+import WisprLanguages from "@/components/landing/WisprLanguages";
+import WisprFAQ from "@/components/landing/WisprFAQ";
+import WisprClosingCTA from "@/components/landing/WisprClosingCTA";
+import WisprFooter from "@/components/landing/WisprFooter";
+import WisprFingerprint from "@/components/landing/WisprFingerprint";
 
 export default function LandingPage() {
   useEffect(() => {
@@ -33,13 +37,17 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <main className="bg-dune-white text-ink">
-      <Nav />
-      <Hero />
-      <Contrast />
-      <Pipeline />
-      <Control />
-      <Closing />
+    <main className="bg-[#FFFFEB] text-[#1A1A1A] font-sans min-h-screen relative">
+      <WisprNav />
+      <WisprHero />
+      <WisprLogos />
+      <WisprSpeed />
+      <WisprFeatureTabs />
+      <WisprLanguages />
+      <WisprFAQ />
+      <WisprClosingCTA />
+      <WisprFooter />
+      <WisprFingerprint />
     </main>
   );
 }

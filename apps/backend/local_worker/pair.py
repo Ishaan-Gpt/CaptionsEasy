@@ -148,44 +148,55 @@ def main() -> None:
         api_url = settings.backend_api_url.rstrip("/")
         _wake_backend(api_url)
         with httpx.Client(timeout=60.0) as client:
-            resp = client.post(
-                f"{api_url}/pair/start",
-                json={"worker_name": settings.worker_name, "worker_token": worker_token, "worker_url": tunnel_url},
-            )
-            resp.raise_for_status()
-            pairing = resp.json()["data"]
+            while True:
+                resp = client.post(
+                    f"{api_url}/pair/start",
+                    json={"worker_name": settings.worker_name, "worker_token": worker_token, "worker_url": tunnel_url},
+                )
+                resp.raise_for_status()
+                pairing = resp.json()["data"]
 
-            print("")
-            print("=" * 56)
-            print("  Almost done. Open this link and click Confirm:")
-            print("")
-            print(f"    {pairing['confirmUrl']}")
-            print("")
-            print(f"  Pairing code: {pairing['code']}   (expires in 15 min)")
-            print("=" * 56)
-            print("")
+                print("")
+                print("=" * 56)
+                print("  Almost done. Open this link and click Confirm:")
+                print("")
+                print(f"    {pairing['confirmUrl']}")
+                print("")
+                print(f"  Pairing code: {pairing['code']}   (expires in 15 min)")
+                print("=" * 56)
+                print("")
 
-            deadline = time.monotonic() + 15 * 60
-            confirmed = False
-            while time.monotonic() < deadline:
-                time.sleep(2.5)
-                try:
-                    poll_resp = client.get(pairing["pollUrl"])
-                    poll_resp.raise_for_status()
-                    status = poll_resp.json()["data"]["status"]
-                except Exception as exc:
-                    print(f"[captionseasy] poll error: {exc}")
-                    continue
-                if status == "confirmed":
-                    confirmed = True
+                deadline = time.monotonic() + 15 * 60
+                confirmed = False
+                while time.monotonic() < deadline:
+                    time.sleep(2.5)
+                    try:
+                        poll_resp = client.get(pairing["pollUrl"])
+                        poll_resp.raise_for_status()
+                        status = poll_resp.json()["data"]["status"]
+                    except Exception as exc:
+                        print(f"[captionseasy] poll error: {exc}")
+                        continue
+                    if status == "confirmed":
+                        confirmed = True
+                        break
+                    if status == "denied":
+                        print("[captionseasy] Pairing denied. Exiting.")
+                        sys.exit(1)
+                    if status == "expired":
+                        break
+
+                if confirmed:
                     break
-                if status in ("denied", "expired"):
-                    print(f"[captionseasy] Pairing {status}. Exiting.")
+                
+                print("\n[captionseasy] The pairing code has expired.")
+                try:
+                    ans = input("Would you like to request a new pairing code? (y/n): ").strip().lower()
+                except EOFError:
+                    ans = 'n'
+                if ans != 'y':
+                    print("[captionseasy] Exiting.")
                     sys.exit(1)
-
-            if not confirmed:
-                print("[captionseasy] Pairing timed out.")
-                sys.exit(1)
 
         print("Paired. Your computer is now online in CaptionsEasy.")
         print("Leave this terminal open. Ctrl-C to stop.")

@@ -9,6 +9,12 @@ import asyncio
 import logging
 import os
 
+import sys
+from pathlib import Path
+
+# Add monorepo root to sys.path so that 'packages.contracts.python' can be imported
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent.parent))
+
 from fastapi import FastAPI, HTTPException, Request
 
 from local_worker.run_job import run_job

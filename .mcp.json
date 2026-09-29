@@ -16,6 +16,10 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp"
+    },
+    "supermemory-docs": {
+      "type": "http",
+      "url": "https://supermemory.ai/docs/mcp"
     }
   }
 }
