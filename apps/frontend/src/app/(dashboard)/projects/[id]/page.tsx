@@ -33,11 +33,13 @@ export default function RemotionStudioPage() {
   const playerRef = useRef<PlayerRef>(null);
   
   // Data Fetching
-  const { data: project, isLoading } = useQuery({
+  const { data: project, isLoading, refetch } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => projectsService.getProjectById(projectId),
     enabled: authService.isAuthenticated(),
   });
+
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   // Editor State
   const [activeTab, setActiveTab] = useState<"text" | "templates">("text");
@@ -191,8 +193,41 @@ export default function RemotionStudioPage() {
                 clickToPlay={false}
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-white/30">
-                No Video Uploaded
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 bg-[#222]">
+                {uploadProgress !== null ? (
+                  <div className="flex flex-col items-center">
+                    <div className="text-emerald-500 font-bold mb-2">Uploading: {Math.round(uploadProgress)}%</div>
+                    <div className="w-48 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center hover:text-white transition group p-4 border border-dashed border-white/20 rounded-lg hover:border-white/50">
+                    <svg className="w-10 h-10 mb-3 opacity-50 group-hover:opacity-100 group-hover:text-emerald-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-sm font-medium">Click to upload video</span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="video/mp4,video/quicktime,video/webm"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setUploadProgress(0);
+                          try {
+                            const { uploadService } = await import("@/services/upload");
+                            await uploadService.uploadVideo(projectId, file, (p) => setUploadProgress(p));
+                            refetch();
+                          } catch (err: any) {
+                            alert(err.message || "Upload failed");
+                            setUploadProgress(null);
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                )}
               </div>
             )}
           </div>
