@@ -178,17 +178,25 @@ async def _run_render(
         await _post_progress(http_client, callback_base, job_id, worker_token, "Uploading", 85)
 
         with open(output_local_path, "rb") as f:
-            response = await http_client.post(
-                f"{callback_base}/internal/jobs/{job_id}/complete-render",
-                files={"file": ("export.mp4", f, "video/mp4")},
-                data={
-                    "resolution_width": str(render_meta.get("width", 1080)),
-                    "resolution_height": str(render_meta.get("height", 1920)),
-                    "quality": (motion_script.export_settings.quality if motion_script.export_settings else "high"),
-                    "render_duration_ms": str(render_meta.get("render_duration_ms", 0)),
-                    "duration_s": str(render_meta.get("duration_s", 0.0)),
-                },
-                headers=_auth_headers(worker_token),
-                timeout=180.0,
+            upload_resp = await http_client.put(
+                payload["exportSignedUrl"],
+                content=f,
+                headers={"Content-Type": "video/mp4"},
+                timeout=180.0
             )
-            response.raise_for_status()
+            upload_resp.raise_for_status()
+
+        response = await http_client.post(
+            f"{callback_base}/internal/jobs/{job_id}/complete-render",
+            json={
+                "exportPath": payload["exportPath"],
+                "resolution_width": render_meta.get("width", 1080),
+                "resolution_height": render_meta.get("height", 1920),
+                "quality": (motion_script.export_settings.quality if motion_script.export_settings else "high"),
+                "render_duration_ms": render_meta.get("render_duration_ms", 0),
+                "duration_s": render_meta.get("duration_s", 0.0),
+            },
+            headers=_auth_headers(worker_token),
+            timeout=30.0,
+        )
+        response.raise_for_status()

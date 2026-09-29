@@ -31,8 +31,6 @@ function validateFile(file: File): void {
 }
 
 export const uploadService = {
-  /** Uploads `file` to the backend for `projectId`. Resolves with the
-   * created Video/Job ids once the request completes — does not poll. */
   async uploadVideo(
     projectId: string,
     file: File,
@@ -41,15 +39,49 @@ export const uploadService = {
   ): Promise<UploadResponse> {
     validateFile(file);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    return apiClient.uploadWithProgress<UploadResponse>(
-      `/projects/${projectId}/upload`,
-      formData,
-      onProgress,
-      (xhr) => onAbortReady?.(() => xhr.abort())
+    // 1. Get signed upload URL from Next.js API
+    const data = await apiClient.post<{ uploadUrl: string; videoId: string; jobId: string }>(
+      `/projects/${projectId}/upload`
     );
+
+    // 2. Upload directly to Supabase Storage using XMLHttpRequest to track progress
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", data.uploadUrl);
+      
+      // Supabase storage requires the exact content type
+      xhr.setRequestHeader("Content-Type", file.type);
+      
+      onAbortReady?.(() => xhr.abort());
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error("Direct upload to storage failed."));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Network error during upload."));
+      xhr.onabort = () => reject(new Error("Upload cancelled."));
+
+      xhr.send(file);
+    });
+
+    // 3. (Optional) Tell backend to start processing
+    await apiClient.post(`/projects/${projectId}/process`);
+
+    return {
+      videoId: data.videoId,
+      jobId: data.jobId,
+      status: "UPLOADED"
+    };
   },
 
   async getUploadStatus(projectId: string): Promise<UploadStatusResponse> {
