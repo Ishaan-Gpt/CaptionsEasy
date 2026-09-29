@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { projectsService } from "@/services/projects";
 import { authService } from "@/services/auth";
 import { Player, PlayerRef } from "@remotion/player";
-import { CaptionComposition, CaptionStyleSettings } from "@/remotion/CaptionComposition";
+import { CaptionComposition } from "@/remotion/CaptionComposition";
+import { CaptionStyle, DEFAULT_BOX } from "@motion-ai/caption-engine";
 import { Caption } from "@remotion/captions";
 
 // Simple UI Components
@@ -44,23 +45,31 @@ export default function RemotionStudioPage() {
   // Editor State
   const [activeTab, setActiveTab] = useState<"text" | "templates">("text");
   
-  const [styleSettings, setStyleSettings] = useState<CaptionStyleSettings>({
-    fontFamily: "Montserrat",
-    fontFace: "Extra Bold",
-    fontSize: 56,
-    secondaryFontFamily: "Poppins",
-    secondaryFontFace: "Regular",
-    secondaryFontSize: 36,
+  const [styleSettings, setStyleSettings] = useState<CaptionStyle>({
+    template: "hormozi_block",
+    font: "Montserrat",
+    size: 64,
+    weight: "900",
     color: "#FFFFFF",
-    highlightColor: "#00FF00",
-    casing: "none",
+    highlightColor: "#C5FF00",
+    colorMode: "solid",
     alignment: "center",
-    yPositionPercent: 70,
+    casing: "uppercase",
+    underline: false,
+    letterSpacing: 0,
+    wordSpacing: 0,
+    lineSpacing: 1.2,
+    shadow: 0,
+    shadowColor: "rgba(0,0,0,0.6)",
+    outline: 2,
+    outlineColor: "#000000",
+    backgroundStyle: "none",
+    xPercent: 50,
+    yPercent: 75,
+    staggeredLayout: "centre",
     entranceAnim: "rise",
     highlightAnim: "pop",
-    shadowEnabled: true,
-    strokeEnabled: true,
-    backgroundEnabled: false,
+    box: DEFAULT_BOX,
   });
 
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({
@@ -280,8 +289,8 @@ export default function RemotionStudioPage() {
                     <div>
                       <label className="text-xs text-white/70 block mb-1">Font Family</label>
                       <select 
-                        value={styleSettings.fontFamily}
-                        onChange={(e) => setStyleSettings({...styleSettings, fontFamily: e.target.value})}
+                        value={styleSettings.font}
+                        onChange={(e) => setStyleSettings({...styleSettings, font: e.target.value})}
                         className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
                       >
                         <option>Montserrat</option>
@@ -293,15 +302,15 @@ export default function RemotionStudioPage() {
                     </div>
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <label className="text-xs text-white/70 block mb-1">Face</label>
+                        <label className="text-xs text-white/70 block mb-1">Weight</label>
                         <select 
-                          value={styleSettings.fontFace}
-                          onChange={(e) => setStyleSettings({...styleSettings, fontFace: e.target.value})}
+                          value={styleSettings.weight}
+                          onChange={(e) => setStyleSettings({...styleSettings, weight: e.target.value})}
                           className="w-full bg-[#222] border border-white/10 rounded px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
                         >
-                          <option>Regular</option>
-                          <option>Bold</option>
-                          <option>Extra Bold</option>
+                          <option value="400">Regular</option>
+                          <option value="700">Bold</option>
+                          <option value="900">Extra Bold</option>
                         </select>
                       </div>
                       <div className="flex-1">
@@ -309,11 +318,11 @@ export default function RemotionStudioPage() {
                         <div className="flex items-center gap-2 bg-[#222] border border-white/10 rounded px-2">
                           <input 
                             type="range" min="20" max="120" 
-                            value={styleSettings.fontSize}
-                            onChange={(e) => setStyleSettings({...styleSettings, fontSize: Number(e.target.value)})}
+                            value={styleSettings.size}
+                            onChange={(e) => setStyleSettings({...styleSettings, size: Number(e.target.value)})}
                             className="w-full accent-emerald-500" 
                           />
-                          <span className="text-xs">{styleSettings.fontSize}</span>
+                          <span className="text-xs">{styleSettings.size}</span>
                         </div>
                       </div>
                     </div>
@@ -326,8 +335,8 @@ export default function RemotionStudioPage() {
                     <label className="text-xs text-white/70 block mb-1">Y-Axis Placement</label>
                     <input 
                       type="range" min="10" max="90" 
-                      value={styleSettings.yPositionPercent}
-                      onChange={(e) => setStyleSettings({...styleSettings, yPositionPercent: Number(e.target.value)})}
+                      value={styleSettings.yPercent}
+                      onChange={(e) => setStyleSettings({...styleSettings, yPercent: Number(e.target.value)})}
                       className="w-full accent-emerald-500" 
                     />
                   </div>
@@ -424,8 +433,8 @@ export default function RemotionStudioPage() {
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input 
                         type="checkbox" 
-                        checked={styleSettings.shadowEnabled} 
-                        onChange={(e) => setStyleSettings({...styleSettings, shadowEnabled: e.target.checked})}
+                        checked={styleSettings.shadow > 0} 
+                        onChange={(e) => setStyleSettings({...styleSettings, shadow: e.target.checked ? 4 : 0})}
                         className="accent-emerald-500"
                       />
                       Drop Shadow
@@ -433,8 +442,8 @@ export default function RemotionStudioPage() {
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input 
                         type="checkbox" 
-                        checked={styleSettings.strokeEnabled} 
-                        onChange={(e) => setStyleSettings({...styleSettings, strokeEnabled: e.target.checked})}
+                        checked={styleSettings.outline > 0} 
+                        onChange={(e) => setStyleSettings({...styleSettings, outline: e.target.checked ? 2 : 0})}
                         className="accent-emerald-500"
                       />
                       Text Stroke
@@ -442,8 +451,8 @@ export default function RemotionStudioPage() {
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
                       <input 
                         type="checkbox" 
-                        checked={styleSettings.backgroundEnabled} 
-                        onChange={(e) => setStyleSettings({...styleSettings, backgroundEnabled: e.target.checked})}
+                        checked={styleSettings.backgroundStyle === "pill"} 
+                        onChange={(e) => setStyleSettings({...styleSettings, backgroundStyle: e.target.checked ? "pill" : "none"})}
                         className="accent-emerald-500"
                       />
                       Highlight Box
@@ -454,12 +463,17 @@ export default function RemotionStudioPage() {
               </div>
             ) : (
               <div className="p-4 grid grid-cols-2 gap-2">
-                {/* Placeholder templates */}
-                <div className="aspect-video bg-[#222] rounded flex items-center justify-center border border-white/10 hover:border-emerald-500 cursor-pointer transition">
+                <div onClick={() => setStyleSettings({...styleSettings, template: "hormozi_block"})} className={`aspect-video bg-[#222] rounded flex items-center justify-center border cursor-pointer transition ${styleSettings.template === "hormozi_block" ? "border-emerald-500" : "border-white/10 hover:border-white/30"}`}>
                   <span className="text-xs font-bold text-emerald-400 uppercase">Hormozi</span>
                 </div>
-                <div className="aspect-video bg-[#222] rounded flex items-center justify-center border border-white/10 hover:border-emerald-500 cursor-pointer transition">
+                <div onClick={() => setStyleSettings({...styleSettings, template: "mrbeast_shadow"})} className={`aspect-video bg-[#222] rounded flex items-center justify-center border cursor-pointer transition ${styleSettings.template === "mrbeast_shadow" ? "border-emerald-500" : "border-white/10 hover:border-white/30"}`}>
                   <span className="text-xs font-bold text-yellow-400 uppercase shadow-md">MrBeast</span>
+                </div>
+                <div onClick={() => setStyleSettings({...styleSettings, template: "glow_stack"})} className={`aspect-video bg-[#222] rounded flex items-center justify-center border cursor-pointer transition ${styleSettings.template === "glow_stack" ? "border-emerald-500" : "border-white/10 hover:border-white/30"}`}>
+                  <span className="text-xs font-bold text-blue-400 uppercase" style={{textShadow: "0 0 10px rgba(59,130,246,0.8)"}}>Glow Stack</span>
+                </div>
+                <div onClick={() => setStyleSettings({...styleSettings, template: "serif_pop"})} className={`aspect-video bg-[#222] rounded flex items-center justify-center border cursor-pointer transition ${styleSettings.template === "serif_pop" ? "border-emerald-500" : "border-white/10 hover:border-white/30"}`}>
+                  <span className="text-xs font-bold text-amber-400 font-serif">Serif Pop</span>
                 </div>
               </div>
             )}

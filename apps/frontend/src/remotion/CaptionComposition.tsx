@@ -1,31 +1,16 @@
 import React, { useMemo } from "react";
-import { AbsoluteFill, Sequence, useVideoConfig, Video } from "remotion";
-import { createTikTokStyleCaptions, Caption } from "@remotion/captions";
-import { CaptionTrack } from "./CaptionTrack";
-
-export type CaptionStyleSettings = {
-  fontFamily: string;
-  fontFace: string;
-  fontSize: number;
-  secondaryFontFamily: string;
-  secondaryFontFace: string;
-  secondaryFontSize: number;
-  color: string;
-  highlightColor: string;
-  casing: "none" | "uppercase" | "lowercase" | "capitalize";
-  alignment: "left" | "center" | "right";
-  yPositionPercent: number;
-  entranceAnim: "none" | "rise" | "pop" | "fade";
-  highlightAnim: "pop" | "flash" | "underline" | "glow";
-  shadowEnabled: boolean;
-  strokeEnabled: boolean;
-  backgroundEnabled: boolean;
-};
+import { AbsoluteFill, useVideoConfig, Video, useCurrentFrame } from "remotion";
+import { 
+  CaptionCanvas, 
+  CaptionStyle, 
+  buildCardsFromWords 
+} from "@motion-ai/caption-engine";
+import { Caption } from "@remotion/captions";
 
 export type CaptionCompositionProps = {
   videoUrl: string | null;
   captions: Caption[];
-  styleSettings: CaptionStyleSettings;
+  styleSettings: CaptionStyle;
 };
 
 export const CaptionComposition: React.FC<CaptionCompositionProps> = ({
@@ -33,50 +18,37 @@ export const CaptionComposition: React.FC<CaptionCompositionProps> = ({
   captions,
   styleSettings,
 }) => {
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const frame = useCurrentFrame();
+  
+  const timeMs = (frame / fps) * 1000;
 
-  // Combine into pages (TikTok style)
-  const { pages } = useMemo(() => {
-    return createTikTokStyleCaptions({
-      captions,
-      combineTokensWithinMilliseconds: 1400, // standard chunking
-    });
+  // Convert generic Caption[] to EngineWord[]
+  const engineWords = useMemo(() => {
+    return captions.map((c) => ({
+      text: c.text,
+      startMs: c.startMs,
+      endMs: c.endMs,
+      highlighted: false, // Could be mapped if supported
+    }));
   }, [captions]);
+
+  // Build perfectly clamped non-overlapping cards for the Engine
+  const cards = useMemo(() => {
+    return buildCardsFromWords(engineWords, 5); // 5 words limit
+  }, [engineWords]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {videoUrl && <Video src={videoUrl} style={{ objectFit: "contain" }} />}
-      <AbsoluteFill>
-        {pages.map((page, index) => {
-          const nextPage = pages[index + 1] ?? null;
-          const startFrame = Math.round((page.startMs / 1000) * fps);
-          
-          let endFrame = Infinity;
-          if (nextPage) {
-            endFrame = Math.round((nextPage.startMs / 1000) * fps);
-          } else {
-            // Last page ends slightly after its last token
-            const lastToken = page.tokens[page.tokens.length - 1];
-            if (lastToken) {
-              endFrame = Math.round(((lastToken.toMs + 300) / 1000) * fps);
-            }
-          }
-          const durationInFrames = Math.max(1, endFrame - startFrame);
-
-          if (durationInFrames <= 0) return null;
-
-          return (
-            <Sequence
-              key={index}
-              from={startFrame}
-              durationInFrames={durationInFrames}
-              layout="none"
-            >
-              <CaptionTrack page={page} styleSettings={styleSettings} />
-            </Sequence>
-          );
-        })}
-      </AbsoluteFill>
+      <CaptionCanvas 
+        timeMs={timeMs}
+        cards={cards}
+        style={styleSettings}
+        canvas={{ width, height }}
+        settled={false} // Enable full entrance/exit animations
+      />
     </AbsoluteFill>
   );
 };
+
