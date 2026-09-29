@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED by [CLAUDE.md](CLAUDE.md)** — kept for history until Phase 11. Do not follow the architecture below.
+
 # CaptionsEasy Architectural Audit & Mega Renovation Plan (`comparision.md`)
 
 > **Brutally Honest Engineering Review**: A comprehensive comparison of what currently exists, what is actually working, what is broken, the critical blunders, and the complete roadmap for a mega-renovation using Remotion's full ecosystem.

@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED by [CLAUDE.md](CLAUDE.md)** — kept for history until Phase 11. Do not follow the architecture below.
+
 # MotionAI
 
 MotionAI is a premium, production-ready AI-powered video editing and captioning SaaS platform. It automates speech transcription, creative pacing analysis, subtitle planning, styling, and deterministic high-fidelity rendering.

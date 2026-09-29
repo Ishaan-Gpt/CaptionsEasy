@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED by [CLAUDE.md](CLAUDE.md)** — kept for history until Phase 11. Do not follow the architecture below.
+
 # MotionAI — Master Agent Reference & System Architecture (AGENTS.md)
 
 > **All-In-One Unified Context**: This single file consolidates all project documentation, system architecture, database contracts, AI orchestration pipelines, local-worker tunnel setup, rendering guidelines, and deployment runbooks into a single source of truth.

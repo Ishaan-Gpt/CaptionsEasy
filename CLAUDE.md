@@ -1409,7 +1409,7 @@ use the documented default and note it in §17.
 
 | Phase | Status | Notes |
 |---|---|---|
-| P0 Foundation | ☐ not started | |
+| P0 Foundation | ✅ done | Remotion pinned to 4.0.484; shared/templates/compositions/companion skeletons; typecheck + frontend build green |
 | P1 DB v2 | ☐ | |
 | P2 Engine core | ☐ | |
 | P3 Templates parity | ☐ | |
