@@ -13,7 +13,7 @@ const STATUS_CHIP: Record<ProjectStatus, { label: string; cls: string; pulse?: b
   UPLOADED: { label: "ready to style", cls: "bg-sand-200 text-sand-800" },
   PROCESSING: { label: "processing", cls: "bg-sand-200 text-sand-800", pulse: true },
   COMPLETED: { label: "rendered", cls: "bg-ink text-dune-white" },
-  FAILED: { label: "failed", cls: "border border-red-300 text-red-700 bg-red-50" },
+  FAILED: { label: "failed", cls: "border border-orange-accent/60 text-obsidian bg-orange-accent/10" },
 };
 
 function timeAgo(iso: string): string {
@@ -127,16 +127,16 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : isError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center space-y-3">
-              <p className="font-sora text-[14px] font-semibold text-red-700">
+            <div className="rounded-xl border border-orange-accent/60 bg-orange-accent/10 p-8 text-center space-y-3">
+              <p className="font-sora text-[14px] font-semibold text-obsidian">
                 Couldn't load your projects.
               </p>
-              <p className="text-[13px] text-red-700/80">
+              <p className="text-[13px] text-obsidian">
                 The backend may be offline. Start it, then try again.
               </p>
               <button
                 onClick={() => refetch()}
-                className="rounded-full border border-red-300 px-5 py-2 font-sora text-[12px] font-semibold text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
+                className="rounded-full border border-orange-accent/60 px-5 py-2 font-sora text-[12px] font-semibold text-obsidian hover:bg-orange-accent/20 transition-colors cursor-pointer"
               >
                 Retry
               </button>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                         setDeleteTarget(project);
                       }}
                       title="Delete project"
-                      className="absolute right-4 top-4 rounded-lg p-1.5 text-sand-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 cursor-pointer"
+                      className="absolute right-4 top-4 rounded-lg p-1.5 text-sand-400 opacity-0 transition-all hover:bg-orange-accent/10 hover:text-obsidian group-hover:opacity-100 cursor-pointer"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -227,7 +227,7 @@ export default function DashboardPage() {
             </p>
 
             {createError && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+              <div className="mt-4 rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] text-obsidian">
                 {createError}
               </div>
             )}
@@ -282,7 +282,7 @@ export default function DashboardPage() {
             </p>
 
             {deleteError && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+              <div className="mt-4 rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] text-obsidian">
                 {deleteError}
               </div>
             )}
@@ -298,7 +298,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="rounded-full bg-red-600 px-6 py-2.5 font-sora text-[12px] font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-all cursor-pointer"
+                className="rounded-full bg-orange-accent px-6 py-2.5 font-sora text-[12px] font-semibold text-obsidian hover:bg-orange-accent/85 disabled:opacity-60 transition-all cursor-pointer"
               >
                 {deleting ? "Deleting…" : "Delete project"}
               </button>

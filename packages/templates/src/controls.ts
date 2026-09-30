@@ -1,4 +1,5 @@
 import { ACTIVE_EFFECTS, ENTRANCES, type CaptionStyleV2 } from "@capseasy/shared";
+import { EMOJI_ENABLED } from "./registry";
 import type { TemplateDefinition } from "./types";
 
 /**
@@ -49,7 +50,8 @@ export function controlVisible(id: ControlId, t: TemplateDefinition, s: CaptionS
     case "background": return c.background && t.layout !== "bar" && t.layout !== "bubble";
     case "motionIntensity": return t.layout !== "typewriter";
     case "backgroundColor": case "backgroundOpacity": return c.background && s.background.type !== "none";
-    case "emojiSize": case "emojiAnimation": return s.emoji.enabled;
+    case "emoji": return EMOJI_ENABLED;
+    case "emojiSize": case "emojiAnimation": return EMOJI_ENABLED && s.emoji.enabled;
     case "entrance": return entrancesFor(t).length > 1;
     case "entranceSpeed": case "easing": return entrancesFor(t).length > 1 && s.entrance.type !== "none";
     // word/letter stagger needs words laid out one by one; "wave" is always letter by letter

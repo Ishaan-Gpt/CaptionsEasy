@@ -42,10 +42,10 @@ function HealthRow({ label, ok, pending }: { label: string; ok?: boolean; pendin
   return (
     <div className="flex items-center justify-between font-mono text-[11px]">
       <span className="text-sand-600">{label}</span>
-      <span className={`flex items-center gap-1.5 ${pending ? "text-sand-500" : ok ? "text-sand-800" : "text-red-600"}`}>
+      <span className={`flex items-center gap-1.5 ${pending ? "text-sand-500" : ok ? "text-sand-800" : "text-obsidian"}`}>
         <span
           className={`w-1.5 h-1.5 rounded-full ${
-            pending ? "bg-sand-300" : ok ? "bg-emerald-500" : "bg-red-500"
+            pending ? "bg-sand-300" : ok ? "bg-emerald-accent" : "bg-orange-accent"
           }`}
         />
         {pending ? "…" : ok ? "online" : "down"}
@@ -101,7 +101,7 @@ export default function StudioShell({ children }: { children: React.ReactNode })
               <span className="hidden min-[400px]:inline">{item.label}</span>
             </Link>
           ))}
-          <span title={healthy === undefined ? "Checking service" : healthy ? "All systems running" : "Service problem"} className={`ml-1 h-2 w-2 rounded-full ${healthy === undefined ? "bg-sand-300" : healthy ? "bg-emerald-500" : "bg-red-500"}`} />
+          <span title={healthy === undefined ? "Checking service" : healthy ? "All systems running" : "Service problem"} className={`ml-1 h-2 w-2 rounded-full ${healthy === undefined ? "bg-sand-300" : healthy ? "bg-emerald-accent" : "bg-orange-accent"}`} />
           <button onClick={handleSignOut} aria-label="Sign out" className="ml-1 rounded-lg p-2 text-sand-600 hover:bg-sand-100 hover:text-ink">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H9m4 7H7a2 2 0 01-2-2V5a2 2 0 012-2h6" /></svg>
           </button>

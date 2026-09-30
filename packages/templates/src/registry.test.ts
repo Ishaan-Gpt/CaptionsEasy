@@ -23,7 +23,9 @@ describe("template registry", () => {
   });
 
   it("gallery is curated: every look is distinct (no two share template + font + effect + fill kind)", () => {
-    expect(LOOKS.length).toBe(34);
+    expect(LOOKS.length).toBe(33);
+    for (const l of LOOKS) expect(l.tags?.length, `${l.id} needs gallery tags`).toBeGreaterThan(0);
+    for (const l of LOOKS) expect(l.style.emoji.enabled).toBe(false);
     expect(new Set(LOOKS.map((l) => l.id)).size).toBe(LOOKS.length);
     const sig = (l: (typeof LOOKS)[number]) => [l.templateId, l.style.fontId, l.style.active.effect, l.style.fill.type, l.style.background.type].join("|");
     const seen = new Map<string, string>();

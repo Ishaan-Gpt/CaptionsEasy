@@ -24,11 +24,11 @@ export function Field({
       <input
         {...props}
         className={`w-full rounded-lg border bg-white px-4 py-3 text-[14px] text-ink placeholder:text-sand-500 outline-none transition-colors focus:border-sand-600 focus:ring-2 focus:ring-sand-200 ${
-          error ? "border-red-400" : "border-sand-300"
+          error ? "border-orange-accent/60" : "border-sand-300"
         }`}
       />
       {error ? (
-        <p className="text-[12px] text-red-600">{error}</p>
+        <p className="text-[12px] text-obsidian">{error}</p>
       ) : hint ? (
         <p className="text-[12px] text-sand-600">{hint}</p>
       ) : null}
@@ -57,7 +57,7 @@ export function PasswordField({
           {...props}
           type={visible ? "text" : "password"}
           className={`w-full rounded-lg border bg-white px-4 py-3 pr-16 text-[14px] text-ink placeholder:text-sand-500 outline-none transition-colors focus:border-sand-600 focus:ring-2 focus:ring-sand-200 ${
-            error ? "border-red-400" : "border-sand-300"
+            error ? "border-orange-accent/60" : "border-sand-300"
           }`}
         />
         <button
@@ -70,7 +70,7 @@ export function PasswordField({
         </button>
       </div>
       {error ? (
-        <p className="text-[12px] text-red-600">{error}</p>
+        <p className="text-[12px] text-obsidian">{error}</p>
       ) : hint ? (
         <p className="text-[12px] text-sand-600">{hint}</p>
       ) : null}
@@ -102,7 +102,7 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
     <div
       role="alert"
-      className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-700"
+      className="rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] leading-relaxed text-obsidian"
     >
       {children}
     </div>
@@ -147,16 +147,16 @@ function CaptionReel() {
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(120% 80% at 75% 8%, rgba(178,148,101,0.30) 0%, rgba(32,25,16,0) 55%), radial-gradient(130% 100% at 20% 100%, rgba(78,60,36,0.45) 0%, rgba(32,25,16,0) 60%)",
+            "radial-gradient(120% 80% at 75% 8%, rgba(240,215,255,0.22) 0%, rgba(26,26,26,0) 55%), radial-gradient(130% 100% at 20% 100%, rgba(255,169,70,0.18) 0%, rgba(26,26,26,0) 60%)",
         }}
       />
-      <p className="relative font-mono text-[12px] text-sand-300">
-        {spec.name} — one of eight render templates
+      <p className="relative font-mono text-[12px] text-side">
+        {spec.name} — one of the CaptionsEasy looks
       </p>
       <div className="relative flex items-center justify-center text-center min-h-[10rem] px-4">
         {spec.render(DEMO_WORDS, wordIdx)}
       </div>
-      <p className="relative max-w-[38ch] font-serif text-xl xl:text-2xl leading-snug text-sand-100">
+      <p className="relative max-w-[38ch] font-serif text-xl xl:text-2xl leading-snug text-major">
         Sign in, upload a take, and post something that looks like a motion
         designer touched it.
       </p>
@@ -199,7 +199,7 @@ export default function AuthShell({
       </div>
 
       {/* Product side */}
-      <div className="hidden lg:block bg-sand-900 relative overflow-hidden">
+      <div className="hidden lg:block bg-obsidian relative overflow-hidden">
         <CaptionReel />
       </div>
     </div>

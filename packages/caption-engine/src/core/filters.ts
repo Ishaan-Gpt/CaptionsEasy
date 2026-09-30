@@ -36,7 +36,7 @@ export function applyProfanity(doc: CaptionDoc, mode: ProfanityMode): CaptionDoc
   const words = doc.words.map((w) => {
     if (!isProfane(w.text)) return w;
     if (mode === "hide") return { ...w, hidden: true };
-    if (mode === "emoji") return { ...w, text: "🤬" };
+    // "emoji" mode is retired while emoji are switched off: projects that chose it get masked words
     return { ...w, text: maskWord(w.text) };
   });
   return { ...doc, words };

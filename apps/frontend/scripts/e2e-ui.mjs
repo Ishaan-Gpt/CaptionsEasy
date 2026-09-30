@@ -114,7 +114,7 @@ try {
   // ---------- 5. Looks tab
   await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Looks/.test(b.textContent))?.click());
   await sleep(800);
-  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Beast Bounce/.test(b.textContent))?.click());
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Bouncy Single Word/.test(b.textContent))?.click());
   await sleep(1500);
   const { data: afterLook } = await admin.from("projects").select("look_id, template_id, style_json").eq("id", pid).single();
   check("choosing a look persists (look, template, style)", afterLook.look_id === "beast_bounce" && afterLook.template_id === "word_by_word" && afterLook.style_json.fontId === "Luckiest Guy", JSON.stringify(afterLook).slice(0, 200));
@@ -177,7 +177,7 @@ try {
   // saved looks + brand kit
   await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Looks/.test(b.textContent))?.click());
   await sleep(600);
-  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Save current style as a look/.test(b.textContent))?.click());
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Save look/.test(b.textContent))?.click());
   await page.waitForFunction(() => /E2E look/.test(document.body.innerText), { timeout: 15000 });
   check("'Save current style as a look' saves and lists it under My looks", (await api("GET", "/looks", token)).data?.length === 1);
   await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Style/.test(b.textContent))?.click());

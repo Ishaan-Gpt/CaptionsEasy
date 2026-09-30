@@ -94,7 +94,7 @@ function PairConfirmContent() {
         ) : outcome === "denied" ? (
           <p className="mt-6 text-[14px] text-sand-800">This computer was not connected.</p>
         ) : error ? (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          <div className="mt-6 rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] text-obsidian">
             {error}
           </div>
         ) : pairing ? (

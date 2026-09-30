@@ -50,7 +50,7 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note }) =>
           const f = e.dataTransfer.files?.[0];
           if (f && !busy) void start(f);
         }}
-        className={`w-full max-w-xl rounded-2xl border-2 border-dashed p-10 text-center transition ${over ? "border-st-lav bg-st-lav/10" : "border-st-line bg-st-raised/50"}`}
+        className={`w-full max-w-xl rounded-2xl border-2 border-dashed p-10 text-center transition ${over ? "border-st-ink bg-st-lav/40" : "border-st-hover bg-st-panel"}`}
       >
         <div className="mb-3 text-4xl">🎬</div>
         <h2 className="text-lg font-semibold">{busy ? "Uploading your video…" : "Drop your video here"}</h2>
@@ -73,7 +73,7 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note }) =>
             <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void start(f); e.target.value = ""; }} />
           </>
         )}
-        {error ? <p role="alert" className="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p> : null}
+        {error ? <p role="alert" className="mt-4 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
       </div>
     </div>
   );

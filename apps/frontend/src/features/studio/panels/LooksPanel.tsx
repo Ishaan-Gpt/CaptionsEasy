@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Save, Search } from "lucide-react";
 import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
 import { LOOKS, loadFontFamily, lookCategories, resolveStyle, type LookDefinition } from "@capseasy/templates";
 import { studioService } from "@/services/studio";
@@ -21,7 +22,7 @@ function swatchStyle(look: LookDefinition): React.CSSProperties {
     fontWeight: s.fontWeight,
     color: fill,
     textTransform: s.casing === "upper" ? "uppercase" : s.casing === "lower" ? "lowercase" : "none",
-    WebkitTextStroke: s.stroke.enabled ? `${Math.min(2, s.stroke.width / 2)}px ${s.stroke.color}` : undefined,
+    WebkitTextStroke: s.stroke.enabled ? `${Math.min(2, s.stroke.width / 2)}px ${s.stroke.color}` : "1px #1A1A1A", // readable on the cream card
     paintOrder: "stroke fill",
     textShadow: s.shadows[0] ? `0 ${Math.min(3, s.shadows[0].y)}px ${Math.min(6, s.shadows[0].blur)}px ${s.shadows[0].color}` : undefined,
   } as React.CSSProperties;
@@ -30,7 +31,7 @@ function swatchStyle(look: LookDefinition): React.CSSProperties {
 /** Built-in looks have previews rendered by the real composition (packages/compositions/scripts/look-previews.ts). */
 const BUILT_IN = new Set(LOOKS.map((l) => l.id));
 
-/** Still of the look; its actual animation loops on hover (and always for the selected look, e.g. on phones). */
+/** Wide still of the look on cream; its actual animation loops on hover (and always for the selected look). */
 const LookPreview: React.FC<{ id: string; name: string; playing: boolean }> = ({ id, name, playing }) => {
   const ref = useRef<HTMLVideoElement>(null);
   const [hover, setHover] = useState(false);
@@ -44,13 +45,12 @@ const LookPreview: React.FC<{ id: string; name: string; playing: boolean }> = ({
     } else v.pause();
   }, [active]);
   return (
-    <div className="relative aspect-square overflow-hidden bg-[#17201c]" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div className="relative aspect-[8/3] overflow-hidden bg-st-panel" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/looks/${id}.webp`} alt={`${name} caption style`} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+      <img src={`/looks/${id}.webp`} alt={`${name} caption style`} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain" />
       {active ? (
-        <video ref={ref} src={`/looks/${id}.mp4`} muted loop playsInline preload="auto" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        <video ref={ref} src={`/looks/${id}.mp4`} muted loop playsInline preload="auto" aria-hidden className="absolute inset-0 h-full w-full object-contain" />
       ) : null}
-      <span className={`pointer-events-none absolute bottom-1.5 right-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] text-white/85 transition ${active ? "opacity-0" : "opacity-100 group-hover:opacity-0"}`} aria-hidden>▶</span>
     </div>
   );
 };
@@ -64,6 +64,7 @@ export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentSty
   );
   const cats = useMemo(() => ["All", ...(myLooks.length ? ["My looks"] : []), ...lookCategories()], [myLooks.length]);
   const [cat, setCat] = useState("All");
+  const [q, setQ] = useState("");
   const [saving, setSaving] = useState(false);
   const saveCurrent = async () => {
     const name = window.prompt("Name this look", "My look")?.trim();
@@ -90,42 +91,64 @@ export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentSty
   }, []);
 
   const all = [...myLooks, ...LOOKS];
-  const shown = cat === "All" ? all : all.filter((l) => l.category === cat);
+  const needle = q.trim().toLowerCase();
+  const shown = (cat === "All" ? all : all.filter((l) => l.category === cat)).filter(
+    (l) => !needle || [l.name, l.category, l.description, ...(l.tags ?? [])].some((t) => t.toLowerCase().includes(needle)),
+  );
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap gap-1.5 border-b border-st-line p-3">
-        <button onClick={() => void saveCurrent()} disabled={saving} className="w-full rounded-lg border border-dashed border-st-lav/50 px-2.5 py-1.5 text-xs font-medium text-st-lav hover:bg-st-lav/10 disabled:opacity-50">
-          {saving ? "Saving…" : "＋ Save current style as a look"}
-        </button>
-        {cats.map((c) => (
-          <button key={c} onClick={() => setCat(c)} className={`rounded-full px-2.5 py-1 text-xs transition ${cat === c ? "bg-st-lav text-obsidian" : "bg-st-raised text-st-text/80 hover:bg-st-hover"}`}>{c}</button>
-        ))}
-      </div>
-      <div className="grid min-h-0 flex-1 grid-cols-2 auto-rows-max content-start gap-2 overflow-y-auto p-3">
-        {shown.map((look) => (
-          <button
-            key={look.id}
-            onClick={() => onChoose(look)}
-            className={`group flex shrink-0 flex-col overflow-hidden rounded-xl border text-left transition ${look.id === currentLookId ? "border-st-lav ring-1 ring-st-lav" : "border-st-line hover:border-white/30"}`}
-          >
-            {BUILT_IN.has(look.id) ? (
-              <LookPreview id={look.id} name={look.name} playing={look.id === currentLookId} />
-            ) : (
-              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#2C2C27] to-[#151513] px-2 text-center text-[19px] leading-tight">
-                <span style={swatchStyle(look)}>
-                  {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
-                </span>
-              </div>
-            )}
-            <div className="relative px-2.5 py-2">
-              {look.category === "My looks" ? (
-                <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="absolute right-2 top-2 text-xs text-st-faint hover:text-red-300">✕</span>
-              ) : null}
-              <div className="truncate pr-4 text-sm font-medium text-st-text">{look.name}</div>
-              <div className="truncate text-[11px] text-st-faint">{look.category}</div>
-            </div>
+      <div className="space-y-2.5 border-b border-st-line p-3">
+        <div className="flex gap-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-st-line bg-st-panel px-2.5 focus-within:border-st-ink/40">
+            <Search className="h-4 w-4 shrink-0 text-st-faint" aria-hidden />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a look" aria-label="Find a look" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-st-faint" />
+          </label>
+          <button onClick={() => void saveCurrent()} disabled={saving} title="Save the current style as your own look" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-st-line bg-st-panel px-3 text-sm font-medium hover:bg-st-hover disabled:opacity-50">
+            <Save className="h-4 w-4" aria-hidden />{saving ? "Saving…" : "Save look"}
           </button>
-        ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {cats.map((c) => (
+            <button key={c} onClick={() => setCat(c)} className={`rounded-full border px-2.5 py-1 text-xs transition ${cat === c ? "border-st-ink bg-st-ink text-st-panel" : "border-st-line bg-st-panel text-st-muted hover:text-st-text"}`}>{c}</button>
+          ))}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {shown.length === 0 ? <p className="py-8 text-center text-sm text-st-faint">No looks match “{q}”.</p> : null}
+        {shown.map((look) => {
+          const chosen = look.id === currentLookId;
+          return (
+            <button
+              key={look.id}
+              onClick={() => onChoose(look)}
+              aria-pressed={chosen}
+              className={`group block w-full overflow-hidden rounded-2xl border bg-st-panel text-left transition ${chosen ? "border-st-ink shadow-[0_0_0_3px_var(--color-st-lav)]" : "border-st-line hover:border-st-ink/30 hover:shadow-[0_8px_20px_-14px_rgba(26,26,26,0.5)]"}`}
+            >
+              <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
+                <span className="truncate text-sm font-bold text-st-text">{look.name}</span>
+                {look.category === "My looks" ? (
+                  <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="rounded px-1 text-xs text-st-faint hover:bg-st-or/30 hover:text-st-text">✕</span>
+                ) : chosen ? (
+                  <span className="rounded-full bg-st-em px-2 py-0.5 text-[10px] font-semibold text-st-ink">In use</span>
+                ) : null}
+              </div>
+              {BUILT_IN.has(look.id) ? (
+                <LookPreview id={look.id} name={look.name} playing={chosen} />
+              ) : (
+                <div className="flex aspect-[8/3] items-center justify-center px-3 text-center text-[22px] leading-tight">
+                  <span style={swatchStyle(look)}>
+                    {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1.5 px-3.5 pb-3">
+                {(look.tags ?? [look.category]).map((t) => (
+                  <span key={t} className="rounded-md bg-st-raised px-2 py-0.5 text-[11px] font-medium text-st-muted">{t}</span>
+                ))}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

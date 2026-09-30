@@ -86,7 +86,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
 
   const rows = exportsQ.data ?? [];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div role="dialog" aria-label="Export" onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-st-line bg-st-panel shadow-2xl">
         <div className="flex items-center justify-between border-b border-st-line px-5 py-4">
           <h2 className="text-lg font-semibold">Export</h2>
@@ -96,8 +96,8 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {saving ? <p className="mb-3 rounded-lg bg-st-raised/70 px-3 py-2 text-xs text-st-muted">Saving your latest edits first…</p> : null}
           {!companionOnline ? (
-            <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-              Your computer isn't connected. Video exports will wait in the queue and start automatically when you run <code className="rounded bg-black/40 px-1">capseasy start</code>. Subtitle files download right away.
+            <p className="mb-4 rounded-lg bg-st-or/15 px-3 py-2 text-sm text-st-text">
+              Your computer isn't connected. Video exports will wait in the queue and start automatically when you run <code className="rounded bg-st-raised px-1">capseasy start</code>. Subtitle files download right away.
             </p>
           ) : null}
 
@@ -130,7 +130,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
                 <span>to</span>
                 <input type="number" min={0} max={totalS} step={0.1} value={endS} onChange={(e) => setEndS(Number(e.target.value))} className="w-20 rounded border border-st-line bg-st-raised px-2 py-1" aria-label="Trim end (seconds)" />
                 <span className="text-st-faint">seconds of {totalS}s</span>
-                {!trimValid ? <span className="text-red-300">Pick a range of at least 0.5 s</span> : null}
+                {!trimValid ? <span className="text-st-text">Pick a range of at least 0.5 s</span> : null}
               </div>
             ) : null}
           </div>
@@ -141,14 +141,14 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
                 key={o.kind}
                 disabled={busyKind !== null || (o.needsComputer && !trimValid)}
                 onClick={() => void start(o)}
-                className="rounded-xl border border-st-line bg-st-raised/50 p-3 text-left transition hover:border-st-lav/50 hover:bg-st-em/5 disabled:opacity-50"
+                className="rounded-xl border border-st-line bg-st-raised/50 p-3 text-left transition hover:border-st-ink/30 hover:bg-st-lav/30 disabled:opacity-50"
               >
                 <div className="text-sm font-medium text-st-text">{busyKind === o.kind ? "Working…" : o.title}</div>
                 <div className="mt-0.5 text-xs text-st-muted">{o.desc}</div>
               </button>
             ))}
           </div>
-          {error ? <p role="alert" className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p> : null}
+          {error ? <p role="alert" className="mt-3 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
 
           {rows.length > 0 ? (
             <div className="mt-6">
@@ -164,12 +164,12 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
                       <Button tone="primary" onClick={() => void download(r.id)}>Download</Button>
                     ) : r.status_v2 === "queued" || r.status_v2 === "rendering" ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-amber-300">{companionOnline ? "Rendering…" : "Waiting for computer"}</span>
+                        <span className="text-xs text-st-text">{companionOnline ? "Rendering…" : "Waiting for computer"}</span>
                         {r.job_id ? <Button className="!px-2 !py-1 text-xs" onClick={() => void studioService.cancelJob(r.job_id!).then(() => exportsQ.refetch())}>Cancel</Button> : null}
                       </div>
                     ) : r.status_v2 === "failed" || r.status_v2 === "cancelled" ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-red-300 capitalize">{r.status_v2}</span>
+                        <span className="text-xs text-st-text capitalize">{r.status_v2}</span>
                         {r.job_id ? <Button className="!px-2 !py-1 text-xs" onClick={() => void studioService.retryJob(r.job_id!).then(() => exportsQ.refetch())}>Retry</Button> : null}
                       </div>
                     ) : (

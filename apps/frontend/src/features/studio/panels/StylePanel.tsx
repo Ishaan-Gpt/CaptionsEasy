@@ -150,16 +150,6 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
         <Slider label="Rotation" value={style.rotation} min={-15} max={15} step={0.5} unit="°" onChange={(v) => patch((s) => ({ ...s, rotation: v }))} />
       </Section>
 
-      <Section title="Emoji" hint="Emoji pop above the caption when their word is spoken. Add them from the Captions tab or the timeline toolbar.">
-        <Toggle label="Show emoji" checked={style.emoji.enabled} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, enabled: v } }))} />
-        {show("emojiSize") ? (
-          <>
-            <Slider label="Emoji size" value={style.emoji.size} min={0.5} max={3} step={0.1} unit="×" onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, size: v } }))} />
-            <Select label="Animation" value={style.emoji.animation} options={opts(["pop", "float", "spin", "none"])} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, animation: v as CaptionStyleV2["emoji"]["animation"] } }))} />
-          </>
-        ) : null}
-      </Section>
-
       <Section title="Motion">
         {show("entrance") ? <Select label="Entrance" value={style.entrance.type} options={opts(entrances)} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, type: v as CaptionStyleV2["entrance"]["type"], durationMs: Math.max(150, s.entrance.durationMs) } }))} /> : null}
         {show("entrance") && style.entrance.type !== "none" ? <Slider label="Entrance speed" value={style.entrance.durationMs} min={80} max={800} step={20} unit=" ms" onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, durationMs: v } }))} /> : null}
@@ -221,7 +211,7 @@ export const SettingsPanel: React.FC<SettingsProps> = ({ settings, patch, layout
       </Section>
       <Section title="Clean-up">
         <Toggle label="Remove filler words" hint="um, uh, hmm…" checked={settings.removeFillers} onChange={(v) => patch({ removeFillers: v })} />
-        <Select label="Profanity" value={settings.profanity} options={[{ value: "off", label: "Leave as is" }, { value: "mask", label: "Mask (f***)" }, { value: "emoji", label: "Replace with 🤬" }, { value: "hide", label: "Hide" }]} onChange={(v) => patch({ profanity: v as ProjectSettings["profanity"] })} />
+        <Select label="Profanity" value={settings.profanity} options={[{ value: "off", label: "Leave as is" }, { value: "mask", label: "Mask (f***)" }, { value: "hide", label: "Hide" }]} onChange={(v) => patch({ profanity: v as ProjectSettings["profanity"] })} />
       </Section>
     </div>
   );

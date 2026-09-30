@@ -5,12 +5,19 @@ import { FoldHorizontal, Link2, Magnet, Maximize2, Plus, Scissors, SlidersHorizo
 import type { Page, Word } from "@capseasy/shared";
 import { fmtTime } from "./controls";
 import { PEAKS_PER_SECOND } from "./useWaveform";
+import { useFilmstrip } from "./useFilmstrip";
 
 interface Props {
   pages: Page[];
   words: Word[];
   durationMs: number;
   timeMs: number;
+  /** while playing, the view scrolls with the playhead so the words being said are always on screen */
+  playing?: boolean;
+  videoId?: string | null;
+  videoUrl?: string | null;
+  /** width / height of the video, for the filmstrip thumbnails */
+  videoAspect?: number;
   selectedId: string | null;
   peaks: Float32Array | null;
   waveState: "idle" | "loading" | "ready" | "unavailable";
@@ -36,6 +43,11 @@ type Drag = { key: string; firstId: string; lastId: string; kind: "move" | "star
 const LABEL_W = 88;
 const MIN_MS = 40;
 const SNAP_PX = 7;
+/** fixed track heights: blocks keep editor proportions however tall the panel is (no stretched cards) */
+const ROW = { ruler: 24, captions: 44, video: 52, audio: 44 };
+const ROWS = `${ROW.ruler}px ${ROW.captions}px ${ROW.video}px ${ROW.audio}px`;
+/** video visible at the default zoom: enough room to read every word */
+const DEFAULT_WINDOW_MS = 8000;
 
 const pref = <T extends string>(k: string, fallback: T): T => {
   try { return (localStorage.getItem(k) as T) || fallback; } catch { return fallback; }
@@ -43,7 +55,7 @@ const pref = <T extends string>(k: string, fallback: T): T => {
 const save = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
 
 /** Editor timeline: one captions track (as words or as lines), video, audio. Drag to move, drag edges to retime. */
-export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, selectedId, peaks, waveState, onSeek, onSelect, onRetimeRun, onRename, onAddWord, onSplit, onJoin, onOpenSettings, extraTools }) => {
+export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, playing = false, videoId, videoUrl, videoAspect = 16 / 9, selectedId, peaks, waveState, onSeek, onSelect, onRetimeRun, onRename, onAddWord, onSplit, onJoin, onOpenSettings, extraTools }) => {
   const total = Math.max(1000, durationMs);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -53,6 +65,8 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
   const [snap, setSnap] = useState(true);
   const [ripple, setRipple] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const zoomedOnce = useRef(false);
+  const frames = useFilmstrip(videoId, videoUrl, durationMs);
 
   useEffect(() => {
     setModeState(pref<Mode>("ce_tl_mode", "word"));
@@ -69,19 +83,28 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
     return () => ro.disconnect();
   }, []);
 
+  // open zoomed in to a readable window (words, not slivers) instead of squeezing the whole video in
+  useEffect(() => {
+    if (zoomedOnce.current || viewW < 100 || durationMs <= 0) return;
+    zoomedOnce.current = true;
+    setZoom(Math.min(40, Math.max(1, total / DEFAULT_WINDOW_MS)));
+  }, [viewW, durationMs, total]);
+
   // zoom 1 = whole video fits; up to 40x for word-level work
   const pxPerMs = (Math.max(200, viewW) / total) * zoom;
   const width = Math.ceil(total * pxPerMs);
   const x = (ms: number) => ms * pxPerMs;
 
-  // keep the playhead in view while playing
+  // follow the playhead: while playing it stays a third of the way in and the words scroll past under it;
+  // when paused, a seek outside the view brings it back in
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || drag) return;
     const px = x(timeMs);
-    if (px < el.scrollLeft || px > el.scrollLeft + el.clientWidth - LABEL_W - 40) el.scrollLeft = Math.max(0, px - 80);
+    const view = el.clientWidth - LABEL_W;
+    if (playing || px < el.scrollLeft || px > el.scrollLeft + view - 40) el.scrollLeft = Math.max(0, px - view / 3);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeMs, pxPerMs]);
+  }, [timeMs, pxPerMs, playing]);
 
   const ticks = useMemo(() => {
     const steps = [100, 250, 500, 1000, 2000, 5000, 10000, 30000, 60000];
@@ -171,22 +194,24 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
       title={label}
       aria-label={label}
       aria-pressed={o.active}
-      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${o.active ? "bg-st-em/15 text-st-em" : "text-st-text/85 hover:bg-st-hover"}`}
+      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${o.active ? "bg-st-em/30 text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
     >
       {children}
     </button>
   );
   const sep = <span className="mx-1 h-5 w-px bg-st-line" aria-hidden />;
   const noSel = !selectedId;
-  const trackRow = "relative h-full border-b border-st-line/60";
-  const rows = "24px minmax(46px,1.4fr) minmax(24px,0.6fr) minmax(40px,1fr)";
+  const trackRow = "relative h-full border-b border-st-line";
+  const rows = ROWS;
+  const tileW = Math.max(24, (ROW.video - 8) * videoAspect);
+  const tiles = frames.length ? Math.ceil(x(total) / tileW) : 0;
 
   return (
     <div role="region" aria-label="Timeline" className="flex h-full min-h-0 flex-col bg-st-bg select-none">
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-st-line bg-st-panel px-2 py-1.5 text-xs text-st-muted">
-        <div className="flex rounded-lg bg-st-raised p-0.5" role="radiogroup" aria-label="Show captions as">
+        <div className="flex rounded-lg border border-st-line bg-st-raised p-0.5" role="radiogroup" aria-label="Show captions as">
           {(["word", "line"] as const).map((m) => (
-            <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`rounded-md px-3 py-1 text-[11px] font-semibold tracking-wide transition ${mode === m ? "bg-st-text text-obsidian" : "text-st-muted hover:text-st-text"}`}>
+            <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`rounded-md px-3 py-1 text-[11px] font-semibold tracking-wide transition ${mode === m ? "bg-st-ink text-st-panel" : "text-st-muted hover:text-st-text"}`}>
               {m.toUpperCase()}
             </button>
           ))}
@@ -201,24 +226,24 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
         {sep}
         {btn(snap ? "Snapping on" : "Snapping off", <Magnet className={icon} />, () => { setSnap(!snap); save("ce_tl_snap", snap ? "0" : "1"); }, { active: snap })}
         {btn(ripple ? "Linked: moving a caption moves everything after it" : "Linked moves off", <Link2 className={icon} />, () => { setRipple(!ripple); save("ce_tl_ripple", ripple ? "0" : "1"); }, { active: ripple })}
-        <span className="ml-auto rounded-md bg-st-raised px-2 py-1 font-mono tabular-nums text-st-text">{fmtTime(timeMs)} <span className="text-st-faint">/ {fmtTime(total)}</span></span>
+        <span className="ml-auto rounded-md border border-st-line bg-st-panel px-2 py-1 font-mono tabular-nums text-st-text">{fmtTime(timeMs)} <span className="text-st-faint">/ {fmtTime(total)}</span></span>
         {btn("Zoom out", <ZoomOut className={icon} />, () => setZoom((z) => Math.max(1, z / 1.6)), { disabled: zoom <= 1 })}
         <input type="range" min={0} max={100} value={Math.round((Math.log(zoom) / Math.log(40)) * 100)} onChange={(e) => setZoom(Math.pow(40, Number(e.target.value) / 100))} className="w-24 accent-[#34D399] sm:w-32" aria-label="Timeline zoom" />
         {btn("Zoom in", <ZoomIn className={icon} />, () => setZoom((z) => Math.min(40, z * 1.6)), { disabled: zoom >= 40 })}
         {btn("Fit the whole video", <Maximize2 className={icon} />, () => setZoom(1), { disabled: zoom === 1 })}
       </div>
 
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden" onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
-        <div className="grid h-full" style={{ gridTemplateColumns: `${LABEL_W}px ${width}px`, gridTemplateRows: rows }}>
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto" onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
+        <div className="relative grid w-max" style={{ gridTemplateColumns: `${LABEL_W}px ${width}px`, gridTemplateRows: rows }}>
           <div className="sticky left-0 z-20 row-span-4 grid border-r border-st-line bg-st-panel text-[11px] text-st-muted" style={{ gridTemplateRows: rows }}>
             <div />
-            <div className="flex items-center gap-1.5 border-b border-st-line/60 px-2 text-st-or">𝐈 Captions</div>
-            <div className="flex items-center gap-1.5 border-b border-st-line/60 px-2 text-st-text/80">▶ Video</div>
-            <div className="flex items-center gap-1.5 px-2 text-st-lav/80">♫ Audio</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line px-2 font-semibold text-st-text">𝐈 Captions</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line px-2 text-st-muted">▶ Video</div>
+            <div className="flex items-center gap-1.5 px-2 text-st-muted">♫ Audio</div>
           </div>
 
           {/* ruler */}
-          <div className="relative cursor-pointer border-b border-st-line" onClick={seekFromEvent}>
+          <div className="relative cursor-pointer border-b border-st-line bg-st-panel" onClick={seekFromEvent}>
             {ticks.map((t) => (
               <div key={t} className="absolute top-0 h-full border-l border-st-line pl-1 text-[10px] tabular-nums text-st-faint" style={{ left: x(t) }}>{fmtTime(t)}</div>
             ))}
@@ -236,7 +261,7 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
                   onClick={(e) => { e.stopPropagation(); onSelect(b.firstId); onSeek(live.s + 1); }}
                   onDoubleClick={(e) => { e.stopPropagation(); if (mode === "word") setRenaming(b.firstId); }}
                   title={`${b.text}  ${fmtTime(live.s)} – ${fmtTime(live.e)}${mode === "word" ? "  (double-click to edit)" : ""}`}
-                  className={`absolute top-1.5 bottom-1.5 cursor-grab overflow-hidden rounded-md text-[11px] leading-tight ${b.selected ? "bg-st-lav text-obsidian ring-2 ring-st-lav/40" : b.live ? "bg-st-or text-obsidian" : mode === "line" ? "bg-[#8a7b4f] text-obsidian hover:bg-[#9c8b5a]" : "bg-st-or/80 text-obsidian hover:bg-st-or"}`}
+                  className={`absolute top-1 bottom-1 cursor-grab overflow-hidden rounded-md border text-[11px] leading-tight text-st-ink ${b.selected ? "border-st-ink bg-st-lav ring-2 ring-st-ink/20" : b.live ? "border-st-ink/30 bg-st-or" : mode === "line" ? "border-st-ink/15 bg-st-hover hover:bg-st-lav/60" : "border-st-ink/10 bg-st-lav/60 hover:bg-st-lav"}`}
                   style={{ left: x(live.s), width: wpx }}
                 >
                   {renaming === b.firstId ? (
@@ -247,7 +272,7 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
                       onClick={(e) => e.stopPropagation()}
                       onBlur={(e) => { onRename(b.firstId, e.target.value); setRenaming(null); }}
                       onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenaming(null); }}
-                      className="absolute inset-0 w-full min-w-[80px] bg-st-text px-1.5 text-[12px] text-obsidian outline-none"
+                      className="absolute inset-0 w-full min-w-[80px] bg-st-panel px-1.5 text-[12px] text-st-ink outline-none ring-2 ring-inset ring-st-ink"
                       aria-label="Word text"
                     />
                   ) : wpx > 18 ? (
@@ -258,8 +283,8 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
                   ) : null}
                   {wpx > 10 && renaming !== b.firstId ? (
                     <>
-                      <span onPointerDown={(e) => beginDrag(e, b, "start")} className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-black/20 hover:bg-black/50" aria-label={`Move start of ${b.text}`} />
-                      <span onPointerDown={(e) => beginDrag(e, b, "end")} className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-black/20 hover:bg-black/50" aria-label={`Move end of ${b.text}`} />
+                      <span onPointerDown={(e) => beginDrag(e, b, "start")} className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-st-ink/10 hover:bg-st-ink/40" aria-label={`Move start of ${b.text}`} />
+                      <span onPointerDown={(e) => beginDrag(e, b, "end")} className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-st-ink/10 hover:bg-st-ink/40" aria-label={`Move end of ${b.text}`} />
                     </>
                   ) : null}
                 </div>
@@ -269,17 +294,25 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
 
           {/* video */}
           <div className={trackRow} onClick={seekFromEvent}>
-            <div className="absolute inset-y-1 left-0 rounded-md bg-[#0F3D2E] px-2 text-[10px] leading-5 text-st-text/90" style={{ width: x(total) }}>Video</div>
+            <div className="absolute inset-y-1 left-0 flex overflow-hidden rounded-md bg-obsidian ring-1 ring-st-ink/20" style={{ width: x(total) }}>
+              {Array.from({ length: tiles }, (_, i) => {
+                const at = ((i + 0.5) * tileW) / pxPerMs;
+                const f = frames.reduce((a, b) => (Math.abs(b.ms - at) < Math.abs(a.ms - at) ? b : a), frames[0]!);
+                // eslint-disable-next-line @next/next/no-img-element
+                return <img key={i} src={f.src} alt="" draggable={false} className="h-full shrink-0 border-r border-obsidian/60 object-cover" style={{ width: tileW }} />;
+              })}
+              <span className="absolute left-1.5 top-1 rounded bg-obsidian/70 px-1.5 text-[10px] leading-4 text-st-panel">{frames.length ? "Video" : "Video (loading frames)"}</span>
+            </div>
           </div>
 
           {/* audio waveform */}
-          <div className="relative" onClick={seekFromEvent}>
+          <div className="relative bg-st-em/10" onClick={seekFromEvent}>
             <Waveform peaks={peaks} width={width} />
             {waveState !== "ready" ? <span className="absolute left-2 top-1 text-[10px] text-st-faint">{waveState === "loading" ? "Loading audio…" : waveState === "unavailable" ? "Waveform unavailable for this file" : ""}</span> : null}
           </div>
 
-          <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-st-em" style={{ left: LABEL_W + x(timeMs) }}>
-            <div className="absolute -left-1.5 -top-0.5 h-3 w-3 rounded-sm bg-st-em" />
+          <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-0.5 bg-st-ink" style={{ left: LABEL_W + x(timeMs) }}>
+            <div className="absolute -left-[5px] -top-0.5 h-3 w-3 rounded-sm bg-st-ink" />
           </div>
         </div>
       </div>
@@ -298,7 +331,7 @@ const Waveform: React.FC<{ peaks: Float32Array | null; width: number }> = ({ pea
     c.height = h;
     const g = c.getContext("2d")!;
     g.clearRect(0, 0, w, h);
-    g.fillStyle = "rgba(52,211,153,0.7)";
+    g.fillStyle = "rgba(26,26,26,0.5)";
     const per = peaks.length / w;
     for (let px = 0; px < w; px++) {
       let m = 0;

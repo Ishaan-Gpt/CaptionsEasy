@@ -52,7 +52,7 @@ export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc:
   const canvas = useMemo<Canvas>(() => ({ width, height, fps }), [width, height, fps]);
   const resolved = useMemo(() => resolveStyle(style as Partial<CaptionStyleV2>), [style]);
 
-  const fontFamilies = useMemo(() => [resolved.fontId, resolved.hero.fontId ?? "", ...getTemplate(resolved.templateId).fonts, resolved.emoji.enabled || doc.words.some((w) => w.emoji) ? EMOJI_FONT : ""], [resolved, doc]);
+  const fontFamilies = useMemo(() => [resolved.fontId, resolved.hero.fontId ?? "", ...getTemplate(resolved.templateId).fonts, resolved.emoji.enabled ? EMOJI_FONT : ""], [resolved]);
   const fontsReady = useFontsReady(fontFamilies);
 
   const pages = useMemo(() => (fontsReady ? computePages(doc, settings, resolved, canvas) : []), [fontsReady, doc, settings, resolved, canvas]);

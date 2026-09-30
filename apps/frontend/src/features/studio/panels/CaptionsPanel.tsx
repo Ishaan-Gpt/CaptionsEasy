@@ -1,28 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { CaptionDoc, Emotion, Page } from "@capseasy/shared";
-import { autoEmoji, clearAutoEmoji, findMatches, findReplace, importSubtitles, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import { findMatches, findReplace, importSubtitles, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { Button, fmtTime } from "../controls";
 
 const EMOTIONS: Emotion[] = ["neutral", "excited", "funny", "serious", "sad", "angry", "surprised", "question", "hype", "calm"];
-const EMOJI: Record<Emotion, string> = { neutral: "·", excited: "🤩", funny: "😂", serious: "🧐", sad: "😢", angry: "😠", surprised: "😮", question: "❓", hype: "🔥", calm: "😌" };
 
 interface Props {
   doc: CaptionDoc;
   pages: Page[];
   currentPageId: string | null;
+  /** playhead, so the word being said right now is marked */
+  timeMs: number;
   selectedId: string | null;
   onSelect: (wordId: string | null) => void;
   onSeek: (ms: number) => void;
   edit: (fn: (d: CaptionDoc) => CaptionDoc, opts?: { coalesceKey?: string }) => void;
-  /** emoji only render while Style > Show emoji is on: adding some turns it on so the button never looks dead */
-  onEmojiAdded: () => void;
   /** false for layouts that cannot show a key word differently (typewriter) */
   heroSupported: boolean;
 }
 
-export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, selectedId, onSelect, onSeek, edit, onEmojiAdded, heroSupported }) => {
+export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, timeMs, selectedId, onSelect, onSeek, edit, heroSupported }) => {
   const [find, setFind] = useState("");
   const [replace, setReplace] = useState("");
   const [showHidden, setShowHidden] = useState(false);
@@ -32,17 +31,25 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
   const hidden = useMemo(() => doc.words.filter((w) => w.hidden), [doc.words]);
   const lowConfidence = (c?: number) => c !== undefined && c < 0.5;
 
+  // follow playback: keep the card being spoken in the middle of the list (only this list scrolls, never the page)
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    const row = currentPageId ? list?.querySelector<HTMLElement>(`[data-page="${CSS.escape(currentPageId)}"]`) : null;
+    if (!list || !row) return;
+    const target = row.offsetTop - list.clientHeight / 2 + row.offsetHeight / 2;
+    if (Math.abs(list.scrollTop - target) > row.offsetHeight / 2) list.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  }, [currentPageId]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="space-y-2 border-b border-st-line p-3">
         <div className="flex gap-2">
-          <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find" className="min-w-0 flex-1 rounded-md border border-st-line bg-st-raised px-2 py-1.5 text-sm outline-none focus:border-st-lav" />
-          <input value={replace} onChange={(e) => setReplace(e.target.value)} placeholder="Replace with" className="min-w-0 flex-1 rounded-md border border-st-line bg-st-raised px-2 py-1.5 text-sm outline-none focus:border-st-lav" />
+          <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find" className="min-w-0 flex-1 rounded-md border border-st-line bg-st-panel px-2 py-1.5 text-sm outline-none focus:border-st-ink/40" />
+          <input value={replace} onChange={(e) => setReplace(e.target.value)} placeholder="Replace with" className="min-w-0 flex-1 rounded-md border border-st-line bg-st-panel px-2 py-1.5 text-sm outline-none focus:border-st-ink/40" />
         </div>
         <div className="flex gap-2">
-          <Button className="!py-1 text-xs" onClick={() => { edit((d) => autoEmoji(d)); onEmojiAdded(); }} title="Adds emoji to key words (money, fire, love…). Turn on 'Show emoji' in Style.">✨ Add emojis</Button>
-          <Button className="!py-1 text-xs" onClick={() => edit((d) => clearAutoEmoji(d))}>Clear emojis</Button>
-          <label className="ml-auto inline-flex cursor-pointer items-center rounded-lg bg-st-raised px-3 py-1 text-xs font-medium text-st-text hover:bg-st-hover" title="Replace the captions with an .srt or .vtt file (you can undo)">
+          <label className="ml-auto inline-flex cursor-pointer items-center rounded-lg border border-st-line bg-st-panel px-3 py-1 text-xs font-medium text-st-text hover:bg-st-hover" title="Replace the captions with an .srt or .vtt file (you can undo)">
             Import SRT
             <input
               type="file"
@@ -69,19 +76,19 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto">
         {pages.length === 0 ? <p className="p-6 text-center text-sm text-st-faint">No captions yet.</p> : null}
         {pages.map((page) => (
-          <div key={page.id} className={`border-b border-st-line/60 px-3 py-2.5 ${page.id === currentPageId ? "bg-st-lav/10" : ""}`}>
+          <div key={page.id} data-page={page.id} className={`border-b border-l-4 border-b-st-line/60 px-3 py-2.5 transition-colors ${page.id === currentPageId ? "border-l-st-or bg-st-lav/35" : "border-l-transparent"}`}>
             <div className="mb-1.5 flex items-center justify-between">
-              <button onClick={() => onSeek(page.startMs)} className="font-mono text-[11px] text-st-faint hover:text-st-lav">{fmtTime(page.startMs)}</button>
+              <button onClick={() => onSeek(page.startMs)} className="font-mono text-[11px] text-st-faint hover:text-st-text">{fmtTime(page.startMs)}</button>
               <select
                 value={page.emotion}
                 title="Emotion (changes how strongly this card animates)"
                 onChange={(e) => edit((d) => setCardEmotion(d, page.id, e.target.value as Emotion))}
                 className="rounded bg-transparent text-xs text-st-muted outline-none hover:text-st-text"
               >
-                {EMOTIONS.map((e) => <option key={e} value={e} className="bg-st-raised">{EMOJI[e]} {e}</option>)}
+                {EMOTIONS.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -90,12 +97,11 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
                   key={w.id}
                   onClick={() => { onSelect(w.id); onSeek(w.startMs + 1); }}
                   className={`rounded-md px-1.5 py-0.5 text-sm transition ${
-                    w.id === selectedId ? "bg-st-lav text-obsidian" : matchIds.has(w.id) ? "bg-yellow-400/30 text-yellow-100" : "bg-st-raised/70 text-st-text hover:bg-st-hover"
-                  } ${i === page.heroIndex ? "font-bold underline decoration-st-lav decoration-2 underline-offset-2" : ""} ${lowConfidence(w.confidence) ? "border-b border-dashed border-orange-400" : ""}`}
+                    w.id === selectedId ? "bg-st-ink text-st-panel" : page.id === currentPageId && timeMs >= w.startMs && timeMs < w.endMs ? "bg-st-or text-st-ink" : matchIds.has(w.id) ? "bg-st-or/40 text-st-text" : "bg-st-raised text-st-text hover:bg-st-hover"
+                  } ${i === page.heroIndex ? "font-bold underline decoration-st-or decoration-2 underline-offset-2" : ""} ${lowConfidence(w.confidence) ? "border-b border-dashed border-st-or" : ""}`}
                   title={lowConfidence(w.confidence) ? "Low confidence: worth double-checking" : undefined}
                 >
                   {w.text}
-                  {w.emoji ? <span className="ml-0.5">{w.emoji.char}</span> : null}
                 </button>
               ))}
             </div>
@@ -119,12 +125,12 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
       </div>
 
       {selected ? (
-        <div className="space-y-2 border-t border-st-line bg-st-raised p-3">
+        <div className="space-y-2 border-t border-st-line bg-st-lav/30 p-3">
           <div className="flex items-center gap-2">
             <input
               value={selected.text}
               onChange={(e) => edit((d) => setWordText(d, selected.id, e.target.value || " "), { coalesceKey: `t-${selected.id}` })}
-              className="min-w-0 flex-1 rounded-md border border-st-line bg-st-raised px-2 py-1.5 text-sm outline-none focus:border-st-lav"
+              className="min-w-0 flex-1 rounded-md border border-st-line bg-st-panel px-2 py-1.5 text-sm outline-none focus:border-st-ink/40"
               aria-label="Edit word"
             />
             <button onClick={() => onSelect(null)} className="text-st-faint hover:text-st-text" aria-label="Close editor">✕</button>

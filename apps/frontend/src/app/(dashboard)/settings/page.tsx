@@ -95,7 +95,7 @@ function ConnectedComputerSection() {
                   <div className="flex items-center gap-3">
                     <span
                       className={`h-2 w-2 rounded-full ${
-                        w.status === "online" ? "bg-green-500" : "bg-sand-400"
+                        w.status === "online" ? "bg-emerald-accent" : "bg-sand-400"
                       }`}
                     />
                     <div>
@@ -109,7 +109,7 @@ function ConnectedComputerSection() {
                   <button
                     onClick={() => handleDelete(w.id)}
                     disabled={deletingId === w.id}
-                    className="font-sora text-[12px] font-semibold text-sand-600 hover:text-red-600 disabled:opacity-60 transition-colors cursor-pointer"
+                    className="font-sora text-[12px] font-semibold text-sand-600 hover:text-obsidian disabled:opacity-60 transition-colors cursor-pointer"
                   >
                     {deletingId === w.id ? "Removing…" : "Remove"}
                   </button>
@@ -245,7 +245,7 @@ export default function SettingsPage() {
               </div>
 
               {saveError && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+                <div className="rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] text-obsidian">
                   {saveError}
                 </div>
               )}
@@ -277,7 +277,7 @@ export default function SettingsPage() {
               <strong className="text-ink">{email || "your account email"}</strong>.
             </p>
             {resetError && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+              <div className="mt-4 rounded-lg border border-orange-accent/60 bg-orange-accent/10 px-4 py-3 text-[13px] text-obsidian">
                 {resetError}
               </div>
             )}

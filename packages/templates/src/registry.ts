@@ -4,6 +4,9 @@ import { NEW_LOOKS } from "./looks/new";
 import { TEMPLATES } from "./templates";
 import type { LookDefinition, TemplateDefinition } from "./types";
 
+/** Product switch: emoji are hidden everywhere (render + studio controls) while this is false. */
+export const EMOJI_ENABLED = false;
+
 const byId = new Map<string, TemplateDefinition>(TEMPLATES.map((t) => [t.id, t]));
 export const FALLBACK_TEMPLATE = "sentence_highlight";
 
@@ -40,7 +43,8 @@ export function resolveStyle(style: Partial<CaptionStyleV2> & { templateId?: str
   const tpl = getTemplate(style.templateId ?? FALLBACK_TEMPLATE);
   let merged = deepMerge(CaptionStyleSchema.parse({ templateId: tpl.id, ...tpl.defaults }) as unknown, style) as Plain;
   if (cardOverride) merged = deepMerge(merged, cardOverride);
-  return CaptionStyleSchema.parse({ ...merged, templateId: tpl.id });
+  // emoji are switched off product-wide for now: stored emoji stay in the doc but never render
+  return CaptionStyleSchema.parse({ ...merged, templateId: tpl.id, emoji: { ...(merged.emoji as Plain | undefined), enabled: EMOJI_ENABLED } });
 }
 
 /**
@@ -49,7 +53,7 @@ export function resolveStyle(style: Partial<CaptionStyleV2> & { templateId?: str
  * Projects that used a removed look keep rendering (their full style is stored on the project).
  */
 const CURATED_NEW = new Set([
-  "hormozi_box", "beast_bounce", "karaoke_fill", "pop_clean", "gradient_pop", "emoji_react", "outline_fill", "bold_pill",
+  "hormozi_box", "beast_bounce", "karaoke_fill", "pop_clean", "gradient_pop", "outline_fill", "bold_pill",
   "comic_burst", "wave_bounce", "storytime", "chat_bubble", "scribble",
   "minimal_pro", "netflix_sub", "lower_third", "read_along",
   "luxe_serif", "motivational", "film_noir", "kinetic_mix",
@@ -70,9 +74,50 @@ const LEGACY_FIXES: Record<string, unknown> = {
   vintage_cinematic: { active: { effect: "none" } },
 };
 
+/**
+ * Gallery names say what makes each look different (its signature effect), and tags list the rest of its
+ * character. Ids never change: projects store the id.
+ */
+const DISPLAY: Record<string, { name: string; tags: string[] }> = {
+  hormozi_box: { name: "Jumping Box", tags: ["Caps", "Box highlight"] },
+  beast_bounce: { name: "Bouncy Single Word", tags: ["One word", "3D shadow"] },
+  karaoke_fill: { name: "Karaoke Fill", tags: ["Full line", "Colour sweep"] },
+  pop_clean: { name: "Pop-Up Word", tags: ["Scale pop", "Outline"] },
+  gradient_pop: { name: "Gradient Word", tags: ["One word", "Gradient"] },
+  outline_fill: { name: "Hollow to Solid", tags: ["Outline", "Fill in"] },
+  bold_pill: { name: "Dark Pill Highlight", tags: ["Pill", "Colour"] },
+  comic_burst: { name: "Comic Tilt", tags: ["One word", "Tilt", "Shadow"] },
+  wave_bounce: { name: "Hopping Word", tags: ["Bounce", "Rounded"] },
+  storytime: { name: "Pastel Box", tags: ["Box highlight", "Soft"] },
+  chat_bubble: { name: "Chat Bubble", tags: ["Bubble", "Messages"] },
+  scribble: { name: "Marker Scribble", tags: ["Handwritten", "Marker"] },
+  minimal_pro: { name: "Dim Until Spoken", tags: ["Minimal", "Pill"] },
+  netflix_sub: { name: "Classic Subtitle", tags: ["Subtitle", "Still"] },
+  lower_third: { name: "News Lower Third", tags: ["Bar", "Accent"] },
+  read_along: { name: "Read-Along Light Up", tags: ["Full line", "Dimmed"] },
+  luxe_serif: { name: "Italic Serif Wipe", tags: ["Serif", "Wipe"] },
+  motivational: { name: "Wide Tracked Word", tags: ["One word", "Tall caps"] },
+  film_noir: { name: "Noir Band", tags: ["Serif", "Dark band"] },
+  kinetic_mix: { name: "Kinetic Big Word", tags: ["Stacked", "Tilt"] },
+  retro_vhs: { name: "VHS Colour Split", tags: ["Pixel", "Retro"] },
+  retro_3d: { name: "3D Extrusion", tags: ["One word", "3D"] },
+  neon_sign: { name: "Neon Glow", tags: ["Glow", "Retro"] },
+  terminal: { name: "Typewriter Terminal", tags: ["Mono", "Cursor"] },
+  gaming_hud: { name: "Violet HUD Box", tags: ["Caps", "Box highlight"] },
+  highlighter_card: { name: "Yellow Highlighter", tags: ["Card", "Marker"] },
+  explainer: { name: "Underline Sweep", tags: ["Readable", "Underline"] },
+  desi_clean: { name: "Desi Amber Word", tags: ["Devanagari", "Colour"] },
+  vintage_cinematic: { name: "Giant Italic Hero", tags: ["3 lines", "Serif hero"] },
+  staggered_splash: { name: "3-Line Stagger", tags: ["3 lines", "Big middle word"] },
+  glow_stack_classic: { name: "3-Line Glow Hero", tags: ["3 lines", "Glow"] },
+  serif_pop_classic: { name: "Script Hero Pop", tags: ["3 lines", "Script"] },
+  cartoon_stack_classic: { name: "Cartoon 3-Line", tags: ["3 lines", "Handwritten"] },
+};
+const named = (l: LookDefinition): LookDefinition => ({ ...l, ...DISPLAY[l.id] });
+
 export const LOOKS: LookDefinition[] = [
-  ...NEW_LOOKS.filter((l) => CURATED_NEW.has(l.id)).map((l) => ({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
-  ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => ({ ...l, category: "Classic", style: CaptionStyleSchema.parse(deepMerge(l.style, LEGACY_FIXES[l.id])) })),
+  ...NEW_LOOKS.filter((l) => CURATED_NEW.has(l.id)).map((l) => named({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
+  ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => named({ ...l, category: "Classic", style: CaptionStyleSchema.parse(deepMerge(deepMerge(l.style, LEGACY_FIXES[l.id]), { emoji: { enabled: EMOJI_ENABLED } })) })),
 ];
 
 const looksById = new Map(LOOKS.map((l) => [l.id, l]));

@@ -13,12 +13,13 @@ interface Props {
   position: { x: number; y: number };
   onMovePosition: (p: { x: number; y: number }) => void;
   onTime: (ms: number) => void;
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 const clamp = (v: number) => Math.min(0.95, Math.max(0.05, v));
 
 /** The same CaptionedVideo composition that renders the export, plus a drag handle to place the captions. */
-export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({ input, width, height, fps, durationMs, position, onMovePosition, onTime }, ref) {
+export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({ input, width, height, fps, durationMs, position, onMovePosition, onTime, onPlayingChange }, ref) {
   const innerRef = useRef<PlayerRef | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -42,13 +43,21 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
       onTime((e.detail.frame / fps) * 1000);
     };
     const onSeeked = (e: { detail: { frame: number } }) => onTime((e.detail.frame / fps) * 1000);
+    const onPlay = () => onPlayingChange?.(true);
+    const onPause = () => onPlayingChange?.(false);
     p.addEventListener("frameupdate", onFrame);
     p.addEventListener("seeked", onSeeked);
+    p.addEventListener("play", onPlay);
+    p.addEventListener("pause", onPause);
+    p.addEventListener("ended", onPause);
     return () => {
       p.removeEventListener("frameupdate", onFrame);
       p.removeEventListener("seeked", onSeeked);
+      p.removeEventListener("play", onPlay);
+      p.removeEventListener("pause", onPause);
+      p.removeEventListener("ended", onPause);
     };
-  }, [fps, onTime]);
+  }, [fps, onTime, onPlayingChange]);
 
   const move = (e: React.PointerEvent) => {
     const r = boxRef.current?.getBoundingClientRect();
@@ -62,7 +71,7 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
   const style = useMemo<React.CSSProperties>(() => ({ width: "100%", height: "100%" }), []);
   return (
     <div className="flex h-full w-full items-center justify-center p-3">
-      <div ref={boxRef} className="group relative overflow-hidden rounded-xl bg-black shadow-2xl ring-1 ring-st-line" style={{ aspectRatio: `${width} / ${height}`, height: "100%", maxWidth: "100%" }}>
+      <div ref={boxRef} className="group relative overflow-hidden rounded-xl bg-obsidian shadow-[0_18px_40px_-18px_rgba(26,26,26,0.45)] ring-1 ring-st-ink/10" style={{ aspectRatio: `${width} / ${height}`, height: "100%", maxWidth: "100%" }}>
         <Player
           ref={setRef}
           component={CaptionedVideo as unknown as React.ComponentType<Record<string, unknown>>}
@@ -84,7 +93,7 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
           aria-valuenow={Math.round(position.y * 100)}
           tabIndex={0}
           title="Drag to move captions"
-          className={`absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-st-lav bg-st-lav/25 shadow-[0_0_0_4px_rgba(0,0,0,0.25)] backdrop-blur transition ${dragging ? "scale-125 cursor-grabbing opacity-100" : "opacity-0 group-hover:opacity-90 focus:opacity-100 [@media(hover:none)]:opacity-60"}`}
+          className={`absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-st-lav bg-st-lav/25 shadow-[0_0_0_4px_rgba(26,26,26,0.25)] backdrop-blur transition ${dragging ? "scale-125 cursor-grabbing opacity-100" : "opacity-0 group-hover:opacity-90 focus:opacity-100 [@media(hover:none)]:opacity-60"}`}
           style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
           onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); setDragging(true); }}
           onPointerMove={(e) => dragging && move(e)}

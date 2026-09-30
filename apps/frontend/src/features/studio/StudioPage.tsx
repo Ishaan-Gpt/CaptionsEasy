@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PlayerRef } from "@remotion/player";
 import { computePages } from "@capseasy/compositions";
-import { EMOJI_FONT, getTemplate, loadFontFamily } from "@capseasy/templates";
-import { emojiFor, insertWordAfter, mergeWithPrevious, retimeRun, setEmphasis, setHidden, setWordEmoji, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
-import { EyeOff, Redo2, Smile, Star, Undo2 } from "lucide-react";
+import { getTemplate, loadFontFamily } from "@capseasy/templates";
+import { insertWordAfter, mergeWithPrevious, retimeRun, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import { EyeOff, Redo2, Star, Undo2 } from "lucide-react";
 import { authService } from "@/services/auth";
 import { ApiError } from "@/services/api-client";
 import { Button } from "./controls";
@@ -41,8 +41,8 @@ const SAVE_LABEL: Record<SaveState, { text: string; dot: string }> = {
   saved: { text: "Saved", dot: "bg-st-em" },
   dirty: { text: "Unsaved", dot: "bg-st-or" },
   saving: { text: "Saving…", dot: "bg-st-or animate-pulse" },
-  offline: { text: "Offline · retrying", dot: "bg-red-400" },
-  conflict: { text: "Conflict", dot: "bg-red-400" },
+  offline: { text: "Offline · retrying", dot: "bg-orange-accent" },
+  conflict: { text: "Conflict", dot: "bg-orange-accent" },
 };
 
 /** Tracks the lg breakpoint so only ONE editor layout (and one Player) is mounted at a time. */
@@ -67,6 +67,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const [sideTab, setSideTab] = useState<SideTab>("style");
   const [mobileTab, setMobileTab] = useState<MobileTab>("captions");
   const [timeMs, setTimeMs] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -86,7 +87,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const durationMs = video?.durationMs || (doc ? Math.max(0, ...doc.words.map((w) => w.endMs)) + 500 : 10000);
 
   // load the fonts the style needs before measuring text (same requirement as the render)
-  const fontKey = style ? [style.fontId, style.hero.fontId ?? "", ...getTemplate(style.templateId).fonts, style.emoji.enabled ? EMOJI_FONT : ""].join("|") : "";
+  const fontKey = style ? [style.fontId, style.hero.fontId ?? "", ...getTemplate(style.templateId).fonts].join("|") : "";
   useEffect(() => {
     if (!fontKey) return;
     let alive = true;
@@ -131,7 +132,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     router.replace(`/login?redirect=${encodeURIComponent(`/projects/${projectId}`)}`);
     return <FullScreen>Signing in…</FullScreen>;
   }
-  if (!data) return <FullScreen>This project could not be found. <Link className="ml-2 text-st-lav underline" href="/dashboard">Back to projects</Link></FullScreen>;
+  if (!data) return <FullScreen>This project could not be found. <Link className="ml-2 font-semibold text-st-text underline decoration-st-or decoration-2 underline-offset-4" href="/dashboard">Back to projects</Link></FullScreen>;
 
   const hasEditor = Boolean(doc && style && input);
   const noVideoYet = !video || video.status === "uploading";
@@ -139,10 +140,10 @@ export default function StudioPage({ projectId }: { projectId: string }) {
 
   // ---------- building blocks shared by both layouts
   const header = (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-st-line bg-st-bg/95 px-3 backdrop-blur sm:px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-st-line bg-st-panel px-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <Link href="/dashboard" aria-label="Back to projects" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-st-muted transition hover:bg-st-raised hover:text-st-text">←</Link>
-        <span className="hidden font-display text-[15px] font-bold sm:inline">Captions<em className="font-medium italic text-st-lav">Easy</em></span>
+        <span className="hidden font-display text-[15px] font-bold sm:inline">Captions<em className="font-medium italic text-st-muted">Easy</em></span>
         <span className="hidden h-5 w-px bg-st-line sm:block" />
         {editingTitle ? (
           <input
@@ -151,10 +152,10 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => { setEditingTitle(false); if (title.trim() && title !== data.project.title) void s.rename(title.trim()); }}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingTitle(false); }}
-            className="min-w-0 rounded-lg border border-st-lav bg-st-raised px-2 py-1 text-sm outline-none"
+            className="min-w-0 rounded-lg border border-st-ink/40 bg-st-panel px-2 py-1 text-sm outline-none"
           />
         ) : (
-          <button onClick={() => { setTitle(data.project.title); setEditingTitle(true); }} className="truncate text-sm font-semibold transition hover:text-st-lav" title="Rename">{data.project.title || "Untitled project"}</button>
+          <button onClick={() => { setTitle(data.project.title); setEditingTitle(true); }} className="truncate rounded-md px-1.5 py-0.5 text-sm font-semibold transition hover:bg-st-raised" title="Rename">{data.project.title || "Untitled project"}</button>
         )}
         {hasEditor ? (
           <span className="hidden items-center gap-1.5 text-xs text-st-muted md:inline-flex" aria-live="polite">
@@ -169,7 +170,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             <Button onClick={s.redo} disabled={!s.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo" className="!px-2.5">↷</Button>
           </>
         ) : null}
-        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs xl:inline-flex ${data.companionOnline ? "border-st-em/30 bg-st-em/10 text-st-em" : "border-st-line text-st-muted"}`} title={data.companionOnline ? "Your computer is connected" : "No computer connected"}>
+        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs xl:inline-flex ${data.companionOnline ? "border-st-em/60 bg-st-em/15 text-st-text" : "border-st-line text-st-muted"}`} title={data.companionOnline ? "Your computer is connected" : "No computer connected"}>
           <span className={`h-1.5 w-1.5 rounded-full ${data.companionOnline ? "bg-st-em" : "bg-st-faint"}`} />
           {data.companionOnline ? "Computer connected" : "Computer offline"}
         </span>
@@ -189,6 +190,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       position={style.position}
       onMovePosition={(p) => s.patchStyle((st) => ({ ...st, position: p }))}
       onTime={setTimeMs}
+      onPlayingChange={setPlaying}
     />
   ) : null;
 
@@ -202,10 +204,9 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} pairedComputers={data.pairedComputers ?? []} canTranscribe={data.canTranscribe} cloudAvailable={data.cloudAvailable} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} />
   ));
 
-  const ensureEmoji = () => s.patchStyle((st) => (st.emoji.enabled ? st : { ...st, emoji: { ...st.emoji, enabled: true } }));
   const heroSupported = style ? getTemplate(style.templateId).layout !== "typewriter" : true;
   const captions = doc && style ? (
-    <CaptionsPanel doc={doc} pages={pages} currentPageId={currentPage?.id ?? null} selectedId={selectedId} onSelect={setSelectedId} onSeek={seek} edit={s.edit} onEmojiAdded={ensureEmoji} heroSupported={heroSupported} />
+    <CaptionsPanel doc={doc} pages={pages} currentPageId={currentPage?.id ?? null} timeMs={timeMs} selectedId={selectedId} onSelect={setSelectedId} onSeek={seek} edit={s.edit} heroSupported={heroSupported} />
   ) : null;
 
   const sidePanel = (t: SideTab) =>
@@ -224,7 +225,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       title={label}
       aria-label={label}
       aria-pressed={opts.active}
-      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav/20 text-st-lav" : "text-st-text/85 hover:bg-st-hover"}`}
+      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
     >
       {icon}
     </button>
@@ -234,7 +235,6 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const extraTools = (
     <>
       {tool(selected?.emphasis === "hero" ? "Key word (click to unset)" : "Make key word", <Star className={ic} />, () => selected && s.edit((d) => setEmphasis(d, selected.id, selected.emphasis === "hero" ? "none" : "hero")), { disabled: none || !heroSupported, active: selected?.emphasis === "hero" })}
-      {tool(selected?.emoji ? "Remove emoji" : "Add emoji", <Smile className={ic} />, () => { if (!selected) return; s.edit((d) => setWordEmoji(d, selected.id, selected.emoji ? null : { char: emojiFor(selected.text) ?? "✨", position: "above" })); if (!selected.emoji) ensureEmoji(); }, { disabled: none, active: Boolean(selected?.emoji) })}
       {tool("Hide word", <EyeOff className={ic} />, () => { if (!selected) return; s.edit((d) => setHidden(d, selected.id, true)); setSelectedId(null); }, { disabled: none })}
       {tool("Undo", <Undo2 className={ic} />, s.undo, { disabled: !s.canUndo })}
       {tool("Redo", <Redo2 className={ic} />, s.redo, { disabled: !s.canRedo })}
@@ -265,8 +265,12 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       words={doc.words}
       durationMs={durationMs}
       timeMs={timeMs}
+      playing={playing}
       selectedId={selectedId}
       peaks={wave.peaks}
+      videoUrl={video?.url ?? null}
+      videoId={video?.id ?? null}
+      videoAspect={width / height}
       waveState={wave.state}
       onSeek={seek}
       onSelect={setSelectedId}
@@ -285,7 +289,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     <>
       {showExport ? <ExportModal projectId={projectId} video={{ width, height, durationMs }} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
       {s.conflict ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">
           <div role="alertdialog" aria-label="Editing conflict" className="st-rise w-full max-w-md rounded-2xl border border-st-line bg-st-panel p-6">
             <h2 className="font-display text-lg font-bold">This project changed somewhere else</h2>
             <p className="mt-2 text-sm text-st-muted">You may have it open in another tab or window. Which version do you want to keep?</p>
@@ -314,7 +318,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     <aside aria-label="Properties" className="row-span-2 flex min-h-0 flex-col border-l border-st-line bg-st-panel">
       <nav className="flex shrink-0 gap-1 border-b border-st-line p-2" role="tablist">
         {SIDE_TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={sideTab === t.id} onClick={() => setSideTab(t.id)} className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sideTab === t.id ? "bg-st-raised text-st-text shadow-[inset_0_-2px_0_var(--color-st-lav)]" : "text-st-muted hover:text-st-text"}`}>{t.label}</button>
+          <button key={t.id} role="tab" aria-selected={sideTab === t.id} onClick={() => setSideTab(t.id)} className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sideTab === t.id ? "bg-st-lav text-st-ink" : "text-st-muted hover:bg-st-raised hover:text-st-text"}`}>{t.label}</button>
         ))}
       </nav>
       <div key={sideTab} className="st-rise min-h-0 flex-1">{sidePanel(sideTab)}</div>
@@ -335,7 +339,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
         {header}
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(380px,1fr)_auto_minmax(320px,24vw)] grid-rows-[minmax(0,42%)_minmax(0,1fr)]">
           {captionsSection}
-          <section aria-label="Preview" className="row-span-2 h-full min-h-0 bg-[radial-gradient(ellipse_at_center,#1d1d1a,#11110f_70%)]" style={{ aspectRatio: `${width} / ${height}`, maxWidth: "46vw" }}>{stage}</section>
+          <section aria-label="Preview" className="row-span-2 h-full min-h-0 bg-st-bg" style={{ aspectRatio: `${width} / ${height}`, maxWidth: "46vw" }}>{stage}</section>
           {properties}
           <section aria-label="Timeline section" className="min-h-0 border-r border-st-line">{timeline}</section>
         </div>
@@ -351,7 +355,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
         {header}
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,24vw)_minmax(0,1fr)_minmax(320px,23vw)] grid-rows-[minmax(0,1fr)_minmax(250px,38%)]">
           {captionsSection}
-          <section aria-label="Preview" className="min-h-0 border-b border-st-line bg-[radial-gradient(ellipse_at_center,#1d1d1a,#11110f_70%)]">{stage}</section>
+          <section aria-label="Preview" className="min-h-0 border-b border-st-line bg-st-bg">{stage}</section>
           {properties}
           <section aria-label="Timeline section" className="col-span-2 min-h-0">{timeline}</section>
         </div>
@@ -364,14 +368,14 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   return (
     <div className="studio flex h-[100dvh] flex-col">
       {header}
-      <section aria-label="Preview" className="h-[40dvh] min-h-[220px] shrink-0 border-b border-st-line bg-[radial-gradient(ellipse_at_center,#1d1d1a,#11110f_70%)]">{stage}</section>
+      <section aria-label="Preview" className="h-[40dvh] min-h-[220px] shrink-0 border-b border-st-line bg-st-bg">{stage}</section>
       <div key={mobileTab} className="st-rise min-h-0 flex-1 bg-st-panel">
         {mobileTab === "captions" ? captions : mobileTab === "timeline" ? timeline : sidePanel(mobileTab)}
       </div>
-      <nav className="grid shrink-0 grid-cols-5 border-t border-st-line bg-st-bg pb-[env(safe-area-inset-bottom)]" role="tablist" aria-label="Editor sections">
+      <nav className="grid shrink-0 grid-cols-5 border-t border-st-line bg-st-panel pb-[env(safe-area-inset-bottom)]" role="tablist" aria-label="Editor sections">
         {MOBILE_TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={mobileTab === t.id} onClick={() => setMobileTab(t.id)} className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${mobileTab === t.id ? "text-st-lav" : "text-st-muted"}`}>
-            <span className="text-base leading-none" aria-hidden>{t.icon}</span>
+          <button key={t.id} role="tab" aria-selected={mobileTab === t.id} onClick={() => setMobileTab(t.id)} className={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${mobileTab === t.id ? "text-st-ink" : "text-st-muted"}`}>
+            <span className={`grid h-6 min-w-10 place-items-center rounded-full px-2 text-base leading-none ${mobileTab === t.id ? "bg-st-lav" : ""}`} aria-hidden>{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -388,7 +392,7 @@ const PanelTitle: React.FC<{ title: string; hint?: string }> = ({ title, hint })
   </div>
 );
 
-const Spinner = () => <span className="mr-3 inline-block h-5 w-5 animate-spin rounded-full border-2 border-st-line border-t-st-lav" />;
+const Spinner = () => <span className="mr-3 inline-block h-5 w-5 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />;
 
 const FullScreen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="studio flex h-[100dvh] items-center justify-center text-st-muted">{children}</div>

@@ -19,31 +19,38 @@
   --color-dune-white: #FFFFEB;
   --color-ink: #1A1A1A;
 
-  /* Warm neutral scale (used by dashboard, settings, auth, pair pages) */
-  --color-sand-50: #FAFAE6;
-  --color-sand-100: #F2F2DC;
-  --color-sand-200: #E4E4D0;
-  --color-sand-300: #CFCFB8;
-  --color-sand-400: #AFAF98;
-  --color-sand-500: #8C8C77;
-  --color-sand-600: #6B6B5A;
-  --color-sand-700: #4E4E42;
-  --color-sand-800: #33332C;
-  --color-sand-900: #1F1F1A;
+  /* Everything below is derived ONLY from the six colours above: cream, lavender, emerald, orange,
+     obsidian, beige (and mixes of cream/beige with obsidian). Pure white is remapped to cream so
+     stray `bg-white` / `text-white` classes stay on-palette. */
+  --color-white: #FFFFEB;
 
-  /* Studio (editor) palette: the landing page's obsidian sections, cream type, lavender + emerald accents */
-  --color-st-bg: #11110F;
-  --color-st-panel: #181816;
-  --color-st-raised: #21211E;
-  --color-st-hover: #2A2A26;
-  --color-st-line: #2F2F2A;
-  --color-st-text: #FFFFEB;
-  --color-st-muted: #A9A993;
-  --color-st-faint: #6F6F60;
+  /* Warm neutral scale (cream -> beige -> obsidian), used by dashboard, settings, auth, pair pages */
+  --color-sand-50: #FFFFEB;
+  --color-sand-100: #F4F4E0;
+  --color-sand-200: #E4E4D0;
+  --color-sand-300: #D2D2BF;
+  --color-sand-400: #A9A99C;
+  --color-sand-500: #8C8C83;
+  --color-sand-600: #6E6E67;
+  --color-sand-700: #4C4C47;
+  --color-sand-800: #33332F;
+  --color-sand-900: #1A1A1A;
+
+  /* Studio (editor) palette: LIGHT. Cream panels on a beige-tinted stage, obsidian type, lavender selection,
+     orange for "now" (the spoken word / live caption), emerald for on / success. */
+  --color-st-bg: #F4F4E0;
+  --color-st-panel: #FFFFEB;
+  --color-st-raised: #F4F4E0;
+  --color-st-hover: #E4E4D0;
+  --color-st-line: #E4E4D0;
+  --color-st-text: #1A1A1A;
+  --color-st-muted: #5F5F59;
+  --color-st-faint: #8C8C83;
   --color-st-lav: #F0D7FF;
-  --color-st-lav-strong: #E2BBFF;
+  --color-st-lav-strong: #E3CCF1;
   --color-st-em: #34D399;
   --color-st-or: #FFA946;
+  --color-st-ink: #1A1A1A;
 
   /* Elevation + motion tokens used across dashboard/auth/landing */
   --shadow-sand-soft: 0 1px 2px rgba(31, 31, 26, 0.04), 0 8px 24px -12px rgba(31, 31, 26, 0.18);
@@ -195,7 +202,7 @@ html.lenis, html.lenis body {
 @keyframes subtle-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes caption-pop { 0% { opacity: 0; transform: scale(0.85); } 100% { opacity: 1; transform: scale(1); } }
 
-/* ---------- Studio (dark editor) ---------- */
+/* ---------- Studio (light editor) ---------- */
 .studio {
   background: var(--color-st-bg);
   color: var(--color-st-text);
@@ -203,9 +210,10 @@ html.lenis, html.lenis body {
 }
 .studio ::-webkit-scrollbar { width: 8px; height: 8px; }
 .studio ::-webkit-scrollbar-track { background: transparent; }
-.studio ::-webkit-scrollbar-thumb { background: #34342E; border: 2px solid var(--color-st-bg); border-radius: 8px; }
-.studio ::-webkit-scrollbar-thumb:hover { background: #4A4A42; }
+.studio ::-webkit-scrollbar-thumb { background: #E4E4D0; border: 2px solid var(--color-st-panel); border-radius: 8px; }
+.studio ::-webkit-scrollbar-thumb:hover { background: #D2D2BF; }
 .studio input[type="range"] { accent-color: var(--color-st-em); }
+.studio select option { background: var(--color-st-panel); color: var(--color-st-text); }
 .studio .font-display { font-family: var(--font-styled-sys), sans-serif; letter-spacing: -0.01em; }
 
 /* soft entrance for panels (UI chrome only; never used inside rendered captions) */

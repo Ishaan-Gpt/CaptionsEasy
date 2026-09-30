@@ -2,7 +2,7 @@
 
 import React from "react";
 
-/** Small dark-theme form primitives shared by the studio panels. */
+/** Small light-theme form primitives shared by the studio panels. */
 
 export const Section: React.FC<{ title: string; children: React.ReactNode; hint?: string }> = ({ title, children, hint }) => (
   <section className="border-b border-st-line px-4 py-4">
@@ -37,9 +37,9 @@ export const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: b
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-st-em" : "bg-st-hover"}`}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-st-em" : "bg-st-hover ring-1 ring-inset ring-st-ink/10"}`}
     >
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-st-panel shadow-sm transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
     </button>
   </label>
 );
@@ -50,7 +50,7 @@ export const Select: React.FC<{ label: string; value: string; options: { value: 
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="max-w-[55%] rounded-md border border-st-line bg-st-raised px-2 py-1 text-sm text-st-text outline-none focus:border-st-lav"
+      className="max-w-[55%] rounded-md border border-st-line bg-st-panel px-2 py-1 text-sm text-st-text outline-none focus:border-st-lav"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -71,7 +71,7 @@ export const ColorField: React.FC<{ label: string; value: string; onChange: (v: 
           value={value}
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}
-          className="w-24 rounded-md border border-st-line bg-st-raised px-2 py-1 font-mono text-xs text-st-text outline-none focus:border-st-lav"
+          className="w-24 rounded-md border border-st-line bg-st-panel px-2 py-1 font-mono text-xs text-st-text outline-none focus:border-st-lav"
         />
         <input type="color" value={hex} onChange={(e) => onChange(e.target.value.toUpperCase())} className="h-7 w-7 cursor-pointer rounded border border-st-line bg-transparent p-0" />
       </span>
@@ -83,13 +83,13 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   <button
     {...p}
     className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-      tone === "primary" ? "bg-st-lav text-obsidian hover:bg-st-lav-strong" : tone === "danger" ? "bg-red-500/15 text-red-300 hover:bg-red-500/25" : "bg-st-raised text-st-text hover:bg-st-hover"
+      tone === "primary" ? "bg-st-ink text-st-panel hover:bg-st-ink/85" : tone === "danger" ? "bg-st-or/25 text-st-text hover:bg-st-or/45" : "border border-st-line bg-st-panel text-st-text hover:bg-st-hover"
     } ${className}`}
   />
 );
 
 export const Segmented: React.FC<{ value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }> = ({ value, options, onChange }) => (
-  <div className="inline-flex rounded-lg bg-st-raised p-0.5">
+  <div className="inline-flex rounded-lg border border-st-line bg-st-raised p-0.5">
     {options.map((o) => (
       <button
         key={o.value}

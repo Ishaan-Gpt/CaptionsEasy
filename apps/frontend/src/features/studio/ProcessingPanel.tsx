@@ -36,7 +36,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
       <Center>
         <div className="mb-2 text-3xl">⚠️</div>
         <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{job.error_message ?? "The job failed."}</p>
+        <p className="mt-2 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{job.error_message ?? "The job failed."}</p>
         <div className="mt-5 flex justify-center gap-2">
           <Button tone="primary" disabled={busy} onClick={() => act(() => studioService.retryJob(job.id))}>Try again</Button>
           <Button onClick={onReplaceVideo}>Upload a different video</Button>
@@ -60,7 +60,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
             {!isPhone ? (
               <div className="mt-4 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
                 <p className="text-st-text/80">If it doesn&apos;t connect on its own, run this once in a terminal on that computer:</p>
-                <code className="mt-2 block rounded bg-black/40 px-2 py-1.5 text-st-lav">capseasy start</code>
+                <code className="mt-2 block rounded bg-st-raised px-2 py-1.5 text-st-text">capseasy start</code>
               </div>
             ) : (
               <p className="mt-4 rounded-xl bg-st-raised/70 p-4 text-sm text-st-text/80">
@@ -92,7 +92,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
           </>
         )}
         <div className="mt-5 flex justify-center gap-2">
-          {!returning && !isPhone ? <Link href="/settings" className="rounded-lg bg-st-lav px-4 py-2 text-sm font-semibold text-obsidian hover:bg-st-lav-strong">Set up Companion</Link> : null}
+          {!returning && !isPhone ? <Link href="/settings" className="rounded-lg bg-st-ink px-4 py-2 text-sm font-semibold text-st-panel hover:bg-st-ink/85">Set up Companion</Link> : null}
           <Button disabled={busy} onClick={() => act(() => studioService.cancelJob(job.id))}>Cancel</Button>
         </div>
         {cloudAvailable && !isPhone ? (
@@ -110,7 +110,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     const pct = Math.max(2, Math.min(100, job.progress ?? 0));
     return (
       <Center>
-        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-lav" />
+        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
         <h2 className="text-lg font-semibold">{job.status === "queued" ? "Starting…" : job.stage ?? "Working…"}</h2>
         <p className="mt-1 text-sm text-st-muted">
           {job.kind === "transcribe" ? "Listening to your video and writing the captions." : "This can take a moment."}

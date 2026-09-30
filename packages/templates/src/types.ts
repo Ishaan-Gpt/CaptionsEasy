@@ -77,5 +77,7 @@ export interface LookDefinition {
   templateId: string;
   style: CaptionStyleV2;
   settings: Partial<ProjectSettings>;
+  /** short traits shown under the gallery preview ("Caps", "Box highlight") */
+  tags?: string[];
   legacy?: boolean;
 }
