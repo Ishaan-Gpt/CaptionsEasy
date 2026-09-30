@@ -3,6 +3,7 @@ import { ACTIVE_EFFECTS, ENTRANCES } from "@capseasy/shared";
 import { SentenceLayout } from "./layouts/Sentence";
 import { Stack3Layout } from "./layouts/Stack3";
 import { WordLayout } from "./layouts/Word";
+import { BarLayout, BubbleLayout, HighlighterLayout, KaraokeLayout, KineticLayout, TypewriterLayout } from "./layouts/Extra";
 import type { PageRenderProps, TemplateCapabilities, TemplateDefinition } from "./types";
 
 const ALL_EFFECTS = ACTIVE_EFFECTS;
@@ -68,6 +69,49 @@ export const TEMPLATES: TemplateDefinition[] = [
     defaults: { fontId: "Cinzel", fontWeight: 800, fontSize: 48, active: { effect: "none", color: "#FFFFFF", scale: 1.0, boxRadius: 12 } },
     settingsDefaults: { maxWordsPerCard: 5 },
     capabilities: caps({ hero: false, activeEffects: ["none", "color"] }), fonts: ["Cinzel"], Page: SentenceLayout,
+  },
+  {
+    id: "karaoke", name: "Karaoke", description: "Whole line visible; each word fills with colour as it's spoken", layout: "karaoke",
+    defaults: { fontId: "Poppins", fontWeight: 800, fontSize: 56, inactiveOpacity: 1, active: { effect: "fill-sweep", color: "#FFD400", scale: 1, boxRadius: 12 }, stroke: { enabled: true, width: 3, color: "#000000" } },
+    settingsDefaults: { maxWordsPerCard: 5 },
+    capabilities: caps({ hero: false, activeEffects: ["fill-sweep"] }), fonts: ["Poppins"], Page: KaraokeLayout,
+  },
+  {
+    id: "boxed_word", name: "Boxed Word", description: "Full line; a solid box jumps to the word being spoken", layout: "sentence",
+    defaults: { fontId: "Montserrat", fontWeight: 900, fontSize: 56, casing: "upper", templateOptions: { reveal: "all" }, active: { effect: "box", color: "#000000", boxColor: "#22C55E", scale: 1.06, boxRadius: 14 } },
+    settingsDefaults: { maxWordsPerCard: 3 },
+    capabilities: caps({ activeEffects: ["box", "pop", "color", "none"] }), fonts: ["Montserrat"], Page: SentenceLayout,
+    emotionMap: { hype: { effect: "box", scale: 1.15 }, angry: { effect: "box" } },
+  },
+  {
+    id: "typewriter", name: "Typewriter", description: "Letters type out as they're spoken, with a blinking cursor", layout: "typewriter",
+    defaults: { fontId: "JetBrains Mono", fontWeight: 700, fontSize: 50, align: "left", entrance: { type: "none", durationMs: 0, stagger: "none", easing: "linear" }, active: { effect: "none", color: "#00FF66", scale: 1, boxRadius: 12 } },
+    settingsDefaults: { maxWordsPerCard: 6, maxLines: 2 },
+    capabilities: caps({ hero: false, activeEffects: ["none"], entrances: ["none"] }), fonts: ["JetBrains Mono"], Page: TypewriterLayout,
+  },
+  {
+    id: "subtitle_bar", name: "Subtitle Bar", description: "Classic readable subtitles on a translucent bar", layout: "bar",
+    defaults: { fontId: "Inter", fontWeight: 600, fontSize: 44, maxWidth: 0.9, position: { x: 0.5, y: 0.86 }, active: { effect: "none", color: "#FFFFFF", scale: 1, boxRadius: 12 }, background: { type: "bar", color: "#000000", opacity: 0.6, padding: 18, radius: 10, blur: 0 }, entrance: { type: "fade", durationMs: 120, stagger: "none", easing: "outCubic" } },
+    settingsDefaults: { maxWordsPerCard: 10, maxLines: 2, maxCharsPerLine: 42 },
+    capabilities: caps({ hero: false, activeEffects: ["none", "color", "underline"] }), fonts: ["Inter"], Page: BarLayout,
+  },
+  {
+    id: "chat_bubble", name: "Chat Bubble", description: "Messages pop in as chat bubbles, alternating sides", layout: "bubble",
+    defaults: { fontId: "Inter", fontWeight: 600, fontSize: 48, active: { effect: "color", color: "#FFFFFF", scale: 1, boxRadius: 12 }, background: { type: "bubble", color: "#0A84FF", opacity: 1, padding: 22, radius: 34, blur: 0 } },
+    settingsDefaults: { maxWordsPerCard: 7, maxLines: 3 },
+    capabilities: caps({ hero: false, alignment: false, activeEffects: ["none", "color", "underline"] }), fonts: ["Inter"], Page: BubbleLayout,
+  },
+  {
+    id: "highlighter", name: "Highlighter", description: "A marker swipes behind the spoken word and stays on the key word", layout: "highlighter",
+    defaults: { fontId: "Lexend", fontWeight: 700, fontSize: 52, fill: { type: "solid", color: "#111111" }, inactiveOpacity: 0.35, active: { effect: "marker", color: "#FDE047", scale: 1, boxRadius: 12 }, background: { type: "box", color: "#FFFFFF", opacity: 0.95, padding: 18, radius: 14, blur: 0 } },
+    settingsDefaults: { maxWordsPerCard: 5 },
+    capabilities: caps({ activeEffects: ["marker"] }), fonts: ["Lexend"], Page: HighlighterLayout,
+  },
+  {
+    id: "kinetic", name: "Kinetic", description: "Stacked words at different sizes; the key word huge and tilted", layout: "kinetic",
+    defaults: { fontId: "Inter", fontWeight: 800, fontSize: 60, casing: "upper", hero: { fontId: "Anton", fontWeight: 900, scale: 1.8, rotate: -5 }, active: { effect: "pop", color: "#FFD400", scale: 1.1, boxRadius: 12 } },
+    settingsDefaults: { maxWordsPerCard: 5 },
+    capabilities: caps({ alignment: false, activeEffects: ["pop"] }), fonts: ["Inter", "Anton"], Page: KineticLayout,
   },
 ];
 

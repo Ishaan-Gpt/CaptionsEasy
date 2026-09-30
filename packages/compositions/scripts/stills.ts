@@ -19,17 +19,18 @@ const only = arg("only");
 const timeMs = Number(arg("time", "1300"));
 const filter = arg("filter");
 
-const TEXT = "Stop scrolling and watch this incredible trick right now".split(" ");
+const TEXT = "Stop scrolling and watch this incredible money trick right now".split(" ");
 const doc = CaptionDocSchema.parse({
   version: 2,
   language: "en",
-  words: TEXT.map((t, i) => ({ id: `w${i}`, text: t, startMs: i * 380, endMs: i * 380 + 360 })),
+  words: TEXT.map((t, i) => ({ id: `w${i}`, text: t, startMs: i * 380, endMs: i * 380 + 360, ...(t === "money" ? { emoji: { char: "💰", position: "above" } } : {}) })),
 });
 
 type Job = { label: string; style: CaptionStyleV2; settings: Record<string, unknown> };
 const jobs: Job[] = [];
+const onlyNew = arg("new") !== undefined || process.argv.includes("--new");
 if (only !== "looks") for (const t of TEMPLATES) jobs.push({ label: `tpl_${t.id}`, style: resolveStyle({ templateId: t.id }), settings: t.settingsDefaults });
-if (only !== "templates") for (const l of LOOKS) jobs.push({ label: `look_${l.id}`, style: resolveStyle(l.style), settings: l.settings });
+if (only !== "templates") for (const l of LOOKS.filter((x) => !onlyNew || !x.legacy)) jobs.push({ label: `look_${l.id}`, style: resolveStyle(l.style), settings: l.settings });
 const selected = filter ? jobs.filter((j) => j.label.includes(filter)) : jobs;
 
 mkdirSync(outDir, { recursive: true });

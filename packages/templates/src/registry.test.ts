@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { CaptionStyleSchema } from "@capseasy/shared";
-import { FALLBACK_TEMPLATE, LOOKS, TEMPLATE_IDS, applyLook, deepMerge, getLook, getTemplate, lookCategories, resolveStyle } from "./index";
+import { KNOWN_FONTS, FALLBACK_TEMPLATE, LOOKS, TEMPLATE_IDS, applyLook, deepMerge, getLook, getTemplate, lookCategories, resolveStyle } from "./index";
 
 describe("template registry", () => {
   it("ships the 8 legacy templates", () => {
-    expect(TEMPLATE_IDS).toEqual(["staggered_3line", "glow_stack", "cartoon_stack", "serif_pop", "cinematic_emerald", "word_by_word", "sentence_highlight", "sentence_clean"]);
+    expect(TEMPLATE_IDS).toEqual(["staggered_3line", "glow_stack", "cartoon_stack", "serif_pop", "cinematic_emerald", "word_by_word", "sentence_highlight", "sentence_clean", "karaoke", "boxed_word", "typewriter", "subtitle_bar", "chat_bubble", "highlighter", "kinetic"]);
   });
 
   it("every template resolves to a fully valid style", () => {
@@ -22,9 +22,12 @@ describe("template registry", () => {
     warn.mockRestore();
   });
 
-  it("carries all 25 legacy looks, each pointing at a real template", () => {
-    expect(LOOKS).toHaveLength(25);
-    expect(new Set(LOOKS.map((l) => l.id)).size).toBe(25);
+  it("carries 25 legacy + 32 new looks, each pointing at a real template, all valid", () => {
+    expect(LOOKS.filter((l) => l.legacy)).toHaveLength(25);
+    expect(LOOKS.filter((l) => !l.legacy)).toHaveLength(32);
+    expect(new Set(LOOKS.map((l) => l.id)).size).toBe(57);
+    for (const l of LOOKS) expect(CaptionStyleSchema.safeParse(l.style).success).toBe(true);
+    for (const l of LOOKS) expect(KNOWN_FONTS).toContain(l.style.fontId);
     for (const l of LOOKS) expect(TEMPLATE_IDS).toContain(l.templateId);
     expect(lookCategories().length).toBeGreaterThan(4);
   });
@@ -51,5 +54,25 @@ describe("template registry", () => {
     expect(s.fontSize).toBe(99);
     expect(s.active.color).toBe("#123456");
     expect(s.active.effect).toBe("pop");
+  });
+});
+
+describe("emotion styling", () => {
+  it("swaps motion at default reactivity, colour only when turned up", async () => {
+    const { applyEmotion, getTemplate, resolveStyle } = await import("./index");
+    const tpl = getTemplate("sentence_highlight");
+    const base = resolveStyle({ templateId: "sentence_highlight", active: { effect: "pop", color: "#FFFFFF", scale: 1.1, boxRadius: 12 } });
+    expect(applyEmotion(base, tpl, "neutral")).toBe(base);
+    const angry = applyEmotion(base, tpl, "angry");
+    expect(angry.active.effect).toBe("shake");
+    expect(angry.active.color).toBe("#FFFFFF");
+    const hot = applyEmotion({ ...base, emotionReactivity: 1 }, tpl, "angry");
+    expect(hot.active.color).toBe("#FF3B3B");
+    expect(applyEmotion({ ...base, emotionReactivity: 0 }, tpl, "angry")).toEqual({ ...base, emotionReactivity: 0 });
+    const calm = resolveStyle({ templateId: "sentence_clean" });
+    expect(applyEmotion(calm, getTemplate("sentence_clean"), "angry").active.effect).toBe("none");
+    // a look's signature effect is never replaced (regression: Storytime lost its box on 'excited' cards)
+    const boxed = resolveStyle({ templateId: "boxed_word" });
+    expect(applyEmotion(boxed, getTemplate("boxed_word"), "excited").active.effect).toBe("box");
   });
 });

@@ -89,6 +89,16 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
         <Slider label="Rotation" value={style.rotation} min={-15} max={15} step={0.5} unit="°" onChange={(v) => patch((s) => ({ ...s, rotation: v }))} />
       </Section>
 
+      <Section title="Emoji" hint="Emoji pop above the caption when their word is spoken. Add them from the Captions tab.">
+        <Toggle label="Show emoji" checked={style.emoji.enabled} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, enabled: v } }))} />
+        {style.emoji.enabled ? (
+          <>
+            <Slider label="Emoji size" value={style.emoji.size} min={0.5} max={3} step={0.1} unit="×" onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, size: v } }))} />
+            <Select label="Animation" value={style.emoji.animation} options={opts(["pop", "float", "spin", "none"])} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, animation: v as CaptionStyleV2["emoji"]["animation"] } }))} />
+          </>
+        ) : null}
+      </Section>
+
       <Section title="Motion">
         <Select label="Entrance" value={style.entrance.type} options={opts(entrances)} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, type: v as CaptionStyleV2["entrance"]["type"] } }))} />
         <Select label="Exit" value={style.exit.type} options={opts(["none", "fade", "fall", "zoom-out", "blur-out", "slide-up"])} onChange={(v) => patch((s) => ({ ...s, exit: { ...s.exit, type: v as CaptionStyleV2["exit"]["type"] } }))} />

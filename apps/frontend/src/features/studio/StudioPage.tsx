@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PlayerRef } from "@remotion/player";
 import { computePages } from "@capseasy/compositions";
-import { getTemplate, loadFontFamily } from "@capseasy/templates";
+import { EMOJI_FONT, getTemplate, loadFontFamily } from "@capseasy/templates";
 import { authService } from "@/services/auth";
 import { ApiError } from "@/services/api-client";
 import { Button } from "./controls";
@@ -61,7 +61,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const durationMs = video?.durationMs || (doc ? Math.max(0, ...doc.words.map((w) => w.endMs)) + 500 : 10000);
 
   // load the fonts the style needs before measuring text (same requirement as the render)
-  const fontKey = style ? [style.fontId, style.hero.fontId ?? "", ...getTemplate(style.templateId).fonts].join("|") : "";
+  const fontKey = style ? [style.fontId, style.hero.fontId ?? "", ...getTemplate(style.templateId).fonts, style.emoji.enabled ? EMOJI_FONT : ""].join("|") : "";
   useEffect(() => {
     if (!fontKey) return;
     let alive = true;

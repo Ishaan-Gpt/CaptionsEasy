@@ -19,11 +19,13 @@ export interface WordSpanProps {
   effect?: CaptionStyleV2["active"]["effect"] | null;
   /** "progressive" (legacy): words appear when spoken. "all": every word is visible, inactive dimmed. */
   reveal?: "progressive" | "all";
+  /** karaoke: colour of words that have already been spoken */
+  pastColor?: string;
 }
 
 /** One spoken word: reveals on its beat and carries the active-word effect while it is being said. */
 export const WordSpan: React.FC<WordSpanProps> = ({
-  word, display, timeMs, style, canvas, intensity, baseCss, trailingSpace, settled, effect, reveal = "progressive",
+  word, display, timeMs, style, canvas, intensity, baseCss, trailingSpace, settled, effect, reveal = "progressive", pastColor,
 }) => {
   const sc = scaleOf(canvas);
   const spoken = timeMs >= word.startMs;
@@ -41,6 +43,8 @@ export const WordSpan: React.FC<WordSpanProps> = ({
   if (word.color) Object.assign(css, { color: word.color, WebkitTextFillColor: word.color, backgroundImage: "none" });
   else if (word.emphasis === "strong" || word.emphasis === "hero") Object.assign(css, { color: style.active.color, WebkitTextFillColor: style.active.color, backgroundImage: "none" });
 
+  if (pastColor && timeMs >= word.endMs) Object.assign(css, { color: pastColor, WebkitTextFillColor: pastColor, backgroundImage: "none", opacity: 1 });
+
   let behind: React.ReactNode = null;
   let bar: React.ReactNode = null;
   const eff = effect === undefined ? style.active.effect : effect;
@@ -53,10 +57,17 @@ export const WordSpan: React.FC<WordSpanProps> = ({
     if (res.bar) bar = <span style={{ position: "absolute", pointerEvents: "none", ...res.bar.css }} />;
   }
 
+  const showEmoji = style.emoji.enabled && word.emoji && (word.emoji.position === "before" || word.emoji.position === "after");
+  const emo = showEmoji ? <span style={{ fontFamily: "'Noto Color Emoji', sans-serif", WebkitTextStroke: "0px transparent", WebkitTextFillColor: "initial", color: "initial", backgroundImage: "none" }}>{word.emoji!.char}</span> : null;
+  const emojiBefore = word.emoji?.position === "before" ? emo : null;
+  const emojiAfter = word.emoji?.position === "after" ? emo : null;
+
   return (
     <span style={css}>
       {behind}
+      {emojiBefore}
       {display}
+      {emojiAfter}
       {bar}
       {trailingSpace ? " " : ""}
     </span>

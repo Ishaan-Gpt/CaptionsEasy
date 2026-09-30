@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import type { CaptionDoc, Emotion, Page } from "@capseasy/shared";
-import { findMatches, findReplace, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import { autoEmoji, clearAutoEmoji, findMatches, findReplace, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { Button, fmtTime } from "../controls";
 
 const EMOTIONS: Emotion[] = ["neutral", "excited", "funny", "serious", "sad", "angry", "surprised", "question", "hype", "calm"];
@@ -34,6 +34,10 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
         <div className="flex gap-2">
           <input value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find" className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1.5 text-sm outline-none focus:border-emerald-500" />
           <input value={replace} onChange={(e) => setReplace(e.target.value)} placeholder="Replace with" className="min-w-0 flex-1 rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1.5 text-sm outline-none focus:border-emerald-500" />
+        </div>
+        <div className="flex gap-2">
+          <Button className="!py-1 text-xs" onClick={() => edit((d) => autoEmoji(d))} title="Adds emoji to key words (money, fire, love…). Turn on 'Show emoji' in Style.">✨ Add emojis</Button>
+          <Button className="!py-1 text-xs" onClick={() => edit((d) => clearAutoEmoji(d))}>Clear emojis</Button>
         </div>
         {find ? (
           <div className="flex items-center justify-between text-xs text-white/50">
@@ -71,6 +75,7 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
                   title={lowConfidence(w.confidence) ? "Low confidence: worth double-checking" : undefined}
                 >
                   {w.text}
+                  {w.emoji ? <span className="ml-0.5">{w.emoji.char}</span> : null}
                 </button>
               ))}
             </div>

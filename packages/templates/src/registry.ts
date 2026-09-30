@@ -1,5 +1,6 @@
 import { CaptionStyleSchema, type CaptionStyleV2, type ProjectSettings } from "@capseasy/shared";
 import legacyLooks from "./looks/legacy.generated.json";
+import { NEW_LOOKS } from "./looks/new";
 import { TEMPLATES } from "./templates";
 import type { LookDefinition, TemplateDefinition } from "./types";
 
@@ -42,10 +43,11 @@ export function resolveStyle(style: Partial<CaptionStyleV2> & { templateId?: str
   return CaptionStyleSchema.parse({ ...merged, templateId: tpl.id });
 }
 
-export const LOOKS: LookDefinition[] = (legacyLooks as unknown as LookDefinition[]).map((l) => ({
-  ...l,
-  style: CaptionStyleSchema.parse(l.style),
-}));
+export const LOOKS: LookDefinition[] = [
+  // new looks first: they showcase the full range; the legacy looks follow with legacy: true
+  ...NEW_LOOKS.map((l) => ({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
+  ...(legacyLooks as unknown as LookDefinition[]).map((l) => ({ ...l, style: CaptionStyleSchema.parse(l.style) })),
+];
 
 const looksById = new Map(LOOKS.map((l) => [l.id, l]));
 export const getLook = (id: string | null | undefined): LookDefinition | undefined => (id ? looksById.get(id) : undefined);

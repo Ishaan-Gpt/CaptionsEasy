@@ -14,23 +14,44 @@ type GoogleFontModule = {
  */
 const LOADERS: Record<string, () => Promise<unknown>> = {
   Anton: () => import("@remotion/google-fonts/Anton"),
+  "Archivo Black": () => import("@remotion/google-fonts/ArchivoBlack"),
   "Baloo 2": () => import("@remotion/google-fonts/Baloo2"),
+  Bangers: () => import("@remotion/google-fonts/Bangers"),
+  "Bebas Neue": () => import("@remotion/google-fonts/BebasNeue"),
   Caveat: () => import("@remotion/google-fonts/Caveat"),
   Cinzel: () => import("@remotion/google-fonts/Cinzel"),
   "Comic Neue": () => import("@remotion/google-fonts/ComicNeue"),
+  "Cormorant Garamond": () => import("@remotion/google-fonts/CormorantGaramond"),
+  "DM Sans": () => import("@remotion/google-fonts/DMSans"),
   Fredoka: () => import("@remotion/google-fonts/Fredoka"),
   Inter: () => import("@remotion/google-fonts/Inter"),
   "JetBrains Mono": () => import("@remotion/google-fonts/JetBrainsMono"),
   "Kaushan Script": () => import("@remotion/google-fonts/KaushanScript"),
+  Lexend: () => import("@remotion/google-fonts/Lexend"),
   "Libre Baskerville": () => import("@remotion/google-fonts/LibreBaskerville"),
   "Lilita One": () => import("@remotion/google-fonts/LilitaOne"),
+  "Luckiest Guy": () => import("@remotion/google-fonts/LuckiestGuy"),
+  Manrope: () => import("@remotion/google-fonts/Manrope"),
   Montserrat: () => import("@remotion/google-fonts/Montserrat"),
+  Mukta: () => import("@remotion/google-fonts/Mukta"),
+  "Noto Color Emoji": () => import("@remotion/google-fonts/NotoColorEmoji"),
+  Nunito: () => import("@remotion/google-fonts/Nunito"),
   Outfit: () => import("@remotion/google-fonts/Outfit"),
+  "Permanent Marker": () => import("@remotion/google-fonts/PermanentMarker"),
   "Playfair Display": () => import("@remotion/google-fonts/PlayfairDisplay"),
+  Poppins: () => import("@remotion/google-fonts/Poppins"),
+  Righteous: () => import("@remotion/google-fonts/Righteous"),
+  "Roboto Condensed": () => import("@remotion/google-fonts/RobotoCondensed"),
+  "Rubik Mono One": () => import("@remotion/google-fonts/RubikMonoOne"),
+  "Russo One": () => import("@remotion/google-fonts/RussoOne"),
+  Sora: () => import("@remotion/google-fonts/Sora"),
   "Space Mono": () => import("@remotion/google-fonts/SpaceMono"),
+  "Tilt Neon": () => import("@remotion/google-fonts/TiltNeon"),
+  VT323: () => import("@remotion/google-fonts/VT323"),
 };
 
-export const KNOWN_FONTS = Object.keys(LOADERS);
+export const KNOWN_FONTS = Object.keys(LOADERS).filter((f) => f !== "Noto Color Emoji");
+export const EMOJI_FONT = "Noto Color Emoji";
 
 const started = new Map<string, Promise<void>>();
 

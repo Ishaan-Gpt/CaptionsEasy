@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CaptionDocSchema, defaultSettings, defaultStyle, ProjectSettingsSchema, type CaptionDoc, type Word } from "@capseasy/shared";
 import {
+  autoEmoji, clearAutoEmoji, emojiFor,
   applyFillerFilter, applyProfanity, breakLines, contrastRatio, derivePages, detectEmotion, findReplace, fromGroqVerbose,
   fromWhisperCaptions, importSubtitles, insertWordAfter, legacyStyleToV2, legacyTranscriptToDoc, mergeWithPrevious, normalizeTokens,
   pageAt, pickHeroIndex, retimeWord, setHidden, setWordText, splitCardAt, toAss, toSrt, toTxt, toVtt, lighten,
@@ -261,5 +262,28 @@ describe("legacy migration + color", () => {
   it("style + settings defaults parse from empty input", () => {
     expect(defaultStyle().active.effect).toBe("color");
     expect(defaultSettings().maxLines).toBe(2);
+  });
+});
+
+describe("emoji", () => {
+  it("maps keywords incl. simple stems", () => {
+    expect(emojiFor("Money!")).toBe("💰");
+    expect(emojiFor("rockets")).toBe("🚀");
+    expect(emojiFor("table")).toBeNull();
+  });
+  it("adds spaced-out suggestions and respects user choices", () => {
+    const d = docOf([
+      { ...mk("money", 0, 300, "a") },
+      { ...mk("fire", 400, 700, "b") },
+      { ...mk("love", 3000, 3300, "c"), emoji: { char: "🥰", position: "after" as const }, source: { emoji: "user" as const } },
+      { ...mk("win", 6000, 6300, "d") },
+    ]);
+    const out = autoEmoji(d);
+    expect(out.words[0]!.emoji?.char).toBe("💰");
+    expect(out.words[1]!.emoji ?? null).toBeNull(); // too close to the previous one
+    expect(out.words[2]!.emoji?.char).toBe("🥰"); // user choice untouched
+    expect(out.words[3]!.emoji?.char).toBe("🏆");
+    const cleared = clearAutoEmoji(out);
+    expect(cleared.words.filter((w) => w.emoji).map((w) => w.emoji!.char)).toEqual(["🥰"]);
   });
 });

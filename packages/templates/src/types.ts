@@ -1,5 +1,5 @@
 import type React from "react";
-import type { CaptionStyleV2, Page, ProjectSettings } from "@capseasy/shared";
+import type { CaptionStyleV2, Emotion, Page, ProjectSettings } from "@capseasy/shared";
 import type { ACTIVE_EFFECTS, ENTRANCES } from "@capseasy/shared";
 
 export interface Canvas {
@@ -28,7 +28,18 @@ export interface PageRenderProps {
   settled?: boolean;
 }
 
-export type LayoutId = "sentence" | "word" | "stack3";
+export type LayoutId = "sentence" | "word" | "stack3" | "karaoke" | "typewriter" | "bar" | "bubble" | "highlighter" | "kinetic";
+
+export interface EmotionModifier {
+  /** replaces the highlight colour when emotion reactivity is high */
+  accent?: string;
+  /** replaces the spoken-word effect (only if the template supports it) */
+  effect?: CaptionStyleV2["active"]["effect"];
+  /** multiplies the spoken-word scale */
+  scale?: number;
+  /** shown in the emoji burst when the card has no emoji of its own */
+  emoji?: string;
+}
 
 export interface TemplateCapabilities {
   hero: boolean;
@@ -53,6 +64,8 @@ export interface TemplateDefinition {
   capabilities: TemplateCapabilities;
   /** Google font families this template always needs, on top of the style's fonts */
   fonts: string[];
+  /** per-template overrides of the default emotion styling */
+  emotionMap?: Partial<Record<Emotion, EmotionModifier>>;
   Page: React.FC<PageRenderProps>;
 }
 

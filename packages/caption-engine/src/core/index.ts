@@ -7,3 +7,4 @@ export * from "./color";
 export * from "./exporters";
 export * from "./srt-import";
 export * from "./legacy";
+export * from "./emoji";

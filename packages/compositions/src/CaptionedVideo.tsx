@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { CaptionDocSchema, type CaptionStyleV2, ProjectSettingsSchema, type CaptionDoc, type Page, type ProjectSettings } from "@capseasy/shared";
 import { applyFillerFilter, applyProfanity, derivePages } from "@motion-ai/caption-engine/core";
-import { PageView, famCss, getTemplate, layoutBox, measure, resolveStyle, scaleOf, useFontsReady, type Canvas } from "@capseasy/templates";
+import { EMOJI_FONT, PageView, famCss, getTemplate, layoutBox, measure, resolveStyle, scaleOf, useFontsReady, type Canvas } from "@capseasy/templates";
 import type { CaptionedVideoInput } from "./props";
 
 /** Doc -> what the audience should see (filters are display-time, so the stored doc is never mutated). */
@@ -47,7 +47,7 @@ export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc:
   const canvas = useMemo<Canvas>(() => ({ width, height, fps }), [width, height, fps]);
   const resolved = useMemo(() => resolveStyle(style as Partial<CaptionStyleV2>), [style]);
 
-  const fontFamilies = useMemo(() => [resolved.fontId, resolved.hero.fontId ?? "", ...getTemplate(resolved.templateId).fonts], [resolved]);
+  const fontFamilies = useMemo(() => [resolved.fontId, resolved.hero.fontId ?? "", ...getTemplate(resolved.templateId).fonts, resolved.emoji.enabled || doc.words.some((w) => w.emoji) ? EMOJI_FONT : ""], [resolved, doc]);
   const fontsReady = useFontsReady(fontFamilies);
 
   const pages = useMemo(() => (fontsReady ? computePages(doc, settings, resolved, canvas) : []), [fontsReady, doc, settings, resolved, canvas]);
