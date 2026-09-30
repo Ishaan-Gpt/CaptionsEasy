@@ -5,7 +5,7 @@ import { ApiFailure } from "./http";
 import { setProjectStatus } from "./jobs";
 
 export interface TranscriptionResult {
-  engine: "whisper_cpp" | "groq";
+  engine: "whisper_cpp" | "groq" | "whisper_web";
   model: string;
   language: string;
   durationMs?: number;

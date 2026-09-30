@@ -15,6 +15,7 @@
     "@capseasy/shared": "workspace:*",
     "@capseasy/templates": "workspace:*",
     "@gsap/react": "^2.1.2",
+    "@huggingface/transformers": "4.3.0",
     "@motion-ai/caption-engine": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@remotion/captions": "4.0.484",
