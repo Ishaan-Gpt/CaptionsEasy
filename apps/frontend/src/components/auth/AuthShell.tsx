@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import { SPECIMENS, DEMO_WORDS, useWordLoop } from "@/components/landing/TemplateSpecimen";
 
 /* ————— Shared form primitives for every auth screen ————— */
@@ -177,8 +178,8 @@ export default function AuthShell({
     <div className="min-h-screen bg-dune-white grid grid-cols-1 lg:grid-cols-2">
       {/* Form side */}
       <div className="flex flex-col px-6 sm:px-12 py-8">
-        <Link href="/" className="font-serif text-xl font-semibold tracking-tight text-ink">
-          Captions<em className="italic font-medium text-sand-600">Easy</em>
+        <Link href="/" aria-label="CaptionsEasy home" className="self-start">
+          <Logo height={28} />
         </Link>
 
         <div className="flex-1 flex items-center">

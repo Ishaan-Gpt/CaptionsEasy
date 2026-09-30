@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PLANS } from "@capseasy/shared";
+import { Logo as BrandLogo } from "@/components/brand/Logo";
+import { LEGAL_PAGES } from "@/lib/legal";
 
 // the real renderer is client-only and fairly heavy: load it after the page shell
 const CyclingPreview = dynamic(() => import("./LivePreview").then((m) => m.CyclingPreview), { ssr: false, loading: () => <div className="h-full w-full animate-pulse bg-[#0F3D2E]" /> });
@@ -12,18 +14,7 @@ const LivePreview = dynamic(() => import("./LivePreview").then((m) => m.LivePrev
 const INK = "#1A1A1A";
 
 export function Logo({ light = false }: { light?: boolean }) {
-  return (
-    <span className="flex items-center gap-2">
-      <span className="flex h-6 items-end gap-[3px]" aria-hidden>
-        <span className="block h-3 w-1 rounded-full" style={{ background: light ? "#FFFFEB" : INK }} />
-        <span className="block h-5 w-1 rounded-full bg-[#FFA946]" />
-        <span className="block h-4 w-1 rounded-full bg-[#34D399]" />
-      </span>
-      <span className={`font-styled text-xl font-extrabold tracking-tight ${light ? "text-[#FFFFEB]" : "text-[#1A1A1A]"}`}>
-        Captions<em className="font-normal italic text-[#0F3D2E]" style={light ? { color: "#F0D7FF" } : undefined}>Easy</em>
-      </span>
-    </span>
-  );
+  return <BrandLogo tone={light ? "light" : "dark"} height={28} />;
 }
 
 const NAV_LINKS = [
@@ -383,16 +374,16 @@ export function Footer() {
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-[#1A1A1A]/55">AI captions that move like you talk. Made for creators.</p>
         </div>
-        <div className="grid grid-cols-2 gap-10 text-sm sm:grid-cols-3">
-          <div className="space-y-2"><p className="font-semibold">Product</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="#how">How it works</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="#looks">Looks</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="#pricing">Pricing</a></div>
+        <div className="grid grid-cols-2 gap-x-10 gap-y-8 text-sm sm:grid-cols-4">
+          <div className="space-y-2"><p className="font-semibold">Product</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#how">How it works</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#looks">Looks</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#pricing">Pricing</a></div>
           <div className="space-y-2"><p className="font-semibold">Account</p><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/login">Sign in</Link><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/dashboard">Projects</Link><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/settings">Companion setup</Link></div>
-          <div className="space-y-2"><p className="font-semibold">Help</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="#faq">FAQ</a></div>
+          <div className="space-y-2"><p className="font-semibold">Help</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#faq">FAQ</a></div>
+          <div className="space-y-2"><p className="font-semibold">Legal</p>{LEGAL_PAGES.map((p) => <Link key={p.href} className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href={p.href}>{p.title}</Link>)}</div>
         </div>
       </div>
       <p className="mx-auto mt-10 max-w-6xl text-xs text-[#1A1A1A]/40">© {new Date().getFullYear()} CaptionsEasy. All rights reserved.</p>
-      <p aria-hidden className="mx-auto mt-6 max-w-6xl select-none font-styled whitespace-nowrap text-[13vw] font-extrabold leading-none tracking-tighter text-[#1A1A1A]/[0.06] xl:text-[10rem]">
-        Captions<em className="font-normal italic">Easy</em>
-      </p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img aria-hidden alt="" src="/brand/captionseasy-wordmark.svg" className="mx-auto mt-8 block w-full max-w-6xl select-none opacity-[0.06]" draggable={false} />
     </footer>
   );
 }

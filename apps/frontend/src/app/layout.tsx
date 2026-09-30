@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Bricolage_Grotesque } from "next/font/google";
+import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 import QueryProvider from "@/providers/QueryProvider";
 import "./globals.css";
 
+/**
+ * The site uses exactly two fonts (locked; see globals.css):
+ *  - Plus Jakarta Sans: all text, UI and headings
+ *  - Instrument Serif Italic: the slightly cursive accent ("Easy" in the logo, emphasised words in headings)
+ * Caption fonts inside the video preview are separate: they belong to each look.
+ */
 const fontNormal = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-normal-sys",
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const fontStyled = Bricolage_Grotesque({
+const fontAccent = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-styled-sys",
-  weight: ["400", "600", "700", "800"],
+  variable: "--font-accent-sys",
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fontNormal.variable} ${fontStyled.variable} h-full antialiased`}
+      className={`${fontNormal.variable} ${fontAccent.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body

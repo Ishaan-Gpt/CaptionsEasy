@@ -56,7 +56,7 @@ export function Loader({ onDone }: { onDone: () => void }) {
         </div>
         <div className="overflow-hidden px-2 font-styled text-4xl font-extrabold tracking-tight text-[#1A1A1A] sm:text-5xl">
           {word.split("").map((ch, i) => (
-            <span key={i} data-char className={`inline-block ${i >= 8 ? "font-normal italic text-[#0F3D2E]" : ""}`}>{ch}</span>
+            <span key={i} data-char className={`inline-block ${i >= 8 ? "font-accent text-[1.12em]" : ""}`}>{ch}</span>
           ))}
         </div>
         <p data-tag className="text-sm text-[#1A1A1A]/60">Captions that move like you talk.</p>

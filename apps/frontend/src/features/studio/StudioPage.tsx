@@ -8,6 +8,7 @@ import { computePages } from "@capseasy/compositions";
 import { getLook, getTemplate, loadFontFamily } from "@capseasy/templates";
 import { insertWordAfter, mergeWithPrevious, retimeRun, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { EyeOff, Redo2, Star, Undo2 } from "lucide-react";
+import { Logo } from "@/components/brand/Logo";
 import { authService } from "@/services/auth";
 import { ApiError } from "@/services/api-client";
 import { Button } from "./controls";
@@ -143,7 +144,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-st-line bg-st-panel px-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <Link href="/dashboard" aria-label="Back to projects" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-st-muted transition hover:bg-st-raised hover:text-st-text">←</Link>
-        <span className="hidden font-display text-[15px] font-bold sm:inline">Captions<em className="font-medium italic text-st-muted">Easy</em></span>
+        <Link href="/dashboard" aria-label="CaptionsEasy projects" className="hidden sm:block"><Logo height={22} /></Link>
         <span className="hidden h-5 w-px bg-st-line sm:block" />
         {editingTitle ? (
           <input

@@ -244,6 +244,13 @@ export default function LoginPage() {
             {isSignUp ? "Sign in" : "Create an account"}
           </button>
         </p>
+
+        <p className="text-center text-[12px] leading-relaxed text-sand-600">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="font-semibold text-ink underline decoration-sand-400 underline-offset-2 hover:decoration-ink">Terms of Service</Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-semibold text-ink underline decoration-sand-400 underline-offset-2 hover:decoration-ink">Privacy Policy</Link>.
+        </p>
       </div>
     </AuthShell>
   );
