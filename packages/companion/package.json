@@ -8,7 +8,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "pack:release": "echo TODO-P5",
+    "pack:release": "node scripts/pack.mjs",
     "dev": "tsx src/cli.ts",
     "start": "tsx src/cli.ts start"
   },
@@ -28,7 +28,8 @@
     "typescript": "^5.6.0",
     "vitest": "^4.1.9",
     "@types/node": "^20",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "esbuild": "^0.28.1"
   },
   "bin": {
     "capseasy": "./bin/capseasy.mjs"

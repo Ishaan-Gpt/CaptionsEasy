@@ -1,8 +1,7 @@
-import { rmSync, statSync } from "node:fs";
+import { existsSync, rmSync, statSync } from "node:fs";
 import { cpus } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundle } from "@remotion/bundler";
 import { ensureBrowser, makeCancelSignal, renderMedia, selectComposition } from "@remotion/renderer";
 import type { RenderJob } from "@capseasy/shared";
 import { dirs } from "../config";
@@ -19,9 +18,14 @@ let sitePromise: Promise<string> | null = null;
 /** Bundles the shared composition once per process (the same code the browser Player runs). */
 export function getSite(): Promise<string> {
   sitePromise ??= (async () => {
+    // release builds ship a pre-bundled site next to cli.mjs, so users never need webpack or our sources
+    const shipped = process.env.CAPSEASY_SITE ?? fileURLToPath(new URL("./site", import.meta.url));
+    if (existsSync(join(shipped, "index.html"))) return shipped;
     const entryPoint = process.env.CAPSEASY_ENTRY ?? fileURLToPath(new URL("../../../compositions/src/entry.ts", import.meta.url));
     log.info("bundling caption composition...");
     const t0 = Date.now();
+    // dev only: webpack-bundle our sources (the bundler is not shipped in release builds)
+    const { bundle } = await import("@remotion/bundler");
     const site = await bundle({ entryPoint, outDir: join(dirs.cache, "site"), onProgress: () => undefined });
     log.info(`composition bundled in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     return site;

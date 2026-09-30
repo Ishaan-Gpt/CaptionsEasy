@@ -31,7 +31,7 @@ const call = async (method, path, token, body) => {
 };
 
 const companionEnv = { ...process.env, CAPSEASY_CONFIG: join(OUT, "cfg"), CAPSEASY_CACHE: join(OUT, "cache"), CAPSEASY_DATA: process.env.E2E_DATA ?? join(OUT, "data") };
-const CLI = `${REPO}/packages/companion/bin/capseasy.mjs`;
+const CLI = process.env.CAPSEASY_CLI ?? `${REPO}/packages/companion/bin/capseasy.mjs`;
 const runCli = (args, onLine) => new Promise((resolve) => {
   const p = spawn(process.execPath, [CLI, ...args], { env: companionEnv });
   let all = "";

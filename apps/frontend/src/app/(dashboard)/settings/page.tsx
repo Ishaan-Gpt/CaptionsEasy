@@ -7,10 +7,9 @@ import { authService } from "@/services/auth";
 import { workersService } from "@/services/workers";
 import StudioShell from "@/components/studio/StudioShell";
 
-const INSTALL_COMMANDS = {
-  mac: "curl -fsSL https://captionseasy.vercel.app/install.sh | bash",
-  windows: "irm https://captionseasy.vercel.app/install.ps1 | iex",
-};
+const origin = () => (typeof window === "undefined" ? "https://captionseasy.vercel.app" : window.location.origin);
+const installCommand = (which: "mac" | "windows") =>
+  which === "mac" ? `curl -fsSL ${origin()}/install.sh | bash` : `irm ${origin()}/install.ps1 | iex`;
 
 function ConnectedComputerSection() {
   const queryClient = useQueryClient();
@@ -24,7 +23,7 @@ function ConnectedComputerSection() {
   });
 
   const handleCopy = (which: "mac" | "windows") => {
-    navigator.clipboard.writeText(INSTALL_COMMANDS[which]);
+    navigator.clipboard.writeText(installCommand(which));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -45,15 +44,16 @@ function ConnectedComputerSection() {
 
       <div className="mt-4 rounded-xl border border-sand-200 bg-white p-6">
         <p className="text-[14px] leading-relaxed text-sand-800 max-w-[60ch]">
-          Cloud processing is <strong className="text-ink">coming soon</strong>. For now,
-          videos are transcribed, captioned, and rendered on your own computer — connect it
-          once below, and every project you process or export will run there automatically.
+          CapsEasy makes captions <strong className="text-ink">privately on your own computer</strong>:
+          your video is transcribed and rendered locally, for free. Install the Companion once,
+          keep <code className="rounded bg-sand-100 px-1">capseasy start</code> running, and every
+          upload and export is picked up automatically.
         </p>
 
         <div className="mt-5 space-y-2">
           <div className="flex items-center gap-2 rounded-lg border border-sand-200 bg-sand-50 px-4 py-3">
             <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-ink">
-              {INSTALL_COMMANDS.mac}
+              {installCommand("mac")}
             </code>
             <button
               onClick={() => handleCopy("mac")}
@@ -64,7 +64,7 @@ function ConnectedComputerSection() {
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-sand-200 bg-sand-50 px-4 py-3">
             <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-ink">
-              {INSTALL_COMMANDS.windows}
+              {installCommand("windows")}
             </code>
             <button
               onClick={() => handleCopy("windows")}
@@ -74,8 +74,9 @@ function ConnectedComputerSection() {
             </button>
           </div>
           <p className="text-[12px] text-sand-600">
-            Run this in your terminal, then open the link it prints and click Confirm. No
-            git clone, no setup screens.
+            Paste it into a terminal (PowerShell on Windows). It installs Node if needed, opens a
+            page to approve this computer, then starts processing. Later, just run
+            <code className="mx-1 rounded bg-sand-100 px-1">capseasy start</code>.
           </p>
         </div>
 
