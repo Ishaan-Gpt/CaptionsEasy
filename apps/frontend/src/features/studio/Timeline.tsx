@@ -40,14 +40,15 @@ type Mode = "word" | "line";
 interface Block { key: string; firstId: string; lastId: string; text: string; s: number; e: number; selected: boolean; live: boolean }
 type Drag = { key: string; firstId: string; lastId: string; kind: "move" | "start" | "end"; x0: number; s0: number; e0: number; min: number; max: number; s: number; e: number };
 
-const LABEL_W = 88;
+const LABEL_WIDE = 88;
+const LABEL_NARROW = 58;
 const MIN_MS = 40;
 const SNAP_PX = 7;
 /** fixed track heights: blocks keep editor proportions however tall the panel is (no stretched cards) */
 const ROW = { ruler: 24, captions: 44, video: 52, audio: 44 };
 const ROWS = `${ROW.ruler}px ${ROW.captions}px ${ROW.video}px ${ROW.audio}px`;
-/** video visible at the default zoom: enough room to read every word */
-const DEFAULT_WINDOW_MS = 8000;
+/** video visible at the default zoom: enough room to read every word (phones ~2.5 s, desktop up to 8 s) */
+const defaultWindowMs = (px: number) => (px < 420 ? Math.max(2000, px * 9) : Math.min(8000, Math.max(3000, px * 15)));
 
 const pref = <T extends string>(k: string, fallback: T): T => {
   try { return (localStorage.getItem(k) as T) || fallback; } catch { return fallback; }
@@ -59,7 +60,9 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
   const total = Math.max(1000, durationMs);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [viewW, setViewW] = useState(800);
+  const [viewW, setViewW] = useState(0);
+  const [narrow, setNarrow] = useState(false);
+  const LABEL_W = narrow ? LABEL_NARROW : LABEL_WIDE;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mode, setModeState] = useState<Mode>("word");
   const [snap, setSnap] = useState(true);
@@ -78,7 +81,11 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setViewW(el.clientWidth - LABEL_W));
+    const ro = new ResizeObserver(() => {
+      const n = el.clientWidth < 520;
+      setNarrow(n);
+      setViewW(el.clientWidth - (n ? LABEL_NARROW : LABEL_WIDE));
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -87,7 +94,7 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
   useEffect(() => {
     if (zoomedOnce.current || viewW < 100 || durationMs <= 0) return;
     zoomedOnce.current = true;
-    setZoom(Math.min(40, Math.max(1, total / DEFAULT_WINDOW_MS)));
+    setZoom(Math.min(40, Math.max(1, total / defaultWindowMs(viewW))));
   }, [viewW, durationMs, total]);
 
   // zoom 1 = whole video fits; up to 40x for word-level work
@@ -194,12 +201,12 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
       title={label}
       aria-label={label}
       aria-pressed={o.active}
-      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${o.active ? "bg-st-em/30 text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${o.active ? "bg-st-em/30 text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
     >
       {children}
     </button>
   );
-  const sep = <span className="mx-1 h-5 w-px bg-st-line" aria-hidden />;
+  const sep = <span className="mx-1 h-5 w-px shrink-0 bg-st-line" aria-hidden />;
   const noSel = !selectedId;
   const trackRow = "relative h-full border-b border-st-line";
   const rows = ROWS;
@@ -208,10 +215,10 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
 
   return (
     <div role="region" aria-label="Timeline" className="flex h-full min-h-0 flex-col bg-st-bg select-none">
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-st-line bg-st-panel px-2 py-1.5 text-xs text-st-muted">
-        <div className="flex rounded-lg border border-st-line bg-st-raised p-0.5" role="radiogroup" aria-label="Show captions as">
+      <div className="flex shrink-0 flex-nowrap items-center gap-x-1 gap-y-1 overflow-x-auto border-b border-st-line bg-st-panel px-2 py-1.5 text-xs text-st-muted [scrollbar-width:none] sm:flex-wrap sm:overflow-visible">
+        <div className="flex shrink-0 rounded-lg border border-st-line bg-st-raised p-0.5" role="radiogroup" aria-label="Show captions as">
           {(["word", "line"] as const).map((m) => (
-            <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`rounded-md px-3 py-1 text-[11px] font-semibold tracking-wide transition ${mode === m ? "bg-st-ink text-st-panel" : "text-st-muted hover:text-st-text"}`}>
+            <button key={m} role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`rounded-md px-3 py-1.5 text-[11px] sm:py-1 font-semibold tracking-wide transition ${mode === m ? "bg-st-ink text-st-panel" : "text-st-muted hover:text-st-text"}`}>
               {m.toUpperCase()}
             </button>
           ))}
@@ -226,18 +233,18 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, pl
         {sep}
         {btn(snap ? "Snapping on" : "Snapping off", <Magnet className={icon} />, () => { setSnap(!snap); save("ce_tl_snap", snap ? "0" : "1"); }, { active: snap })}
         {btn(ripple ? "Linked: moving a caption moves everything after it" : "Linked moves off", <Link2 className={icon} />, () => { setRipple(!ripple); save("ce_tl_ripple", ripple ? "0" : "1"); }, { active: ripple })}
-        <span className="ml-auto rounded-md border border-st-line bg-st-panel px-2 py-1 font-mono tabular-nums text-st-text">{fmtTime(timeMs)} <span className="text-st-faint">/ {fmtTime(total)}</span></span>
+        <span className="ml-auto shrink-0 whitespace-nowrap rounded-md border border-st-line bg-st-panel px-2 py-1 font-mono tabular-nums text-st-text">{fmtTime(timeMs)} <span className="text-st-faint">/ {fmtTime(total)}</span></span>
         {btn("Zoom out", <ZoomOut className={icon} />, () => setZoom((z) => Math.max(1, z / 1.6)), { disabled: zoom <= 1 })}
-        <input type="range" min={0} max={100} value={Math.round((Math.log(zoom) / Math.log(40)) * 100)} onChange={(e) => setZoom(Math.pow(40, Number(e.target.value) / 100))} className="w-24 accent-[#34D399] sm:w-32" aria-label="Timeline zoom" />
+        <input type="range" min={0} max={100} value={Math.round((Math.log(zoom) / Math.log(40)) * 100)} onChange={(e) => setZoom(Math.pow(40, Number(e.target.value) / 100))} className="w-24 shrink-0 accent-[#34D399] sm:w-32" aria-label="Timeline zoom" />
         {btn("Zoom in", <ZoomIn className={icon} />, () => setZoom((z) => Math.min(40, z * 1.6)), { disabled: zoom >= 40 })}
         {btn("Fit the whole video", <Maximize2 className={icon} />, () => setZoom(1), { disabled: zoom === 1 })}
       </div>
 
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto" onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <div className="relative grid w-max" style={{ gridTemplateColumns: `${LABEL_W}px ${width}px`, gridTemplateRows: rows }}>
-          <div className="sticky left-0 z-20 row-span-4 grid border-r border-st-line bg-st-panel text-[11px] text-st-muted" style={{ gridTemplateRows: rows }}>
+          <div className="sticky left-0 z-20 row-span-4 grid whitespace-nowrap border-r border-st-line bg-st-panel text-[11px] text-st-muted" style={{ gridTemplateRows: rows }}>
             <div />
-            <div className="flex items-center gap-1.5 border-b border-st-line px-2 font-semibold text-st-text">𝐈 Captions</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line px-2 font-semibold text-st-text">𝐈 {narrow ? "Text" : "Captions"}</div>
             <div className="flex items-center gap-1.5 border-b border-st-line px-2 text-st-muted">▶ Video</div>
             <div className="flex items-center gap-1.5 px-2 text-st-muted">♫ Audio</div>
           </div>

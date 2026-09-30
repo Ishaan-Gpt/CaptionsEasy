@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
         <p className="text-center">
           <Link
             href="/login"
-            className="font-sora text-[13px] font-semibold text-sand-700 hover:text-ink transition-colors"
+            className="inline-block py-2 font-sora text-[13px] font-semibold text-sand-700 hover:text-ink transition-colors"
           >
             Back to sign in
           </Link>

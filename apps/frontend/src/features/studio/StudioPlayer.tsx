@@ -3,6 +3,8 @@
 import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { CaptionedVideo, type CaptionedVideoInput } from "@capseasy/compositions";
+import { Pause, Play } from "lucide-react";
+import { fmtTime } from "./controls";
 
 interface Props {
   input: CaptionedVideoInput;
@@ -14,15 +16,20 @@ interface Props {
   onMovePosition: (p: { x: number; y: number }) => void;
   onTime: (ms: number) => void;
   onPlayingChange?: (playing: boolean) => void;
+  /** phones: the Player's own controls would cover the captions, so a compact transport sits under the video
+   *  instead, and the position grip moves to the frame edge (vertical drag) so it never covers the words */
+  compact?: boolean;
 }
 
 const clamp = (v: number) => Math.min(0.95, Math.max(0.05, v));
 
 /** The same CaptionedVideo composition that renders the export, plus a drag handle to place the captions. */
-export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({ input, width, height, fps, durationMs, position, onMovePosition, onTime, onPlayingChange }, ref) {
+export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({ input, width, height, fps, durationMs, position, onMovePosition, onTime, onPlayingChange, compact = false }, ref) {
   const innerRef = useRef<PlayerRef | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [nowMs, setNowMs] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const durationInFrames = Math.max(1, Math.ceil((durationMs / 1000) * fps));
 
   const setRef = (r: PlayerRef | null) => {
@@ -41,10 +48,11 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
       if (now - last < 66) return;
       last = now;
       onTime((e.detail.frame / fps) * 1000);
+      setNowMs((e.detail.frame / fps) * 1000);
     };
-    const onSeeked = (e: { detail: { frame: number } }) => onTime((e.detail.frame / fps) * 1000);
-    const onPlay = () => onPlayingChange?.(true);
-    const onPause = () => onPlayingChange?.(false);
+    const onSeeked = (e: { detail: { frame: number } }) => { onTime((e.detail.frame / fps) * 1000); setNowMs((e.detail.frame / fps) * 1000); };
+    const onPlay = () => { setIsPlaying(true); onPlayingChange?.(true); };
+    const onPause = () => { setIsPlaying(false); onPlayingChange?.(false); };
     p.addEventListener("frameupdate", onFrame);
     p.addEventListener("seeked", onSeeked);
     p.addEventListener("play", onPlay);
@@ -62,7 +70,7 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
   const move = (e: React.PointerEvent) => {
     const r = boxRef.current?.getBoundingClientRect();
     if (!r) return;
-    let x = clamp((e.clientX - r.left) / r.width);
+    let x = compact ? position.x : clamp((e.clientX - r.left) / r.width);
     let y = clamp((e.clientY - r.top) / r.height);
     if (Math.abs(x - 0.5) < 0.02) x = 0.5; // snap to the centre line
     onMovePosition({ x, y });
@@ -70,7 +78,8 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
 
   const style = useMemo<React.CSSProperties>(() => ({ width: "100%", height: "100%" }), []);
   return (
-    <div className="flex h-full w-full items-center justify-center p-3">
+    <div className={`flex h-full w-full items-center justify-center ${compact ? "flex-col gap-2 px-3 pb-2 pt-3" : "p-3"}`}>
+      <div className={compact ? "flex min-h-0 w-full flex-1 items-center justify-center" : "contents"}>
       <div ref={boxRef} className="group relative overflow-hidden rounded-xl bg-obsidian shadow-[0_18px_40px_-18px_rgba(26,26,26,0.45)] ring-1 ring-st-ink/10" style={{ aspectRatio: `${width} / ${height}`, height: "100%", maxWidth: "100%" }}>
         <Player
           ref={setRef}
@@ -81,7 +90,7 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
           compositionWidth={width}
           compositionHeight={height}
           style={style}
-          controls
+          controls={!compact}
           clickToPlay
           acknowledgeRemotionLicense
           numberOfSharedAudioTags={0}
@@ -92,9 +101,11 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
           aria-label="Caption position (drag)"
           aria-valuenow={Math.round(position.y * 100)}
           tabIndex={0}
-          title="Drag to move captions"
-          className={`absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-st-lav bg-st-lav/25 shadow-[0_0_0_4px_rgba(26,26,26,0.25)] backdrop-blur transition ${dragging ? "scale-125 cursor-grabbing opacity-100" : "opacity-0 group-hover:opacity-90 focus:opacity-100 [@media(hover:none)]:opacity-60"}`}
-          style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+          title={compact ? "Drag up or down to move captions" : "Drag to move captions"}
+          className={compact
+            ? `absolute right-0 z-10 flex h-11 w-7 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-l-lg bg-st-panel/85 text-st-ink shadow-md ${dragging ? "cursor-grabbing bg-st-lav" : ""}`
+            : `absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-st-lav bg-transparent shadow-[0_0_0_3px_rgba(26,26,26,0.25)] transition ${dragging ? "scale-125 cursor-grabbing opacity-100" : "opacity-0 group-hover:opacity-90 focus:opacity-100"}`}
+          style={compact ? { top: `${position.y * 100}%` } : { left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
           onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); setDragging(true); }}
           onPointerMove={(e) => dragging && move(e)}
           onPointerUp={() => setDragging(false)}
@@ -105,8 +116,33 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
             if (e.key === "ArrowLeft") onMovePosition({ ...position, x: clamp(position.x - step) });
             if (e.key === "ArrowRight") onMovePosition({ ...position, x: clamp(position.x + step) });
           }}
-        />
+        >
+          {compact ? <span aria-hidden className="text-xs leading-none tracking-tighter">⇕</span> : null}
+        </div>
       </div>
+      </div>
+      {compact ? (
+        <div className="flex w-full shrink-0 items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => innerRef.current?.toggle()}
+            aria-label={isPlaying ? "Pause" : "Play"}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-st-ink text-st-panel active:scale-95"
+          >
+            {isPlaying ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="ml-0.5 h-5 w-5" fill="currentColor" />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={durationInFrames - 1}
+            value={Math.round((nowMs / 1000) * fps)}
+            onChange={(e) => innerRef.current?.seekTo(Number(e.target.value))}
+            aria-label="Seek"
+            className="h-11 min-w-0 flex-1"
+          />
+          <span className="shrink-0 font-mono text-xs tabular-nums text-st-muted">{fmtTime(nowMs)} / {fmtTime(durationMs)}</span>
+        </div>
+      ) : null}
     </div>
   );
 });

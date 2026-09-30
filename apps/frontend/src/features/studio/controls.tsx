@@ -95,7 +95,7 @@ export const Segmented: React.FC<{ value: string; options: { value: string; labe
         key={o.value}
         type="button"
         onClick={() => onChange(o.value)}
-        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${value === o.value ? "bg-st-lav text-obsidian" : "text-st-text/80 hover:text-st-text"}`}
+        className={`rounded-md px-2.5 py-2 text-xs font-medium transition lg:py-1 ${value === o.value ? "bg-st-lav text-obsidian" : "text-st-text/80 hover:text-st-text"}`}
       >
         {o.label}
       </button>

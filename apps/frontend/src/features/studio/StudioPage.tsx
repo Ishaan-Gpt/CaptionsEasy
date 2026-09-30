@@ -155,7 +155,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             className="min-w-0 rounded-lg border border-st-ink/40 bg-st-panel px-2 py-1 text-sm outline-none"
           />
         ) : (
-          <button onClick={() => { setTitle(data.project.title); setEditingTitle(true); }} className="truncate rounded-md px-1.5 py-0.5 text-sm font-semibold transition hover:bg-st-raised" title="Rename">{data.project.title || "Untitled project"}</button>
+          <button onClick={() => { setTitle(data.project.title); setEditingTitle(true); }} className="truncate rounded-md px-1.5 py-1.5 text-sm font-semibold transition hover:bg-st-raised" title="Rename">{data.project.title || "Untitled project"}</button>
         )}
         {hasEditor ? (
           <span className="hidden items-center gap-1.5 text-xs text-st-muted md:inline-flex" aria-live="polite">
@@ -191,6 +191,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       onMovePosition={(p) => s.patchStyle((st) => ({ ...st, position: p }))}
       onTime={setTimeMs}
       onPlayingChange={setPlaying}
+      compact={!desktop}
     />
   ) : null;
 
@@ -225,7 +226,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       title={label}
       aria-label={label}
       aria-pressed={opts.active}
-      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav text-st-ink" : "text-st-text/85 hover:bg-st-hover"}`}
     >
       {icon}
     </button>
@@ -368,7 +369,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   return (
     <div className="studio flex h-[100dvh] flex-col">
       {header}
-      <section aria-label="Preview" className="h-[40dvh] min-h-[220px] shrink-0 border-b border-st-line bg-st-bg">{stage}</section>
+      <section aria-label="Preview" className="h-[44dvh] min-h-[260px] shrink-0 border-b border-st-line bg-st-bg">{stage}</section>
       <div key={mobileTab} className="st-rise min-h-0 flex-1 bg-st-panel">
         {mobileTab === "captions" ? captions : mobileTab === "timeline" ? timeline : sidePanel(mobileTab)}
       </div>

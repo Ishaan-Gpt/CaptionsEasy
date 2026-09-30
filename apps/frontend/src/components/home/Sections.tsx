@@ -223,7 +223,7 @@ const NAMES: Record<string, string> = {
 const FEATURES = [
   { t: "Word-perfect timing", d: "Every word lands on the syllable. Drag any word on the timeline to nudge it; the waveform shows you exactly where.", k: "wide" },
   { t: "Captions that feel it", d: "Excited, funny, serious: each card's emotion changes how hard it moves. Dial it up or switch it off.", k: "" },
-  { t: "Emoji on key words", d: "💰 money, 🔥 fire, 🚀 launch. Suggested automatically, never spammed, always editable.", k: "" },
+  { t: "Key words that pop", d: "The word that matters on every card gets its own size, colour or box. Picked automatically, always editable.", k: "" },
   { t: "Transparent overlays", d: "Export captions only, with transparency (ProRes 4444 or WebM) and drop them over your grade in Premiere, Resolve or Final Cut.", k: "" },
   { t: "SRT, VTT, ASS & TXT", d: "Subtitle files for YouTube, LinkedIn and every editor, instantly, no render needed.", k: "" },
   { t: "Hinglish & 100+ languages", d: "Code-switching creators welcome. Romanized Hinglish, Devanagari-ready fonts, custom vocabulary for names and brands.", k: "wide" },
@@ -327,7 +327,7 @@ const FAQS = [
   ["Does it work for vertical Shorts, Reels and TikToks?", "Yes. Portrait 9:16 and landscape 16:9 both work; the preview and export always match your video's real shape, and captions sit above the platform buttons by default."],
   ["Do I need a powerful computer?", "No. The Companion runs on any modern Windows, Mac or Linux machine. A faster computer just finishes sooner. No computer handy? Short clips can be transcribed in the cloud instead."],
   ["Is my video private?", "Your video is stored privately in your account, and with the Companion the speech recognition and rendering happen on your own machine."],
-  ["Can I edit the captions?", "Everything: fix words, split or join cards, drag word timings on the timeline, choose the key word, add emoji, change fonts, colours, motion and position. It all autosaves, with undo."],
+  ["Can I edit the captions?", "Everything: fix words, split or join cards, drag word timings on the timeline, choose the key word, change fonts, colours, motion and position. It all autosaves, with undo."],
   ["Does it support Hindi and Hinglish?", "Yes. Speech is transcribed in 100+ languages, Hinglish can be romanized automatically, and there are Devanagari-ready looks."],
   ["What can I export?", "A ready-to-post MP4 with captions burned in, transparent caption overlays (ProRes 4444 or WebM) for Premiere, Resolve and Final Cut, and SRT, VTT, ASS or TXT subtitle files."],
 ];
@@ -390,7 +390,7 @@ export function Footer() {
         </div>
       </div>
       <p className="mx-auto mt-10 max-w-6xl text-xs text-[#1A1A1A]/40">© {new Date().getFullYear()} CaptionsEasy. All rights reserved.</p>
-      <p aria-hidden className="mx-auto mt-6 max-w-6xl select-none font-styled text-[18vw] font-extrabold leading-none tracking-tighter text-[#1A1A1A]/[0.06] sm:text-[14vw]">
+      <p aria-hidden className="mx-auto mt-6 max-w-6xl select-none font-styled whitespace-nowrap text-[13vw] font-extrabold leading-none tracking-tighter text-[#1A1A1A]/[0.06] xl:text-[10rem]">
         Captions<em className="font-normal italic">Easy</em>
       </p>
     </footer>

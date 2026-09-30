@@ -46,7 +46,7 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void saveBrand()} className="rounded-md bg-st-raised px-2.5 py-1 text-xs hover:bg-st-hover">Save current colours &amp; font</button>
+          <button onClick={() => void saveBrand()} className="rounded-md bg-st-raised px-2.5 py-2 text-xs hover:bg-st-hover lg:py-1">Save current colours &amp; font</button>
           {brand.data?.fontId && brand.data.fontId !== style.fontId ? (
             <button onClick={() => patch((s) => ({ ...s, fontId: brand.data!.fontId! }))} className="rounded-md bg-st-raised px-2.5 py-1 text-xs hover:bg-st-hover">Use brand font ({brand.data.fontId})</button>
           ) : null}

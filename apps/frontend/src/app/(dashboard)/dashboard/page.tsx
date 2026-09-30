@@ -165,7 +165,7 @@ export default function DashboardPage() {
                   <div
                     key={project.id}
                     onClick={() => router.push(`/projects/${project.id}`)}
-                    className="group relative flex h-40 cursor-pointer flex-col justify-between rounded-xl border border-sand-200 bg-white p-5 transition-all hover:border-sand-500 hover:shadow-sand-soft"
+                    className="group relative flex h-32 cursor-pointer flex-col justify-between rounded-xl border border-sand-200 bg-white p-4 sm:h-40 sm:p-5 transition-all hover:border-sand-500 hover:shadow-sand-soft"
                   >
                     <div className="min-w-0">
                       <h3 className="truncate pr-8 font-sora text-[15px] font-bold text-ink">
@@ -218,7 +218,7 @@ export default function DashboardPage() {
           onClick={() => !creating && setCreateOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sand-deep animate-fade-in-up"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sand-deep animate-fade-in-up sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-serif text-2xl font-semibold text-ink">New project</h3>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
           onClick={() => !deleting && setDeleteTarget(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sand-deep animate-fade-in-up"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sand-deep animate-fade-in-up sm:p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-serif text-2xl font-semibold text-ink">Delete this project?</h3>

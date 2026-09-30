@@ -81,22 +81,22 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, time
         {pages.map((page) => (
           <div key={page.id} data-page={page.id} className={`border-b border-l-4 border-b-st-line/60 px-3 py-2.5 transition-colors ${page.id === currentPageId ? "border-l-st-or bg-st-lav/35" : "border-l-transparent"}`}>
             <div className="mb-1.5 flex items-center justify-between">
-              <button onClick={() => onSeek(page.startMs)} className="font-mono text-[11px] text-st-faint hover:text-st-text">{fmtTime(page.startMs)}</button>
+              <button onClick={() => onSeek(page.startMs)} className="-my-1 py-1 pr-2 font-mono text-[11px] text-st-faint hover:text-st-text">{fmtTime(page.startMs)}</button>
               <select
                 value={page.emotion}
                 title="Emotion (changes how strongly this card animates)"
                 onChange={(e) => edit((d) => setCardEmotion(d, page.id, e.target.value as Emotion))}
-                className="rounded bg-transparent text-xs text-st-muted outline-none hover:text-st-text"
+                className="-my-1 rounded bg-transparent py-1.5 text-xs text-st-muted outline-none hover:text-st-text lg:py-0.5"
               >
                 {EMOTIONS.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5 lg:gap-1">
               {page.words.map((w, i) => (
                 <button
                   key={w.id}
                   onClick={() => { onSelect(w.id); onSeek(w.startMs + 1); }}
-                  className={`rounded-md px-1.5 py-0.5 text-sm transition ${
+                  className={`rounded-md px-2 py-1.5 text-sm transition lg:px-1.5 lg:py-0.5 ${
                     w.id === selectedId ? "bg-st-ink text-st-panel" : page.id === currentPageId && timeMs >= w.startMs && timeMs < w.endMs ? "bg-st-or text-st-ink" : matchIds.has(w.id) ? "bg-st-or/40 text-st-text" : "bg-st-raised text-st-text hover:bg-st-hover"
                   } ${i === page.heroIndex ? "font-bold underline decoration-st-or decoration-2 underline-offset-2" : ""} ${lowConfidence(w.confidence) ? "border-b border-dashed border-st-or" : ""}`}
                   title={lowConfidence(w.confidence) ? "Low confidence: worth double-checking" : undefined}

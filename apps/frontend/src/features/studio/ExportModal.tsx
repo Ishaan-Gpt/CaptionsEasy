@@ -86,14 +86,14 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
 
   const rows = exportsQ.data ?? [];
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div role="dialog" aria-label="Export" onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-st-line bg-st-panel shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-obsidian/40 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div role="dialog" aria-label="Export" onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-st-line bg-st-panel pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
         <div className="flex items-center justify-between border-b border-st-line px-5 py-4">
           <h2 className="text-lg font-semibold">Export</h2>
-          <button onClick={onClose} aria-label="Close" className="text-st-muted hover:text-st-text">✕</button>
+          <button onClick={onClose} aria-label="Close" className="-mr-2 grid h-10 w-10 place-items-center rounded-full text-st-muted hover:bg-st-raised hover:text-st-text">✕</button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           {saving ? <p className="mb-3 rounded-lg bg-st-raised/70 px-3 py-2 text-xs text-st-muted">Saving your latest edits first…</p> : null}
           {!companionOnline ? (
             <p className="mb-4 rounded-lg bg-st-or/15 px-3 py-2 text-sm text-st-text">
@@ -101,30 +101,30 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
             </p>
           ) : null}
 
-          <div className="mb-3 flex items-center justify-between text-sm text-st-text/80">
+          <div className="mb-3 flex flex-col gap-1.5 text-sm text-st-text/80 sm:flex-row sm:items-center sm:justify-between">
             <span>Video quality</span>
-            <div className="inline-flex rounded-lg bg-st-raised p-0.5">
+            <div className="grid grid-cols-3 rounded-lg border border-st-line bg-st-raised p-0.5 sm:inline-flex">
               {(["high", "balanced", "small"] as const).map((q) => (
-                <button key={q} onClick={() => setQuality(q)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${quality === q ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{q}</button>
+                <button key={q} onClick={() => setQuality(q)} className={`rounded-md px-2.5 py-2 text-xs capitalize sm:py-1 ${quality === q ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{q}</button>
               ))}
             </div>
           </div>
 
-          <div className="mb-3 flex items-center justify-between text-sm text-st-text/80">
+          <div className="mb-3 flex flex-col gap-1.5 text-sm text-st-text/80 sm:flex-row sm:items-center sm:justify-between">
             <span>Resolution</span>
-            <div className="inline-flex rounded-lg bg-st-raised p-0.5">
+            <div className="grid grid-cols-3 rounded-lg border border-st-line bg-st-raised p-0.5 sm:inline-flex">
               {([["source", `Original (${short}p)`], ["1080", "1080p"], ["720", "720p"]] as const).map(([v, label]) => (
-                <button key={v} disabled={v !== "source" && short <= Number(v)} onClick={() => setRes(v)} className={`rounded-md px-2.5 py-1 text-xs disabled:opacity-30 ${res === v ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{label}</button>
+                <button key={v} disabled={v !== "source" && short <= Number(v)} onClick={() => setRes(v)} className={`whitespace-nowrap rounded-md px-2.5 py-2 text-xs disabled:opacity-30 sm:py-1 ${res === v ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{label}</button>
               ))}
             </div>
           </div>
           <div className="mb-4 rounded-xl bg-st-raised/50 p-3 text-sm text-st-text/80">
-            <label className="flex cursor-pointer items-center gap-2">
+            <label className="flex min-h-8 cursor-pointer items-center gap-2">
               <input type="checkbox" checked={trim} onChange={(e) => setTrim(e.target.checked)} className="accent-[#34D399]" />
               Only export part of the video
             </label>
             {trim ? (
-              <div className="mt-2 flex items-center gap-2 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <span>From</span>
                 <input type="number" min={0} max={totalS} step={0.1} value={startS} onChange={(e) => setStartS(Number(e.target.value))} className="w-20 rounded border border-st-line bg-st-raised px-2 py-1" aria-label="Trim start (seconds)" />
                 <span>to</span>

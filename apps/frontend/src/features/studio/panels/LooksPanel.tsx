@@ -109,7 +109,7 @@ export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentSty
         </div>
         <div className="flex flex-wrap gap-1.5">
           {cats.map((c) => (
-            <button key={c} onClick={() => setCat(c)} className={`rounded-full border px-2.5 py-1 text-xs transition ${cat === c ? "border-st-ink bg-st-ink text-st-panel" : "border-st-line bg-st-panel text-st-muted hover:text-st-text"}`}>{c}</button>
+            <button key={c} onClick={() => setCat(c)} className={`rounded-full border px-3 py-1.5 text-xs transition lg:px-2.5 lg:py-1 ${cat === c ? "border-st-ink bg-st-ink text-st-panel" : "border-st-line bg-st-panel text-st-muted hover:text-st-text"}`}>{c}</button>
           ))}
         </div>
       </div>
