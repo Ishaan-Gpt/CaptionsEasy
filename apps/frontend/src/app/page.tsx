@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Lenis from "lenis";
 import { Loader } from "@/components/home/Loader";
 import { ensureGsap, prefersReducedMotion } from "@/components/home/gsap";
-import { ClosingCta, Faq, Features, Footer, Hero, HowItWorks, Looks, Marquee, Nav, Pricing, Privacy } from "@/components/home/Sections";
+import { ClosingCta, Control, Faq, Features, Footer, Hero, HowItWorks, Looks, Marquee, Nav, Pricing, Privacy } from "@/components/home/Sections";
 
 export default function LandingPage() {
   const root = useRef<HTMLElement>(null);
@@ -66,7 +66,7 @@ export default function LandingPage() {
       });
 
       // how it works: the progress line draws with your scroll, steps pop in along it
-      gsap.to("[data-progress]", { scaleX: 1, ease: "none", scrollTrigger: { trigger: "#how", start: "top 60%", end: "bottom 70%", scrub: 0.6 } });
+      gsap.to("[data-progress]", { scaleY: 1, ease: "none", scrollTrigger: { trigger: "#how", start: "top 60%", end: "bottom 70%", scrub: 0.6 } });
       gsap.from("[data-step]", { y: 70, opacity: 0, duration: 1, stagger: 0.18, ease: "expo.out", scrollTrigger: { trigger: "#how", start: "top 65%" } });
 
       // looks: cards rise in a wave
@@ -92,6 +92,7 @@ export default function LandingPage() {
       <Marquee />
       <HowItWorks />
       <Looks />
+      <Control />
       <Features />
       <Privacy />
       <Pricing />

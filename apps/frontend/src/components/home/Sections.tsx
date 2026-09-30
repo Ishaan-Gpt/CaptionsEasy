@@ -135,10 +135,111 @@ export function Marquee() {
   );
 }
 
-const STEPS = [
-  { n: "01", title: "Upload your video", body: "Drag in an MP4, MOV or WebM. We read its size and length instantly, before the upload even finishes.", art: "⬆" },
-  { n: "02", title: "Captions write themselves", body: "Speech becomes word-timed captions, privately on your own computer with local Whisper, or in the cloud when you're on the go. Hinglish included.", art: "🎙" },
-  { n: "03", title: "Pick a look, tweak, export", body: "Choose from distinct animated looks, fix any word, drag timings on the timeline, then export a burned-in MP4, a transparent overlay, or SRT.", art: "✦" },
+function UploadArtifact() {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#1A1A1A]/20 bg-white/90 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-mono text-xs text-[#1A1A1A]/60">drop your clip here</span>
+        <span className="rounded-full bg-[#FFFFEB] border border-[#1A1A1A]/10 px-3 py-1 font-mono text-[11px] font-semibold text-[#0F3D2E]">
+          take-07_final.mp4
+        </span>
+      </div>
+      <div className="mt-4 h-2 rounded-full bg-[#1A1A1A]/5 overflow-hidden">
+        <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#FFA946] to-[#34D399]" />
+      </div>
+    </div>
+  );
+}
+
+function TranscriptArtifact() {
+  const rows = [
+    ["00:00.42", "the first three seconds decide"],
+    ["00:02.10", "whether anyone stays,"],
+    ["00:03.65", "so make them unmistakable."],
+  ];
+  return (
+    <div className="rounded-2xl bg-white/90 border border-[#1A1A1A]/10 divide-y divide-[#1A1A1A]/5 shadow-sm overflow-hidden">
+      {rows.map(([t, text], i) => (
+        <div key={t} className={`flex items-baseline gap-4 px-5 py-3 ${i === 1 ? "bg-[#F0D7FF]/30" : ""}`}>
+          <span className="font-mono text-[11px] text-[#1A1A1A]/50 shrink-0">{t}</span>
+          <span className={`text-[13px] ${i === 1 ? "text-[#1A1A1A] font-bold" : "text-[#1A1A1A]/75"}`}>
+            {text}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StyleArtifact() {
+  return (
+    <div className="rounded-2xl bg-white/90 border border-[#1A1A1A]/10 p-5 space-y-4 shadow-sm">
+      <div className="flex flex-wrap gap-2">
+        {["Hormozi Box", "Karaoke Fill", "Beast Bounce", "Emerald"].map((n, i) => (
+          <span
+            key={n}
+            className={`rounded-full px-3.5 py-1 text-[11px] font-bold transition ${
+              i === 0 ? "bg-[#1A1A1A] text-[#FFFFEB]" : "bg-[#FFFFEB] border border-[#1A1A1A]/10 text-[#1A1A1A]/70"
+            }`}
+          >
+            {n}
+          </span>
+        ))}
+      </div>
+      <div className="relative h-20 rounded-xl bg-[#1A1A1A] overflow-hidden flex items-center justify-center">
+        <div className="w-[68%] h-[56%] border-2 border-dashed border-[#FFA946] rounded-lg flex items-center justify-center bg-[#FFA946]/10">
+          <span className="font-styled text-xs font-bold text-[#FFFFEB]">caption box · drag me</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RenderArtifact() {
+  return (
+    <div className="rounded-2xl bg-white/90 border border-[#1A1A1A]/10 p-5 space-y-3.5 shadow-sm">
+      <div className="flex items-center justify-between font-mono text-[11px] text-[#1A1A1A]/60">
+        <span>remotion render · 1080×1920 · 60fps</span>
+        <span className="text-[#0F3D2E] font-semibold">100% ready</span>
+      </div>
+      <div className="h-2 rounded-full bg-[#1A1A1A]/5 overflow-hidden">
+        <div className="h-full w-full rounded-full bg-[#34D399]" />
+      </div>
+      <div className="flex items-center justify-between pt-1">
+        <span className="font-styled text-xs font-bold text-[#1A1A1A]">Export burned-in MP4</span>
+        <span className="rounded-full bg-[#1A1A1A] text-[#FFFFEB] px-3.5 py-1 text-xs font-bold shadow-sm">
+          Download MP4
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const PIPELINE_STEPS = [
+  {
+    n: "1",
+    title: "Upload the take",
+    body: "One MP4, straight from your camera roll. No timeline setup, no project files, no plugins.",
+    artifact: <UploadArtifact />,
+  },
+  {
+    n: "2",
+    title: "Every word gets a timestamp",
+    body: "Speech-to-text runs at word level, so the engine knows exactly when each syllable lands — and you can clean up the transcript before anything is styled.",
+    artifact: <TranscriptArtifact />,
+  },
+  {
+    n: "3",
+    title: "Pick a look, direct the frame",
+    body: "Choose from distinct cinematic styles, then drag the caption box anywhere in the frame and tune the hero and body text independently.",
+    artifact: <StyleArtifact />,
+  },
+  {
+    n: "4",
+    title: "Render and post",
+    body: "A deterministic Remotion pipeline burns the animation into a crisp 1080p vertical MP4. What you previewed is exactly what exports.",
+    artifact: <RenderArtifact />,
+  },
 ];
 
 export function HowItWorks() {
@@ -148,21 +249,31 @@ export function HowItWorks() {
         <div data-reveal className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">How it works</p>
           <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-6xl">
-            From raw clip to <em className="font-normal italic">scroll-stopper</em> in three steps.
+            From camera roll to <em className="font-normal italic text-[#0F3D2E]">captioned</em> in four moves.
           </h2>
         </div>
-        <div className="relative mt-16 grid gap-6 md:grid-cols-3">
-          <div aria-hidden className="absolute left-0 right-0 top-10 hidden h-[2px] bg-[#1A1A1A]/10 md:block">
-            <div data-progress className="h-full origin-left scale-x-0 bg-gradient-to-r from-[#FFA946] via-[#34D399] to-[#0F3D2E]" />
+
+        <div className="relative mt-16">
+          <div className="space-y-12 lg:space-y-16">
+            {PIPELINE_STEPS.map((s) => (
+              <div key={s.n} data-step className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+                <div className="lg:col-span-5 lg:pl-12 relative">
+                  <span
+                    aria-hidden
+                    className="hidden lg:grid place-items-center absolute left-0 top-1.5 w-8 h-8 rounded-full bg-[#1A1A1A] text-[#FFFFEB] font-styled font-bold text-xs shadow-sm ring-4 ring-[#FFFFEB]"
+                  >
+                    {s.n}
+                  </span>
+                  <p className="font-styled italic text-[#0F3D2E] text-base">Step {s.n}</p>
+                  <h3 className="mt-1 font-styled text-2xl font-bold text-[#1A1A1A]">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#1A1A1A]/70 max-w-md">{s.body}</p>
+                </div>
+                <div className="lg:col-span-7">
+                  {s.artifact}
+                </div>
+              </div>
+            ))}
           </div>
-          {STEPS.map((s) => (
-            <article key={s.n} data-step className="relative rounded-3xl border border-[#1A1A1A]/10 bg-white/70 p-7 shadow-[0_20px_50px_-35px_rgba(26,26,26,0.5)] backdrop-blur">
-              <div className="relative z-10 grid h-20 w-20 place-items-center rounded-2xl border border-[#1A1A1A] bg-[#FFFFEB] text-3xl shadow-[4px_4px_0_#1A1A1A]">{s.art}</div>
-              <p className="mt-6 font-mono text-xs font-semibold text-[#FFA946]">{s.n}</p>
-              <h3 className="mt-1 font-styled text-2xl font-bold text-[#1A1A1A]">{s.title}</h3>
-              <p className="mt-3 leading-relaxed text-[#1A1A1A]/65">{s.body}</p>
-            </article>
-          ))}
         </div>
       </div>
     </section>
@@ -314,33 +425,192 @@ export function Pricing() {
   );
 }
 
+const CONTROLS = [
+  {
+    title: "The caption box is yours",
+    body: "Drag and resize the caption region anywhere in the frame — clear of faces, product shots, or platform UI. The render honours it to the pixel.",
+    tag: "layout",
+  },
+  {
+    title: "Timing you can re-cut",
+    body: "A word-level timeline lets you nudge any word's in and out points when the delivery needs a different beat than the transcript suggests.",
+    tag: "timeline",
+  },
+  {
+    title: "Clean the transcript first",
+    body: "Fix names, drop filler words, and merge fragments before styling — so the animation never amplifies a typo.",
+    tag: "transcript",
+  },
+  {
+    title: "Hero and body, styled apart",
+    body: "The emphasized word and the supporting line carry independent fonts, sizes, and colours. Tune one without disturbing the other.",
+    tag: "typography",
+  },
+  {
+    title: "Every export, kept",
+    body: "Each render lands in the project's export history with its settings, so last week's look is one click to reproduce.",
+    tag: "exports",
+  },
+];
+
+export function Control() {
+  return (
+    <section id="control" className="px-4 py-24 sm:py-32 border-t border-[#1A1A1A]/10">
+      <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div data-reveal className="lg:col-span-4">
+          <div className="lg:sticky lg:top-28">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">Precision editing</p>
+            <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-5xl">
+              Automatic, <em className="font-normal italic text-[#0F3D2E]">until you disagree.</em>
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-[#1A1A1A]/70 max-w-sm">
+              AI creates the baseline in seconds. You keep frame-by-frame control over every word, break, position, and motion curve.
+            </p>
+          </div>
+        </div>
+
+        <div className="lg:col-span-8">
+          <div className="divide-y divide-[#1A1A1A]/10 border-t border-b border-[#1A1A1A]/10">
+            {CONTROLS.map((c) => (
+              <div
+                key={c.tag}
+                data-reveal
+                className="group grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-6 py-6 items-baseline transition-colors hover:bg-white/60 sm:px-4 sm:-mx-4 rounded-2xl"
+              >
+                <span className="sm:col-span-3 font-mono text-xs uppercase tracking-wider text-[#0F3D2E] font-semibold">
+                  <span className="rounded-full bg-[#F0D7FF]/60 px-2.5 py-1 text-[11px] text-[#1A1A1A]">
+                    {c.tag}
+                  </span>
+                </span>
+                <div className="sm:col-span-9">
+                  <h3 className="font-styled text-lg font-bold text-[#1A1A1A] group-hover:text-[#0F3D2E] transition-colors">
+                    {c.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#1A1A1A]/70 max-w-[54ch]">
+                    {c.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const FAQS = [
-  ["Does it work for vertical Shorts, Reels and TikToks?", "Yes. Portrait 9:16 and landscape 16:9 both work; the preview and export always match your video's real shape, and captions sit above the platform buttons by default."],
-  ["Do I need a powerful computer?", "No. The Companion runs on any modern Windows, Mac or Linux machine. A faster computer just finishes sooner. No computer handy? Short clips can be transcribed in the cloud instead."],
-  ["Is my video private?", "Your video is stored privately in your account, and with the Companion the speech recognition and rendering happen on your own machine."],
-  ["Can I edit the captions?", "Everything: fix words, split or join cards, drag word timings on the timeline, choose the key word, change fonts, colours, motion and position. It all autosaves, with undo."],
-  ["Does it support Hindi and Hinglish?", "Yes. Speech is transcribed in 100+ languages, Hinglish can be romanized automatically, and there are Devanagari-ready looks."],
-  ["What can I export?", "A ready-to-post MP4 with captions burned in, transparent caption overlays (ProRes 4444 or WebM) for Premiere, Resolve and Final Cut, and SRT, VTT, ASS or TXT subtitle files."],
+  {
+    q: "Will CaptionsEasy work with vertical 9:16 Shorts, Reels, and TikToks?",
+    a: "Yes! CaptionsEasy is optimized specifically for short-form portrait video (9:16) as well as traditional widescreen (16:9). All kinetic motion keyframes adjust dynamically to fit your framing, with safe-zone clearance for platform UI buttons.",
+  },
+  {
+    q: "How is CaptionsEasy different from basic CapCut or Premiere captions?",
+    a: "Standard video editors apply plain static text. CaptionsEasy delivers syllable-accurate word timing, automatically highlights high-impact hero words with distinct motion, and lets you export transparent overlays (ProRes 4444 / WebM) directly into your NLE timeline.",
+  },
+  {
+    q: "Do I need a high-end GPU or cloud server to render videos?",
+    a: "No! The lightweight CaptionsEasy Companion runs on your own computer with local Whisper and Remotion hardware acceleration. There are zero cloud render queues and no per-minute bills.",
+  },
+  {
+    q: "Can I customize the font, colors, and keyframe animations?",
+    a: "Absolutely. Choose from curated viral looks (Hormozi Box, Karaoke Fill, Beast Bounce, Luxe Serif, Neon, Highlighter, etc.), adjust glowing outlines, padding, box radii, and save your brand kit for one-click re-use.",
+  },
+  {
+    q: "Does it support Hindi, Hinglish, and regional accents?",
+    a: "Yes. Speech recognition handles 100+ languages, accent variations, fast-talking creators, background noise, and code-switching like Hinglish (with automatic romanization options and Devanagari-ready fonts).",
+  },
+  {
+    q: "What export formats are supported?",
+    a: "You can export ready-to-post 1080p vertical MP4 videos with burned-in captions, transparent alpha overlays (ProRes 4444 or WebM) for Premiere, Resolve and Final Cut, or download raw SRT, VTT, ASS and TXT subtitle files instantly.",
+  },
 ];
 
 export function Faq() {
-  const [open, setOpen] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(0);
+
   return (
     <section id="faq" className="px-4 pb-24 sm:pb-32">
-      <div className="mx-auto max-w-3xl">
-        <h2 data-reveal className="text-center font-styled text-5xl font-normal italic text-[#1A1A1A] sm:text-6xl">Good questions.</h2>
-        <div className="mt-12 divide-y divide-[#1A1A1A]/10 rounded-3xl border border-[#1A1A1A]/10 bg-white/60">
-          {FAQS.map(([q, a], i) => (
-            <div key={q} data-faq>
-              <button onClick={() => setOpen(open === i ? -1 : i)} aria-expanded={open === i} className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left font-semibold text-[#1A1A1A]">
-                {q}
-                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#1A1A1A]/20 transition-transform duration-300 ${open === i ? "rotate-45 bg-[#F0D7FF]" : ""}`} aria-hidden>+</span>
-              </button>
-              <div className="grid transition-[grid-template-rows] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ gridTemplateRows: open === i ? "1fr" : "0fr" }}>
-                <p className="overflow-hidden px-6 text-[#1A1A1A]/70"><span className="block pb-5 leading-relaxed">{a}</span></p>
+      <div className="mx-auto max-w-6xl">
+        <div data-reveal className="text-center mb-12">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">FAQ</p>
+          <h2 className="mt-3 font-styled text-5xl sm:text-6xl font-normal italic text-[#1A1A1A]">
+            Good questions.
+          </h2>
+        </div>
+
+        {/* Outer Split Container Card */}
+        <div data-reveal className="bg-white/60 rounded-3xl p-5 sm:p-8 border border-[#1A1A1A]/10 shadow-[0_20px_50px_-35px_rgba(26,26,26,0.3)] backdrop-blur">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            
+            {/* Left Column: Questions List Card */}
+            <div className="lg:col-span-6 bg-[#0F3D2E] text-[#FFFFEB] rounded-2xl p-5 sm:p-7 flex flex-col justify-between shadow-lg">
+              <div>
+                <h3 className="font-styled font-bold text-xl sm:text-2xl mb-5 text-[#FFFFEB] flex items-center justify-between">
+                  <span>Questions</span>
+                  <span className="text-xs font-mono font-normal uppercase tracking-wider text-[#34D399]">
+                    {activeIdx + 1} / {FAQS.length}
+                  </span>
+                </h3>
+
+                <div className="space-y-2.5">
+                  {FAQS.map((faq, idx) => {
+                    const isActive = activeIdx === idx;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveIdx(idx)}
+                        className={`w-full text-left p-3.5 sm:p-4 rounded-xl text-sm sm:text-[15px] leading-snug transition-all flex items-center justify-between gap-3 ${
+                          isActive
+                            ? "bg-[#34D399]/20 text-[#FFFFEB] font-bold border border-[#34D399]/40 shadow-sm translate-x-1"
+                            : "text-[#FFFFEB]/75 hover:text-[#FFFFEB] hover:bg-white/5 border border-transparent"
+                        }`}
+                      >
+                        <span>{faq.q}</span>
+                        <span className={`text-xs transition-transform ${isActive ? "text-[#34D399] rotate-90" : "text-[#FFFFEB]/30"}`}>
+                          →
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          ))}
+
+            {/* Right Column: Active Answer View */}
+            <div className="lg:col-span-6 flex flex-col justify-between p-2 sm:p-4">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-xs uppercase tracking-wider text-[#0F3D2E] font-bold">
+                    Answer
+                  </span>
+                  <span className="text-xs text-[#1A1A1A]/40 font-mono">
+                    Instant clarification
+                  </span>
+                </div>
+
+                {/* Active Question Title Repeated */}
+                <h4 className="font-styled text-lg sm:text-xl font-bold text-[#1A1A1A] mb-4 leading-snug">
+                  {FAQS[activeIdx].q}
+                </h4>
+
+                {/* Answer Bubble Card */}
+                <div className="bg-[#FFFFEB] p-6 sm:p-7 rounded-2xl border border-[#1A1A1A]/10 shadow-sm text-sm sm:text-base text-[#1A1A1A]/85 leading-relaxed">
+                  {FAQS[activeIdx].a}
+                </div>
+              </div>
+
+              {/* Bottom Brand Mark Accent */}
+              <div className="mt-6 pt-4 border-t border-[#1A1A1A]/5 flex items-center justify-between text-xs text-[#1A1A1A]/50">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#34D399]" />
+                  Verified for CapsEasy v2
+                </span>
+                <span className="font-mono">Local + Cloud</span>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
     </section>
