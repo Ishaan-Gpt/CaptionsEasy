@@ -1,114 +1,69 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { motion, useMotionValue, animate } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 import { Section1Productivity } from './Section1Productivity';
 import { Section2 } from './Section2';
 import { Section3 } from './Section3';
 import { Section4 } from './Section4';
 import { useIsMobile } from './useIsMobile';
+import { ensureGsap, prefersReducedMotion } from '@/components/home/gsap';
 
-const SECTION_POSITIONS = [
-  { x: 0, y: 0 },
-  { x: -1, y: 0 },
-  { x: -1, y: -1 },
-  { x: 0, y: -1 },
-];
+// scroll timeline, in "viewport scrolls" (1 = 1000px): hold, move, hold, move, hold, move, hold
+const HOLD = 0.45;
+const MOVE = 1;
+const TOTAL = HOLD * 4 + MOVE * 3;
+const MIDS = [1, 2, 3].map((k) => HOLD * k + MOVE * (k - 0.5));
+
+function ShowcaseHeading({ className = "" }: { className?: string }) {
+  return (
+    <div className={`pointer-events-none text-center ${className}`}>
+      <h2 className="text-[30px] font-bold leading-[1.05] tracking-[-0.03em] text-[#1A1A1A] sm:text-[40px]">
+        Four reasons it feels <em className="font-accent font-normal">effortless.</em>
+      </h2>
+    </div>
+  );
+}
 
 export function SpatialScroll() {
   const isMobile = useIsMobile();
   const isPhone = useIsMobile(600);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const sectionRef = useRef(0);
-  const isAnimating = useRef(false);
-  const hasLooped = useRef(false);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const posFor = useCallback((idx: number) => {
-    const pos = SECTION_POSITIONS[idx];
-    return {
-      tx: pos.x * (window.innerWidth * 0.74),
-      ty: pos.y * (window.innerHeight * 0.82),
-    };
-  }, []);
-
-  const goTo = useCallback((idx: number) => {
-    if (isAnimating.current) return;
-    isAnimating.current = true;
-    if (sectionRef.current === 3 && idx === 0) hasLooped.current = true;
-    const { tx, ty } = posFor(idx);
-    animate(x, tx, { duration: 0.85, ease: [0.76, 0, 0.24, 1] });
-    animate(y, ty, { duration: 0.85, ease: [0.76, 0, 0.24, 1] });
-    sectionRef.current = idx;
-    setTimeout(() => { isAnimating.current = false; }, 950);
-  }, [x, y, posFor]);
+  const wrapperRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isMobile) return;
-    const handleWheel = (e: WheelEvent) => {
-      // Check if mouse is hovering this spatial scroll container
-      const container = document.getElementById('spatial-scroll-container');
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const inView = rect.top <= 50 && rect.bottom >= window.innerHeight - 50;
-      if (!inView) return;
+    if (isMobile || prefersReducedMotion() || !wrapperRef.current || !canvasRef.current) return;
+    
+    // We must ensure the element is visible before calculating ScrollTrigger, 
+    // sometimes a tiny timeout helps when rendering dynamic components.
+    const { gsap } = ensureGsap();
+    
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: wrapperRef.current,
+          start: "top top",
+          end: `+=${Math.round(TOTAL * 1000)}`,
+          scrub: 1,
+          pin: true,
+          anticipatePin: 1,
+        },
+      });
 
-      if (Math.abs(e.deltaY) < 5) return;
-      
-      // If we are navigating the internal sections
-      const dir = e.deltaY > 0 ? 1 : -1;
-      if (dir > 0 && sectionRef.current < 3) {
-        e.preventDefault();
-        goTo(sectionRef.current + 1);
-      } else if (dir < 0 && sectionRef.current > 0) {
-        e.preventDefault();
-        goTo(sectionRef.current - 1);
-      }
-    };
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, [goTo, isMobile]);
+      // Path: (0,0) -> (-100vw, 0) -> (-100vw, -100vh) -> (0vw, -100vh), with a hold on every card
+      // (including the last, so it doesn't scroll away the moment it arrives)
+      const c = canvasRef.current;
+      tl.to({}, { duration: HOLD })
+        .to(c, { x: "-100vw", y: "0vh", ease: "power2.inOut", duration: MOVE })
+        .to({}, { duration: HOLD })
+        .to(c, { x: "-100vw", y: "-100vh", ease: "power2.inOut", duration: MOVE })
+        .to({}, { duration: HOLD })
+        .to(c, { x: "0vw", y: "-100vh", ease: "power2.inOut", duration: MOVE })
+        .to({}, { duration: HOLD });
+        
+    }, wrapperRef);
 
-  useEffect(() => {
-    if (isMobile) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const handleResize = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const { tx, ty } = posFor(sectionRef.current);
-        x.set(tx);
-        y.set(ty);
-      }, 100);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => { window.removeEventListener('resize', handleResize); clearTimeout(timer); };
-  }, [x, y, posFor, isMobile]);
-
-  useEffect(() => {
-    if (isMobile) return;
-    const onTouchStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      touchStart.current = { x: t.clientX, y: t.clientY };
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (!touchStart.current) return;
-      const t = e.changedTouches[0];
-      const dx = touchStart.current.x - t.clientX;
-      const dy = touchStart.current.y - t.clientY;
-      touchStart.current = null;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-      if (absDx < 50 && absDy < 50) return;
-      const dir = absDx >= absDy ? (dx > 0 ? 1 : -1) : (dy > 0 ? 1 : -1);
-      if (!hasLooped.current && sectionRef.current === 0 && dir === -1) return;
-      goTo((sectionRef.current + dir + 4) % 4);
-    };
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchend', onTouchEnd, { passive: true });
-    return () => { window.removeEventListener('touchstart', onTouchStart); window.removeEventListener('touchend', onTouchEnd); };
-  }, [isMobile, goTo]);
+    return () => ctx.revert();
+  }, [isMobile]);
 
   if (isMobile) {
     const isTablet = !isPhone;
@@ -123,7 +78,8 @@ export function SpatialScroll() {
       justifyContent: 'center',
     };
     return (
-      <div id="spatial-scroll-container" ref={scrollContainerRef} style={{ width: '100vw', backgroundColor: '#0a0d15', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+      <div key="mobile" id="spatial-scroll-container" className="mb-20 sm:mb-32" style={{ width: '100vw', backgroundColor: '#FFFFEB', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        <ShowcaseHeading className="px-4 pt-16" />
         <div style={snapSlot}><Section1Productivity /></div>
         <div style={snapSlot}><Section2 /></div>
         <div style={snapSlot}><Section3 /></div>
@@ -133,32 +89,22 @@ export function SpatialScroll() {
   }
 
   return (
-    <section id="spatial-scroll-container" style={{ width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#0a0d15', position: 'relative' }}>
-      {/* Interactive Navigation Indicator Dots */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-        {[0, 1, 2, 3].map((idx) => (
-          <button
-            key={idx}
-            onClick={() => goTo(idx)}
-            className={`transition-all duration-300 rounded-full ${
-              sectionRef.current === idx
-                ? 'w-7 h-2 bg-gradient-to-r from-[#24FF95] to-[#4C6DFF]'
-                : 'w-2 h-2 bg-white/30 hover:bg-white/60'
-            }`}
-            aria-label={`Go to section ${idx + 1}`}
-          />
-        ))}
-        <span className="text-[11px] font-mono text-white/50 pl-1">
-          {sectionRef.current + 1} / 4
-        </span>
-      </div>
+    // GSAP's pin moves the <section> into a spacer; this wrapper stays React's, so unmounting never trips over it.
+    // The key matters: without it React reuses this div when the layout switches to mobile and tries to remove
+    // the (moved) section from it -> "removeChild: the node to be removed is not a child of this node".
+    <div key="desktop" className="mb-24 sm:mb-36">
+      <section ref={wrapperRef} id="looks" className="relative w-screen h-screen overflow-hidden bg-[#FFFFEB]">
+        <ShowcaseHeading className="absolute inset-x-0 top-[3.5vh] z-40" />
 
-      <motion.div style={{ x, y, position: 'relative', width: '200vw', height: '200vh', willChange: 'transform' }}>
-        <div style={{ position: 'absolute', top: '0', left: '0', width: '100vw', height: '100vh' }}><Section1Productivity /></div>
-        <div style={{ position: 'absolute', top: '0', left: '74vw', width: '100vw', height: '100vh' }}><Section2 /></div>
-        <div style={{ position: 'absolute', top: '82vh', left: '74vw', width: '100vw', height: '100vh' }}><Section3 /></div>
-        <div style={{ position: 'absolute', top: '82vh', left: '0', width: '100vw', height: '100vh' }}><Section4 /></div>
-      </motion.div>
-    </section>
+        <div ref={canvasRef} className="absolute top-0 left-0 w-[200vw] h-[200vh] flex flex-wrap will-change-transform">
+          {/* Row 1 */}
+          <div className="w-[100vw] h-[100vh] relative"><Section1Productivity /></div>
+          <div className="w-[100vw] h-[100vh] relative"><Section2 /></div>
+          {/* Row 2 */}
+          <div className="w-[100vw] h-[100vh] relative"><Section4 /></div>
+          <div className="w-[100vw] h-[100vh] relative"><Section3 /></div>
+        </div>
+      </section>
+    </div>
   );
 }

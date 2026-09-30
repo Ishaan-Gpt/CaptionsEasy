@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 import QueryProvider from "@/providers/QueryProvider";
+import { introScript } from "@/components/home/intro";
 import "./globals.css";
 
 /**
@@ -39,6 +40,9 @@ export default function RootLayout({
       className={`${fontNormal.variable} ${fontAccent.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: introScript(process.env.NODE_ENV !== "production") }} />
+      </head>
       <body
         className="h-full bg-major text-obsidian font-sans selection:bg-side selection:text-obsidian"
         suppressHydrationWarning

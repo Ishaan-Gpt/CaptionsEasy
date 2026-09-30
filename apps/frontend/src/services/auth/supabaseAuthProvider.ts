@@ -120,6 +120,19 @@ export const supabaseAuthProvider: AuthProvider = {
     }
   },
 
+  async loginWithGithub() {
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo,
+      },
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+  },
+
   async logout() {
     const { error } = await supabase.auth.signOut();
     if (error) {

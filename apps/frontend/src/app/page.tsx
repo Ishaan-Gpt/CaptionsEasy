@@ -5,11 +5,11 @@ import Lenis from "lenis";
 import { Loader } from "@/components/home/Loader";
 import { ensureGsap, prefersReducedMotion } from "@/components/home/gsap";
 import dynamic from "next/dynamic";
-import { ClosingCta, Control, Faq, Features, Footer, Hero, HowItWorks, Looks, Marquee, Nav, Pricing, Privacy } from "@/components/home/Sections";
+import { ClosingCta, Control, Faq, Features, Footer, Hero, HowItWorks, Nav, Pricing, Privacy } from "@/components/home/Sections";
 
 const SpatialScroll = dynamic(
   () => import("@/components/spatial/SpatialScroll").then((m) => m.SpatialScroll),
-  { ssr: false, loading: () => <div className="h-screen w-full bg-[#0a0d15]" /> }
+  { ssr: false, loading: () => <div className="h-screen w-full bg-[#FFFFEB]" /> }
 );
 
 export default function LandingPage() {
@@ -38,22 +38,12 @@ export default function LandingPage() {
     if (prefersReducedMotion()) return;
     const { gsap, ScrollTrigger } = ensureGsap();
     const ctx = gsap.context(() => {
-      // hero entrance
-      gsap.timeline({ defaults: { ease: "expo.out" } })
-        .from("[data-hero=eyebrow]", { y: 16, opacity: 0, duration: 0.8 })
-        .from("[data-hero=word]", { yPercent: 110, duration: 1.1, stagger: 0.08 }, 0.05)
-        .from("[data-hero=sub]", { y: 18, opacity: 0, duration: 0.9, stagger: 0.12 }, 0.35)
-        .from("[data-hero=cta]", { y: 18, opacity: 0, duration: 0.9 }, 0.5)
-        .from("[data-hero=phone]", { y: 60, rotate: 4, opacity: 0, duration: 1.4 }, 0.2)
-        .from("[data-float]", { scale: 0.6, opacity: 0, duration: 0.8, stagger: 0.15, ease: "back.out(2)" }, 0.9);
+      // hero entrance: pure CSS in globals.css (timed from first paint, so hydration can never reset it)
 
-      gsap.to("[data-float]", { y: -10, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: -1, stagger: 0.6, delay: 1.8 });
-
-      // parallax blobs + the phone tilts back as you leave the hero
+      // parallax blobs
       gsap.utils.toArray<HTMLElement>("[data-parallax]").forEach((el) => {
         gsap.to(el, { yPercent: -60 * Number(el.dataset.parallax ?? 0.3), ease: "none", scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: true } });
       });
-      gsap.to("[data-hero=phone]", { y: -40, rotate: -2, ease: "none", scrollTrigger: { trigger: "[data-hero=phone]", start: "top 30%", end: "bottom top", scrub: true } });
 
       // nav hides on scroll down, returns on scroll up
       const nav = document.querySelector<HTMLElement>("[data-nav]");
@@ -71,16 +61,11 @@ export default function LandingPage() {
         gsap.from(el, { y: 50, opacity: 0, duration: 1.1, ease: "expo.out", scrollTrigger: { trigger: el, start: "top 85%" } });
       });
 
-      // how it works: the progress line draws with your scroll, steps pop in along it
-      gsap.to("[data-progress]", { scaleY: 1, ease: "none", scrollTrigger: { trigger: "#how", start: "top 60%", end: "bottom 70%", scrub: 0.6 } });
-      gsap.from("[data-step]", { y: 70, opacity: 0, duration: 1, stagger: 0.18, ease: "expo.out", scrollTrigger: { trigger: "#how", start: "top 65%" } });
+      // how it works: steps pop in
+      if (document.querySelector('[data-step]') && document.querySelector("#how")) gsap.from("[data-step]", { y: 70, opacity: 0, duration: 1, stagger: 0.18, ease: "expo.out", scrollTrigger: { trigger: "#how", start: "top 65%" } });
 
-      // looks: cards rise in a wave
-      gsap.from("[data-look]", { y: 90, opacity: 0, rotate: 2, duration: 1.1, stagger: 0.08, ease: "expo.out", scrollTrigger: { trigger: "#looks", start: "top 60%" } });
-
-      gsap.from("[data-feature]", { y: 40, opacity: 0, scale: 0.97, duration: 0.9, stagger: 0.07, ease: "expo.out", scrollTrigger: { trigger: "#features", start: "top 65%" } });
-      gsap.from("[data-tier]", { y: 60, opacity: 0, duration: 1, stagger: 0.15, ease: "expo.out", scrollTrigger: { trigger: "#pricing", start: "top 70%" } });
-      gsap.from("[data-faq]", { y: 24, opacity: 0, duration: 0.7, stagger: 0.06, ease: "power3.out", scrollTrigger: { trigger: "#faq", start: "top 75%" } });
+      if (document.querySelector('[data-feature]') && document.querySelector("#features")) gsap.from("[data-feature]", { y: 40, opacity: 0, scale: 0.97, duration: 0.9, stagger: 0.07, ease: "expo.out", scrollTrigger: { trigger: "#features", start: "top 65%" } });
+      if (document.querySelector('[data-tier]') && document.querySelector("#pricing")) gsap.from("[data-tier]", { y: 60, opacity: 0, duration: 1, stagger: 0.15, ease: "expo.out", scrollTrigger: { trigger: "#pricing", start: "top 70%" } });
     }, root);
     // previews and fonts change layout after mount; re-measure once they settle
     const t = setTimeout(() => ScrollTrigger.refresh(), 800);
@@ -95,14 +80,13 @@ export default function LandingPage() {
       <Loader onDone={onLoaderDone} />
       <Nav />
       <Hero />
-      <Marquee />
       <HowItWorks />
-      <Looks />
       <Control />
-      <Features />
-      <SpatialScroll />
+      {/* <Features /> */}
+      {/* the heavy showcase (live players) mounts after the intro, so the intro and hero entrance get the main thread */}
+      {ready ? <SpatialScroll /> : <div className="h-screen w-full bg-[#FFFFEB]" />}
       <Privacy />
-      <Pricing />
+      {/* <Pricing /> */}
       <Faq />
       <ClosingCta />
       <Footer />

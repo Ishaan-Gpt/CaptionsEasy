@@ -1,113 +1,112 @@
-const KIT = {};
+const SCREEN = { W: 1512, H: 982, R: 12 };
+const WIN = { x: 156, y: 70, w: 1200, h: 780, r: 12 };
+const LAPTOP = { bezel: 18, lidR: 26, deckH: 22, deckOver: 150, notchW: 190, notchH: 30 };
+const FULL = { x: 0, y: 0, w: WIN.w, h: WIN.h, r: WIN.r };
 
-function headline(key, text, { size = 88, weight = 700, lh = 1.14, color = "var(--ink)", accent = "var(--accent)" } = {}) {
-  const k = (KIT[key] = { words: 0, letters: 0, size, strokes: [] });
-  const lines = text.split("\n").map((line) => {
-    const [plain = "", acc = "", tail = ""] = line.split("*");
-    const words = plain.split(" ").filter(Boolean).map((w) => `<span class="mask hl-w"><span data-k="${key}w${k.words++}" class="t" style="font-weight:${weight};color:${color}">${w}</span></span>`);
-    let accentHtml = "";
-    if (acc) {
-      const letters = [...acc].map((ch) => `<span data-k="${key}a${k.letters++}" style="visibility:hidden">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
-      const width = measure(acc, size, 400, "font-family:var(--serif);font-style:italic");
-      k.strokes.push(width);
-      accentHtml = `<span class="hl-acc" style="font-family:var(--serif);font-style:italic;font-weight:400;color:${accent}">${letters}
-        <svg class="abs" style="left:0;top:${(size * 0.98).toFixed(1)}px;overflow:visible" width="${width.toFixed(1)}" height="${(size * 0.14).toFixed(1)}">
-          <path data-k="${key}u${k.strokes.length - 1}" d="M2 ${(size * 0.09).toFixed(1)} Q${(width * 0.45).toFixed(1)} ${(size * 0.02).toFixed(1)} ${(width - 2).toFixed(1)} ${(size * 0.07).toFixed(1)}" fill="none" stroke="${accent}" stroke-width="${(size * 0.035).toFixed(2)}" stroke-linecap="round"/></svg></span>`;
-    }
-    const tailWords = tail.split(" ").filter(Boolean).map((w) => `<span class="mask hl-w"><span data-k="${key}w${k.words++}" class="t" style="font-weight:${weight};color:${color}">${w}</span></span>`);
-    return `<div class="hl-line" style="height:${(size * lh).toFixed(1)}px">${words.join("")}${accentHtml}${tailWords.join("")}</div>`;
-  });
-  return `<div class="hl" data-k="${key}" style="font-size:${size}px">${lines.join("")}</div>`;
+const ARROW = `<svg width="26" height="26" viewBox="0 0 26 26"><path d="M3 2.5v18.2l4.6-4.4 3.1 7.2 3.3-1.4-3.1-7.1h6.4Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+
+function desktopMarkup(appHtml, { name = "Appname", menu = ["File", "Edit", "View", "Window", "Help"], extra = "", icon = "", dock = 6, clock = "Tue 9:41" } = {}) {
+  const tile = (i) => `<div style="width:46px;height:46px;border-radius:12px;background:var(--tile${i % 3})"></div>`;
+  const tray = `<svg width="22" height="12" viewBox="0 0 22 12"><rect x=".6" y=".6" width="18.4" height="10.8" rx="3" fill="none" stroke="currentColor" stroke-opacity=".55"/><rect x="2.4" y="2.4" width="12.5" height="7.2" rx="1.6" fill="currentColor"/><rect x="19.9" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".55"/></svg>`;
+  return `
+    <div class="cam" data-k="world">
+      <div class="abs" data-k="deck" style="background:linear-gradient(180deg,var(--metal1),var(--metal2));box-shadow:0 20px 40px rgba(20,20,22,.18)"></div>
+      <div class="abs" data-k="lid" style="left:0;top:0;width:${SCREEN.W}px;height:${SCREEN.H}px">
+        <div class="abs" data-k="bezel" style="background:#0B0B0C;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)"></div>
+        <div class="abs" data-k="display" style="left:0;top:0;width:${SCREEN.W}px;height:${SCREEN.H}px;overflow:hidden">
+          <div class="full" data-k="desk" style="background:radial-gradient(120% 90% at 30% 20%,var(--wall1),var(--wall2))">
+            <div class="abs row" data-k="menubar" style="left:0;top:0;right:0;height:26px;padding:0 16px;gap:20px;font-size:13.5px;color:var(--menuInk);background:var(--menuBg)">
+              <b>${name}</b>${menu.map((m) => `<span>${m}</span>`).join("")}
+              <span class="row" style="margin-left:auto;gap:14px">${extra}${tray}<span>${clock}</span></span>
+            </div>
+            <div class="abs row" data-k="dock" style="left:50%;bottom:10px;height:62px;padding:0 8px;gap:8px;border-radius:18px;background:var(--dockBg);transform:translateX(-50%)">
+              ${Array.from({ length: dock }, (_, i) => tile(i)).join("")}
+              <div style="position:relative;width:46px;height:46px;border-radius:12px;overflow:hidden;background:var(--iconBg, var(--ink))">${icon}</div>
+            </div>
+          </div>
+          <div class="abs" data-k="winShadow"></div>
+          <div class="abs" data-k="win" style="left:${WIN.x}px;top:${WIN.y}px;width:${WIN.w}px;height:${WIN.h}px">
+            <div class="abs" data-k="winClip" style="left:0;top:0;width:${WIN.w}px;height:${WIN.h}px;background:var(--winBg)">
+              ${appHtml}
+              <div class="abs row" data-k="lights" style="left:20px;top:20px;gap:8px">
+                <i style="width:12px;height:12px;border-radius:50%;background:#FF5F57"></i>
+                <i style="width:12px;height:12px;border-radius:50%;background:#FEBC2E"></i>
+                <i style="width:12px;height:12px;border-radius:50%;background:#28C840"></i>
+              </div>
+            </div>
+          </div>
+          <div class="abs" data-k="pointer" style="left:0;top:0;width:26px;height:26px;transform-origin:3px 3px">${ARROW}</div>
+        </div>
+        <div class="abs" data-k="notch" style="background:#0B0B0C;border-radius:0 0 10px 10px"></div>
+      </div>
+    </div>`;
 }
 
-function headlineAt(key, t, t0, out = Infinity) {
-  const k = KIT[key];
-  const leave = prog(t, out, 0.35, E.in);
-  for (let i = 0; i < k.words; i++) {
-    const p = clamp(spring(t, t0 + i * 0.07, 0.42, 0.9), 0, 1.05);
-    setT($[key + "w" + i], `translateY(${(((1 - p) + leave) * 108).toFixed(2)}%)`);
-  }
-  const { typed, done } = headlineTimes(key, t0);
-  for (let j = 0; j < k.letters; j++) show($[key + "a" + j], t >= typed + j * 0.035 && leave < 0.5);
-  for (let l = 0; l < k.strokes.length; l++) {
-    const path = $[key + "u" + l], len = k.strokes[l] * 1.05 + 4;
-    path.style.strokeDasharray = `${len.toFixed(1)} ${len.toFixed(1)}`;
-    path.style.strokeDashoffset = (len * (1 - prog(t, done, 0.35, E.out) + leave)).toFixed(2);
-  }
-  return done;
+const view = (cx, cy, z) => ({ cx, cy, z });
+const toStage = (v, x, y) => ({ x: FILM.W / 2 + (x - v.cx) * v.z, y: FILM.H / 2 + (y - v.cy) * v.z });
+const onWindow = (x, y, z) => view(WIN.x + x, WIN.y + y, z);
+const WHOLE_WINDOW = onWindow(WIN.w / 2, WIN.h / 2, 1.08);
+const WHOLE_SCREEN = view(SCREEN.W / 2, SCREEN.H / 2 + 10, 0.86);
+const WHOLE_LAPTOP = view(SCREEN.W / 2, SCREEN.H / 2 + 70, 0.74);
+
+function cameraAt(t, keys) {
+  const k0 = keys[0], rest = keys.slice(1).map((k) => ({ t: k.t, d: k.d, e: E.smooth, spring: k.d ? null : k.spring || [0.95, 1] }));
+  const along = (f) => track(t, k0[f], rest.map((k, i) => ({ ...k, to: keys[i + 1][f] })));
+  return view(along("cx"), along("cy"), along("z"));
 }
 
-function headlineTimes(key, t0) {
-  const k = KIT[key], typed = t0 + k.words * 0.07 + 0.08;
-  return { typed, done: typed + k.letters * 0.035, letters: [...Array(k.letters).keys()].map((j) => typed + j * 0.035) };
+function placeWorld(v, { rect = FULL, chrome = 1, desk = 1, hw = 0, lid = 1 } = {}) {
+  setT($.world, `translate(${(FILM.W / 2 - v.cx * v.z).toFixed(2)}px,${(FILM.H / 2 - v.cy * v.z).toFixed(2)}px) scale(${v.z.toFixed(5)})`);
+  $.winClip.style.clipPath = `inset(${rect.y.toFixed(2)}px ${(WIN.w - rect.x - rect.w).toFixed(2)}px ${(WIN.h - rect.y - rect.h).toFixed(2)}px ${rect.x.toFixed(2)}px round ${rect.r.toFixed(2)}px)`;
+  rectCss($.winShadow, { x: WIN.x + rect.x, y: WIN.y + rect.y, w: rect.w, h: rect.h, r: rect.r });
+  $.winShadow.style.boxShadow = `0 ${(24 * chrome).toFixed(2)}px ${(60 * chrome).toFixed(2)}px color-mix(in srgb, var(--shade, #0F0F14) ${(26 * chrome).toFixed(1)}%, transparent), 0 0 0 ${chrome > 0.01 ? 0.8 : 0}px var(--edge, rgba(0,0,0,.18))`;
+  $.lights.style.opacity = chrome.toFixed(3);
+  show($.winShadow, chrome > 0.001);
+
+  const wx = WIN.x + rect.x, wy = WIN.y + rect.y;
+  const inset = [wy, SCREEN.W - wx - rect.w, SCREEN.H - wy - rect.h, wx].map((v2) => (v2 * (1 - desk)).toFixed(2));
+  $.desk.style.clipPath = `inset(${inset.join("px ")}px round ${lerp(rect.r, SCREEN.R, desk).toFixed(2)}px)`;
+  show($.desk, desk > 0.001);
+
+  const b = LAPTOP.bezel * hw;
+  rectCss($.bezel, { x: -b, y: -b, w: SCREEN.W + 2 * b, h: SCREEN.H + 2 * b, r: SCREEN.R + (LAPTOP.lidR - SCREEN.R) * hw });
+  $.display.style.borderRadius = `${SCREEN.R}px`;
+  rectCss($.notch, { x: (SCREEN.W - LAPTOP.notchW) / 2, y: -1, w: LAPTOP.notchW, h: LAPTOP.notchH * hw, r: 0 });
+  const over = LAPTOP.deckOver * hw;
+  rectCss($.deck, { x: -b - over, y: SCREEN.H + b, w: SCREEN.W + 2 * (b + over), h: LAPTOP.deckH * hw, r: 0 });
+  $.deck.style.borderRadius = `0 0 ${(28 * hw).toFixed(2)}px ${(28 * hw).toFixed(2)}px`;
+  show($.bezel, hw > 0.001);
+  show($.notch, hw > 0.001);
+  show($.deck, hw > 0.001);
+  $.lid.style.transformOrigin = `50% ${(SCREEN.H + b).toFixed(2)}px`;
+  setT($.lid, lid >= 1 ? "none" : `perspective(2600px) rotateX(${(-90 * (1 - lid)).toFixed(3)}deg)`);
 }
 
-const headlineCues = (key, t0) => {
-  const h = headlineTimes(key, t0);
-  return [["tick", t0, { gain: -3 }], ...h.letters.map((t) => ["tick", t, { gain: -2 }]), ...(KIT[key].strokes.length ? [["swish", h.done]] : [])];
-};
-
-const scene = (key, color, inner = "") => `<div class="full" data-k="${key}" style="background:${color}">${inner}</div>`;
-const panel = (key, r, bg, inner = "") => `<div class="abs" data-k="${key}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;border-radius:${r.r ?? 36}px;background:${bg};overflow:hidden">${inner}</div>`;
-
-function sceneAt(key, t, tIn, tGone = Infinity) {
-  const el = $[key];
-  const on = t >= tIn && t < tGone;
-  show(el, on);
-  if (!on) return 0;
-  const p = prog(t, tIn, 0.55, E.inOut);
-  el.style.clipPath = p < 1 ? `inset(0 0 0 ${((1 - p) * 100).toFixed(3)}%)` : "none";
-  return p;
+function pointerAt(t, keys, bow = 0.07) {
+  let i = 0;
+  while (i + 1 < keys.length && t >= keys[i + 1].t) i++;
+  if (i === 0) return { x: keys[0].x, y: keys[0].y };
+  const from = pointerAt(keys[i].t, keys.slice(0, i), bow), k = keys[i];
+  const p = prog(t, k.t, k.d ?? 0.5, E.smooth), dx = k.x - from.x, dy = k.y - from.y;
+  const side = Math.sin(Math.PI * p) * bow;
+  return { x: from.x + dx * p - dy * side, y: from.y + dy * p + dx * side };
 }
 
-const driftAt = (el, t, tIn, dist = 90) => setT(el, `translateX(${((1 - clamp(spring(t, tIn + 0.08, 0.6, 0.9), 0, 1.02)) * dist).toFixed(2)}px)`);
-
-const card = (key, r, inner) => `<div class="abs kit-card" data-k="${key}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px">${inner}</div>`;
-
-function cardAt(key, t, t0) {
-  const p = clamp(spring(t, t0, 0.5, 0.82), 0, 1.1);
-  show($[key], t >= t0);
-  $[key].style.opacity = Math.min(1, p * 1.6).toFixed(3);
-  setT($[key], `translateY(${((1 - p) * 26).toFixed(2)}px) scale(${(0.97 + 0.03 * p).toFixed(4)})`);
+function placePointer(t, keys, clicks = [], on = -Infinity, off = Infinity) {
+  const visible = t >= on && t < off;
+  show($.pointer, visible);
+  if (!visible) return;
+  const p = pointerAt(t, keys);
+  const s = clicks.reduce((m, c) => m * press(t, c, 0.86), 1);
+  setT($.pointer, `translate(${(p.x - 3).toFixed(2)}px,${(p.y - 3).toFixed(2)}px) scale(${s.toFixed(4)})`);
 }
 
-const check = (key) => `<span class="abs kit-check" data-k="${key}"><svg viewBox="0 0 24 24" width="24" height="24"><path data-k="${key}m" d="M6 12.5l4 4 8-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="20 20"/></svg></span>`;
-
-function checkAt(key, t, t0) {
-  const p = clamp(spring(t, t0, 0.35, 0.7), 0, 1.15);
-  $[key].style.background = t >= t0 ? "var(--accent)" : "transparent";
-  $[key].style.borderColor = t >= t0 ? "var(--accent)" : "var(--hair2)";
-  setT($[key], `scale(${(1 + 0.18 * pulse(t, t0, 0.3)).toFixed(4)})`);
-  $[key + "m"].style.strokeDashoffset = (20 * (1 - clamp(p))).toFixed(2);
-}
-
-const toggle = (key) => `<span class="abs kit-toggle" data-k="${key}"><span class="abs" data-k="${key}k"></span></span>`;
-
-function toggleAt(key, t, t0) {
-  const p = clamp(spring(t, t0, 0.38, 0.72), 0, 1.08);
-  $[key].style.background = `color-mix(in srgb, var(--accent) ${(clamp(p) * 100).toFixed(1)}%, var(--hair2))`;
-  setT($[key + "k"], `translateX(${(p * 26).toFixed(2)}px)`);
-}
-
-const bars = (key, labels) => labels.map((l, i) => `<div class="abs kit-bar-label" style="left:${i * 92}px;bottom:0;width:60px">${l}</div>
-  <div class="abs kit-bar" style="left:${i * 92 + 10}px;bottom:42px;width:40px;height:300px"><div class="abs" data-k="${key}${i}" style="left:0;bottom:0;width:40px;border-radius:12px;background:var(--accent)"></div></div>`).join("");
-
-function barsAt(key, values, t, t0, step = 0.12) {
-  values.forEach((v, i) => {
-    const p = clamp(spring(t, t0 + i * step, 0.45, 0.78), 0, 1.08);
-    $[key + i].style.height = (300 * v * p).toFixed(2) + "px";
-  });
-}
-
-const ring = (key, size) => `<svg class="abs" style="left:0;top:0" width="${size}" height="${size}" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="44" fill="none" stroke="var(--hair2)" stroke-width="7"/>
-  <circle data-k="${key}" cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" transform="rotate(-90 50 50)" stroke-dasharray="276.46 276.46"/></svg>`;
-const ringAt = (key, p) => { $[key].style.strokeDashoffset = (276.46 * (1 - clamp(p))).toFixed(2); };
-
-const character = (key, inner, w, h) => `<div class="abs" data-k="${key}" style="left:0;top:0;width:${w}px;height:${h}px;transform-origin:50% 100%">${inner}</div>`;
-
-function characterAt(key, t, { x, y, s = 1, lean = 0, hop = 0, squash = 0 }) {
-  const el = $[key], w = parseFloat(el.style.width), h = parseFloat(el.style.height);
-  const sq = squash + 0.02 * loop(t, Math.max(1, Math.round(FILM.DURATION / 2.4)));
-  setT(el, `translate(${(x - w / 2).toFixed(2)}px,${(y - h - hop).toFixed(2)}px) rotate(${lean.toFixed(3)}rad) scale(${(s * (1 - 0.5 * sq)).toFixed(4)},${(s * (1 + sq)).toFixed(4)})`);
+function browserBar(url, { tabs = [] } = {}) {
+  const tab = (title, i) => `<div class="row" style="height:30px;padding:0 14px;border-radius:9px;font-size:13.5px;${i ? "color:var(--ink2)" : "background:var(--winBg);box-shadow:0 1px 3px rgba(0,0,0,.08)"}">${title}</div>`;
+  return `
+    <div class="abs row" style="left:0;top:0;width:${WIN.w}px;height:50px;padding:0 16px 0 96px;gap:10px;background:var(--side);box-shadow:inset 0 -1px 0 var(--hair)">
+      <div class="row" style="gap:6px">${tabs.map(tab).join("")}</div>
+      <div class="row" style="margin-left:auto;width:520px;height:32px;padding:0 14px;border-radius:9px;background:var(--winBg);font-size:14px;color:var(--ink2);box-shadow:inset 0 0 0 1px var(--hair)">${url}</div>
+      <div style="width:60px"></div>
+    </div>`;
 }

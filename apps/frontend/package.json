@@ -38,6 +38,7 @@
     "remotion": "4.0.484",
     "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.4",
+    "three": "^0.186.1",
     "wavesurfer.js": "^7.12.8",
     "zod": "^3.23.8"
   },
@@ -48,6 +49,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",

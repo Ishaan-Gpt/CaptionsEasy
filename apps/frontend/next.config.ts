@@ -1,4 +1,11 @@
+import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+
+/** This machine's LAN addresses: lets a phone on the same Wi-Fi open the dev server (Next blocks unknown dev origins). */
+const lanHosts = Object.values(networkInterfaces())
+  .flat()
+  .filter((a) => a && a.family === "IPv4" && !a.internal)
+  .map((a) => a!.address);
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -9,6 +16,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: lanHosts,
   transpilePackages: [
     "@remotion/transitions",
     "remotion",

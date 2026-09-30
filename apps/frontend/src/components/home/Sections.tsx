@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { PLANS } from "@capseasy/shared";
@@ -19,9 +19,9 @@ export function Logo({ light = false }: { light?: boolean }) {
 
 const NAV_LINKS = [
   ["How it works", "#how"],
+  ["Controls", "#control"],
   ["Looks", "#looks"],
-  ["Features", "#features"],
-  ["Pricing", "#pricing"],
+  ["Local Engine", "#privacy"],
   ["FAQ", "#faq"],
 ] as const;
 
@@ -33,7 +33,7 @@ export function Nav() {
         <Link href="/" aria-label="CaptionsEasy home" className="transition-transform duration-200 hover:scale-105">
           <Logo />
         </Link>
-        <nav className="hidden items-center gap-7 text-sm font-semibold text-[#1A1A1A]/80 md:flex">
+        <nav className="hidden items-center gap-6 whitespace-nowrap text-sm font-semibold text-[#1A1A1A]/80 lg:flex xl:gap-7">
           {NAV_LINKS.map(([label, href]) => (
             <a key={href} href={href} className="group relative py-1 transition-colors duration-200 hover:text-[#1A1A1A]">
               {label}
@@ -42,13 +42,14 @@ export function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
-          <div className="conic-glow-pill rounded-full p-[1px]">
-            <Link href="/login" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-xs sm:text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
-              Start free <span aria-hidden className="hidden sm:inline">→</span>
+          <Link href="/login" className="hidden whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
+          {/* phones: this moves into the menu */}
+          <div className="conic-glow-pill hidden rounded-full p-[1px] sm:block">
+            <Link href="/login" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+              Start free <span aria-hidden>→</span>
             </Link>
           </div>
-          <button onClick={() => setOpen((v) => !v)} aria-label="Menu" aria-expanded={open} className="grid h-10 w-10 place-items-center rounded-xl border border-[#1A1A1A]/15 md:hidden">
+          <button onClick={() => setOpen((v) => !v)} aria-label="Menu" aria-expanded={open} className="grid h-10 w-10 place-items-center rounded-xl border border-[#1A1A1A]/15 lg:hidden">
             <span className="relative block h-3 w-4">
               <span className={`absolute left-0 top-0 h-[2px] w-4 bg-[#1A1A1A] transition ${open ? "translate-y-[5px] rotate-45" : ""}`} />
               <span className={`absolute bottom-0 left-0 h-[2px] w-4 bg-[#1A1A1A] transition ${open ? "-translate-y-[5px] -rotate-45" : ""}`} />
@@ -57,63 +58,108 @@ export function Nav() {
         </div>
       </header>
       {open ? (
-        <nav className="animate-fade-in-up mx-auto mt-2 grid max-w-6xl gap-1 rounded-2xl border border-[#1A1A1A]/10 bg-[#FFFFEB] p-3 shadow-lg md:hidden">
+        <nav className="animate-fade-in-up mx-auto mt-2 grid max-w-6xl gap-1 rounded-2xl border border-[#1A1A1A]/10 bg-[#FFFFEB] p-3 shadow-lg lg:hidden">
           {NAV_LINKS.map(([label, href]) => (
             <a key={href} href={href} onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 text-base font-semibold text-[#1A1A1A] hover:bg-[#E4E4D0]/60">{label}</a>
           ))}
-          <Link href="/login" className="rounded-xl px-3 py-3 text-base font-semibold text-[#1A1A1A]/70">Sign in</Link>
+          <div className="mt-2 grid gap-2 border-t border-[#1A1A1A]/10 pt-3 sm:hidden">
+            <Link href="/login" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
+              Start free <span aria-hidden>→</span>
+            </Link>
+            <Link href="/login" onClick={() => setOpen(false)} className="rounded-full px-5 py-3 text-center text-base font-semibold text-[#1A1A1A]/70">Sign in</Link>
+          </div>
         </nav>
       ) : null}
     </div>
   );
 }
 
-const HERO_LOOKS = ["hormozi_box", "karaoke_fill", "beast_bounce", "chat_bubble", "neon_sign", "luxe_serif", "highlighter_card"];
+import { CoverflowCarousel } from "@/components/ui/coverflow-carousel";
+
+// Real CaptionsEasy renders: open-licensed talking-head clips, transcribed by local whisper.cpp and captioned in
+// Viral/Popular looks by the export composition (packages/compositions/scripts/hero-clips.ts; credits in credits.json).
+const HERO_CLIPS = ["sol", "gianna", "william", "aisha", "jesse", "gereon", "mckensie", "rusita", "omar", "sam"];
+const HERO_IMAGES = HERO_CLIPS.map((n) => ({ src: `/hero/${n}.webp`, video: `/hero/${n}.mp4`, alt: "Talking-head clip with animated captions" }));
+
+/** Clips decode only while the hero is on screen and the tab is visible. */
+function usePauseOffscreen(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let onScreen = true;
+    const sync = () => {
+      const run = onScreen && document.visibilityState === "visible";
+      el.querySelectorAll("video").forEach((v) => (run ? void v.play().catch(() => {}) : v.pause()));
+    };
+    const io = new IntersectionObserver(([e]) => {
+      onScreen = !!e?.isIntersecting;
+      sync();
+    });
+    io.observe(el);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [ref]);
+}
 
 export function Hero() {
-  const headline = ["Don't", "edit,"];
+  const reel = React.useRef<HTMLDivElement>(null);
+  usePauseOffscreen(reel);
   return (
-    <section className="relative overflow-hidden px-4 pb-20 pt-32 sm:pt-36 lg:pb-28">
-      <div data-parallax="0.25" aria-hidden className="pointer-events-none absolute -left-32 top-24 h-[420px] w-[420px] rounded-full bg-[#F0D7FF] opacity-70 blur-3xl animate-pulse" />
-      <div data-parallax="0.4" aria-hidden className="pointer-events-none absolute -right-24 top-64 h-[360px] w-[360px] rounded-full bg-[#FFA946]/35 blur-3xl" />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
-        <div className="text-center lg:text-left">
-          <p data-hero="eyebrow" className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#1A1A1A]/15 bg-white/60 px-3 py-1 text-xs font-semibold text-[#1A1A1A]/75 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] animate-pulse" /> AI captions for Reels, Shorts, TikTok &amp; YouTube
-          </p>
-          <h1 className="font-styled text-[3.1rem] font-bold leading-[0.95] tracking-[-0.03em] text-[#1A1A1A] sm:text-7xl lg:text-[5.6rem]">
-            <span className="block overflow-hidden pb-1">
-              {headline.map((w) => (
-                <span key={w} data-hero="word" className="mr-[0.22em] inline-block">{w}</span>
-              ))}
-            </span>
-            <span className="block overflow-hidden pb-2">
-              <span data-hero="word" className="gradient-text-sweep inline-block font-normal italic">just upload.</span>
-            </span>
-          </h1>
-          <p data-hero="sub" className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[#1A1A1A]/70 lg:mx-0">
-            Drop in a talking-head video. CaptionsEasy writes word-perfect captions, animates every word to your voice, and exports a ready-to-post video. Edit anything in seconds.
-          </p>
-          <div data-hero="cta" className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-            <div className="conic-glow-pill w-full rounded-full p-[1px] sm:w-auto">
-              <Link href="/login" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-6 py-3.5 text-base font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
-                Caption your first video free <span aria-hidden>→</span>
-              </Link>
-            </div>
-            <a href="#looks" className="rounded-2xl px-5 py-3.5 text-base font-semibold text-[#1A1A1A]/75 underline-offset-4 transition hover:text-[#1A1A1A] hover:underline">See the looks</a>
+    <section className="relative flex min-h-[100svh] w-full flex-col overflow-hidden pt-[max(6.5rem,12vh)]">
+      <div data-parallax="0.25" aria-hidden className="pointer-events-none absolute -left-40 top-16 h-[520px] w-[520px] rounded-full bg-[#F0D7FF]/60 blur-3xl" />
+      <div data-parallax="0.4" aria-hidden className="pointer-events-none absolute -right-32 top-48 h-[440px] w-[440px] rounded-full bg-[#FFA946]/25 blur-3xl" />
+
+      <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center px-5 text-center">
+        <h1 className="font-styled mt-5 text-[clamp(2.7rem,min(6.4vw,9.5vh),5.6rem)] font-bold leading-[0.9] tracking-[-0.05em] text-[#1A1A1A]">
+          <span className="inline-block overflow-hidden pb-[0.06em]">
+            <span data-hero="word" className="inline-block mr-3 sm:mr-4">Don&rsquo;t edit,</span>
+            <span data-hero="word2" className="font-accent gradient-text-sweep inline-block pr-[0.06em] text-[1.1em] font-normal italic tracking-[-0.025em]">just upload.</span>
+          </span>
+        </h1>
+
+        <p data-hero="sub" className="mx-auto mt-5 max-w-2xl text-[15px] sm:text-[17px] leading-relaxed text-[#1A1A1A]/70 px-4 font-medium">
+          Drop in a video. CaptionsEasy generates word-perfect animated captions and renders studio-ready reels in seconds.
+        </p>
+
+
+        <div data-hero="cta" className="mt-7 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+          <div className="conic-glow-pill w-full rounded-full p-[1px] sm:w-auto">
+            <Link href="/login" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base font-bold text-[#1A1A1A] shadow-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
+              Caption your first video free <span aria-hidden>→</span>
+            </Link>
           </div>
-          <p data-hero="sub" className="mt-5 text-xs text-[#1A1A1A]/50">No credit card. Works in your browser; captions are made privately on your own computer.</p>
+          <a href="#how" className="w-full rounded-full border border-[#1A1A1A]/15 bg-[#FFFFEB]/80 px-7 py-4 text-base font-semibold text-[#1A1A1A]/80 backdrop-blur-md transition hover:bg-[#FFFFEB] hover:text-[#1A1A1A] sm:w-auto">
+            See how it works
+          </a>
         </div>
 
-        <div data-hero="phone" className="relative mx-auto w-[260px] sm:w-[300px]">
-          <div aria-hidden className="absolute -inset-6 rounded-[3rem] bg-gradient-to-b from-[#34D399]/25 to-[#F0D7FF]/40 blur-2xl" />
-          <div className="relative rounded-[2.6rem] border-[10px] border-[#1A1A1A] bg-[#1A1A1A] shadow-[0_40px_80px_-30px_rgba(26,26,26,0.6)]">
-            <div className="absolute left-1/2 top-2 z-10 h-5 w-24 -translate-x-1/2 rounded-full bg-[#1A1A1A]" />
-            <CyclingPreview lookIds={HERO_LOOKS} className="aspect-[9/16] overflow-hidden rounded-[2rem]" />
-          </div>
-          <div data-float className="absolute -left-10 top-16 hidden rounded-2xl border border-[#1A1A1A]/10 bg-white px-3 py-2 text-xs font-semibold shadow-lg sm:block">✨ Hero words picked for you</div>
-          <div data-float className="absolute -right-12 bottom-24 hidden rounded-2xl border border-[#1A1A1A]/10 bg-white px-3 py-2 text-xs font-semibold shadow-lg sm:block">🎯 Timed to every syllable</div>
-        </div>
+
+      </div>
+
+      {/* real renders: talking-head clips captioned by our own pipeline */}
+      <div ref={reel} data-hero="stream" className="relative z-0 mt-4 pt-2 sm:mt-auto">
+        <CoverflowCarousel
+          slides={HERO_IMAGES}
+          rotate={44}
+          depth={0.6}
+          perspective={3}
+          falloff={0.56}
+          fade={0.1}
+          ratio={25 / 18}
+          cardWidth="clamp(140px, min(20vw, 25vh), 250px)"
+          gap={0.05}
+          loop
+          className="mx-auto w-full"
+        />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-[#FFFFEB]" />
+      </div>
+      <div className="mx-auto flex w-full max-w-6xl justify-end px-5 pb-3">
+        <a href="/credits" className="inline-flex min-h-8 items-center text-[11px] text-[#1A1A1A]/40 hover:text-[#1A1A1A]/75">
+          Clips: Wikimedia Commons, CC BY / BY-SA
+        </a>
       </div>
     </section>
   );
@@ -249,8 +295,7 @@ export function HowItWorks() {
     <section id="how" className="relative px-4 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <div data-reveal className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">How it works</p>
-          <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-6xl">
+          <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-6xl">
             From camera roll to <em className="font-normal italic text-[#0F3D2E]">captioned</em> in four moves.
           </h2>
         </div>
@@ -282,57 +327,128 @@ export function HowItWorks() {
   );
 }
 
-const SHOWCASE = [
-  ["hormozi_box", "Viral"], ["karaoke_fill", "Viral"], ["beast_bounce", "Viral"], ["neon_sign", "Retro"],
-  ["chat_bubble", "Fun"], ["highlighter_card", "Education"], ["luxe_serif", "Luxury"], ["kinetic_mix", "Cinematic"],
-] as const;
 
-export function Looks() {
+
+function TimingArtifact() {
   return (
-    <section id="looks" className="relative overflow-hidden bg-[#0F3D2E] px-4 py-24 text-[#FFFFEB] sm:py-32">
-      <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full bg-[#34D399]/15 blur-3xl" />
-      <div className="relative mx-auto max-w-6xl">
-        <div data-reveal className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#34D399]">The looks</p>
-            <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
-              Every look is <em className="font-normal italic text-[#F0D7FF]">its own idea.</em>
-            </h2>
-          </div>
-          <p className="max-w-sm text-[#FFFFEB]/70">No colour-swapped clones. Karaoke fills, jumping boxes, chat bubbles, typewriters, kinetic stacks: each one moves differently. These previews are the real renderer, live.</p>
-        </div>
-        <div className="-mx-4 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-4">
-          {SHOWCASE.map(([id, cat], i) => (
-            <figure key={id} data-look className="group w-[62vw] shrink-0 snap-center sm:w-auto">
-              <div className="overflow-hidden rounded-3xl border border-white/10 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7)] transition duration-500 group-hover:-translate-y-1.5 group-hover:border-[#F0D7FF]/50">
-                <LivePreview lookId={id} backdrop={i} className="aspect-[9/16] w-full" />
-              </div>
-              <figcaption className="mt-3 flex items-center justify-between px-1 text-sm">
-                <span className="font-semibold">{NAMES[id]}</span>
-                <span className="text-[#FFFFEB]/50">{cat}</span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-        <p data-reveal className="mt-10 text-center text-[#FFFFEB]/60">…and more, from subtitle bars to terminal typewriters. Save your own and your brand colours too.</p>
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-[#1A1A1A]/5 overflow-hidden flex flex-col justify-end group-hover:bg-[#1A1A1A]/10 transition-colors">
+      <div className="absolute inset-0 flex items-center justify-center opacity-20">
+         <div className="flex items-end gap-[2px] h-16">
+            {[2, 4, 3, 6, 8, 5, 3, 2, 5, 9, 7, 4, 2, 5, 8, 6, 4, 3, 5, 7, 4, 2, 3, 5, 2].map((h, i) => (
+              <div key={i} className="w-1.5 bg-[#1A1A1A] rounded-t-full" style={{ height: `${h * 10}%` }} />
+            ))}
+         </div>
       </div>
-    </section>
+      <div className="relative z-10 w-full h-10 border-t border-[#1A1A1A]/20 bg-white/50 backdrop-blur-sm flex items-center px-4">
+        <div className="h-full w-2/5 bg-[#FFA946]/30 border-x-2 border-[#FFA946] flex items-center justify-center cursor-ew-resize hover:bg-[#FFA946]/50 transition-colors">
+          <span className="text-[10px] sm:text-xs font-bold text-[#1A1A1A] select-none">SYL-LA-BLE</span>
+        </div>
+      </div>
+    </div>
   );
 }
-const NAMES: Record<string, string> = {
-  hormozi_box: "Hormozi Box", karaoke_fill: "Karaoke Fill", beast_bounce: "Beast Bounce", neon_sign: "Neon", chat_bubble: "Chat Bubble",
-  highlighter_card: "Highlighter", luxe_serif: "Luxe Serif", kinetic_mix: "Kinetic",
-};
+
+function EmotionArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-[#1A1A1A]/5 overflow-hidden flex items-center justify-center group-hover:bg-[#1A1A1A]/10 transition-colors">
+      <div className="font-styled text-3xl font-black italic text-[#1A1A1A] origin-bottom transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3">
+        SERIOUSLY.
+      </div>
+      <div className="absolute top-3 right-3 flex gap-1.5">
+        {["💥", "😠", "😂"].map(e => (
+          <div key={e} className="w-7 h-7 rounded-full bg-white/80 flex items-center justify-center text-xs shadow-sm hover:scale-110 transition-transform cursor-pointer">{e}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PopArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-white/50 overflow-hidden flex items-center justify-center px-6">
+      <div className="text-base font-semibold text-[#1A1A1A]/60 text-center leading-relaxed">
+        The word that matters gets <span className="inline-block px-3 py-1 mt-1 rounded-lg bg-[#34D399] text-[#1A1A1A] font-bold text-lg shadow-sm rotate-[-2deg] scale-110 group-hover:rotate-2 group-hover:scale-125 transition-transform duration-300">its own box</span> automatically.
+      </div>
+    </div>
+  );
+}
+
+function OverlayArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 overflow-hidden bg-checkerboard flex items-center justify-center group-hover:shadow-inner transition-shadow">
+      <div className="absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity" style={{ backgroundImage: 'conic-gradient(#1A1A1A 90deg, transparent 90deg, transparent 180deg, #1A1A1A 180deg, #1A1A1A 270deg, transparent 270deg)', backgroundSize: '16px 16px' }} />
+      <div className="relative font-styled text-2xl font-bold text-[#1A1A1A] drop-shadow-md group-hover:scale-105 transition-transform">
+        NO BACKGROUND
+      </div>
+    </div>
+  );
+}
+
+function ExportArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-[#1A1A1A]/5 overflow-hidden flex items-center justify-center gap-3 px-2 group-hover:bg-[#1A1A1A]/10 transition-colors">
+       {['SRT', 'VTT', 'TXT'].map((ext, i) => (
+         <div key={ext} className="flex flex-col items-center justify-center w-14 h-16 bg-white rounded-xl shadow-sm border border-[#1A1A1A]/10 relative group-hover:-translate-y-3 transition-transform duration-300" style={{ transitionDelay: `${i * 75}ms` }}>
+            <div className="absolute top-0 right-0 w-4 h-4 bg-[#1A1A1A]/5 rounded-bl-xl" />
+            <span className="font-mono text-xs font-bold text-[#1A1A1A] mt-2">{ext}</span>
+         </div>
+       ))}
+    </div>
+  );
+}
+
+function LanguageArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-[#1A1A1A]/5 overflow-hidden flex flex-col items-center justify-center group-hover:bg-[#F0D7FF]/30 transition-colors">
+       <div className="flex flex-col items-center space-y-1 group-hover:scale-105 transition-transform">
+         <span className="font-sans text-base text-[#1A1A1A]/50 line-through decoration-[#1A1A1A]/30">Kya haal hai?</span>
+         <span className="font-sans text-2xl font-bold text-[#1A1A1A]">क्या हाल है?</span>
+         <span className="font-mono text-[10px] uppercase text-[#1A1A1A]/40 tracking-widest mt-2 bg-white/50 px-2 py-0.5 rounded">Devanagari Match</span>
+       </div>
+    </div>
+  );
+}
+
+function BrandArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-white/50 overflow-hidden flex items-center justify-center gap-5 group-hover:bg-white/80 transition-colors">
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-1.5">
+           <div className="w-6 h-6 rounded-full bg-[#1A1A1A] shadow-sm hover:scale-110 transition-transform cursor-pointer" />
+           <div className="w-6 h-6 rounded-full bg-[#FFA946] shadow-sm hover:scale-110 transition-transform cursor-pointer" />
+           <div className="w-6 h-6 rounded-full bg-[#34D399] shadow-sm hover:scale-110 transition-transform cursor-pointer" />
+        </div>
+        <div className="text-[11px] font-mono font-bold text-[#1A1A1A]/60 bg-[#1A1A1A]/5 px-2 py-0.5 rounded text-center">Inter · 800</div>
+      </div>
+      <div className="h-12 w-px bg-[#1A1A1A]/10" />
+      <div className="font-sans font-black text-xl text-[#1A1A1A] italic group-hover:scale-105 transition-transform">
+        YOUR<br/><span className="text-[#FFA946]">LOOK.</span>
+      </div>
+    </div>
+  );
+}
+
+function UndoArtifact() {
+  return (
+    <div className="relative mt-6 h-28 sm:h-32 rounded-2xl border border-[#1A1A1A]/10 bg-[#1A1A1A]/5 overflow-hidden flex items-center justify-center group-hover:bg-[#1A1A1A]/10 transition-colors">
+      <div className="w-16 h-16 rounded-full border-[3px] border-[#1A1A1A]/15 border-t-[#1A1A1A] flex items-center justify-center group-hover:-rotate-[360deg] transition-transform duration-700 ease-in-out">
+         <svg className="w-6 h-6 text-[#1A1A1A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+         </svg>
+      </div>
+    </div>
+  );
+}
 
 const FEATURES = [
-  { t: "Word-perfect timing", d: "Every word lands on the syllable. Drag any word on the timeline to nudge it; the waveform shows you exactly where.", k: "wide" },
-  { t: "Captions that feel it", d: "Excited, funny, serious: each card's emotion changes how hard it moves. Dial it up or switch it off.", k: "" },
-  { t: "Key words that pop", d: "The word that matters on every card gets its own size, colour or box. Picked automatically, always editable.", k: "" },
-  { t: "Transparent overlays", d: "Export captions only, with transparency (ProRes 4444 or WebM) and drop them over your grade in Premiere, Resolve or Final Cut.", k: "" },
-  { t: "SRT, VTT, ASS & TXT", d: "Subtitle files for YouTube, LinkedIn and every editor, instantly, no render needed.", k: "" },
-  { t: "Hinglish & 100+ languages", d: "Code-switching creators welcome. Romanized Hinglish, Devanagari-ready fonts, custom vocabulary for names and brands.", k: "wide" },
-  { t: "Your brand, saved", d: "Save colours, fonts and your favourite looks once. Every new project is on-brand from the first second.", k: "" },
-  { t: "Undo everything", d: "Autosave, full undo/redo, and a safety net if you edit the same project in two tabs.", k: "" },
+  { t: "Word-perfect timing", d: "Every word lands on the syllable. Drag any word on the timeline to nudge it; the waveform shows you exactly where.", k: "wide", artifact: <TimingArtifact /> },
+  { t: "Captions that feel it", d: "Excited, funny, serious: each card's emotion changes how hard it moves. Dial it up or switch it off.", k: "", artifact: <EmotionArtifact /> },
+  { t: "Key words that pop", d: "The word that matters on every card gets its own size, colour or box. Picked automatically, always editable.", k: "", artifact: <PopArtifact /> },
+  { t: "Transparent overlays", d: "Export captions only, with transparency (ProRes 4444 or WebM) and drop them over your grade in Premiere, Resolve or Final Cut.", k: "", artifact: <OverlayArtifact /> },
+  { t: "SRT, VTT, ASS & TXT", d: "Subtitle files for YouTube, LinkedIn and every editor, instantly, no render needed.", k: "", artifact: <ExportArtifact /> },
+  { t: "Hinglish & 100+ languages", d: "Code-switching creators welcome. Romanized Hinglish, Devanagari-ready fonts, custom vocabulary for names and brands.", k: "wide", artifact: <LanguageArtifact /> },
+  { t: "Your brand, saved", d: "Save colours, fonts and your favourite looks once. Every new project is on-brand from the first second.", k: "", artifact: <BrandArtifact /> },
+  { t: "Undo everything", d: "Autosave, full undo/redo, and a safety net if you edit the same project in two tabs.", k: "", artifact: <UndoArtifact /> },
 ];
 
 export function Features() {
@@ -340,21 +456,30 @@ export function Features() {
     <section id="features" className="px-4 py-24 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <div data-reveal className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">Features</p>
-          <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-6xl">
+          <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-6xl">
             A caption studio, <em className="font-normal italic">not a subtitle box.</em>
           </h2>
         </div>
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <article
               key={f.t}
               data-feature
-              className={`group relative overflow-hidden rounded-3xl border border-[#1A1A1A]/10 p-6 transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-30px_rgba(26,26,26,0.6)] ${f.k === "wide" ? "lg:col-span-2" : ""} ${i === 0 ? "bg-[#1A1A1A] text-[#FFFFEB]" : i === 5 ? "bg-[#F0D7FF]" : "bg-white/70"}`}
+              className={`group relative overflow-hidden rounded-[2rem] border border-[#1A1A1A]/10 p-7 transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-30px_rgba(26,26,26,0.6)] flex flex-col justify-between ${f.k === "wide" ? "lg:col-span-2" : ""} ${i === 0 ? "bg-[#1A1A1A] text-[#FFFFEB]" : i === 5 ? "bg-[#F0D7FF]" : "bg-white/70"}`}
             >
-              <span className={`absolute right-5 top-5 h-2 w-2 rounded-full ${i % 3 === 0 ? "bg-[#FFA946]" : i % 3 === 1 ? "bg-[#34D399]" : "bg-[#1A1A1A]/30"}`} />
-              <h3 className="font-styled text-xl font-bold">{f.t}</h3>
-              <p className={`mt-2 leading-relaxed ${i === 0 ? "text-[#FFFFEB]/70" : "text-[#1A1A1A]/65"}`}>{f.d}</p>
+              <div className="relative z-10">
+                <span className={`absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full ${i % 3 === 0 ? "bg-[#FFA946]" : i % 3 === 1 ? "bg-[#34D399]" : "bg-[#1A1A1A]/30"}`} />
+                <h3 className="font-styled text-2xl font-bold">{f.t}</h3>
+                <p className={`mt-2.5 text-sm sm:text-base leading-relaxed ${i === 0 ? "text-[#FFFFEB]/70" : "text-[#1A1A1A]/70"}`}>{f.d}</p>
+              </div>
+              
+              {/* Feature Artifact */}
+              <div className="mt-auto pt-4 relative z-0">
+                {/* For the first card which is dark, we need to pass a prop or handle inversion in the component, or just let CSS do it via mix-blend-mode or direct styling if needed. Since we hardcoded the artifacts, we'll invert colors for the first one manually here or use CSS filters */}
+                <div className={i === 0 ? "invert brightness-90 hue-rotate-180" : ""}>
+                  {f.artifact}
+                </div>
+              </div>
             </article>
           ))}
         </div>
@@ -363,27 +488,105 @@ export function Features() {
   );
 }
 
-export function Privacy() {
-  const [origin, setOrigin] = useState("https://your-app");
-  useEffect(() => setOrigin(window.location.origin), []);
+function AnimatedTerminal({ origin }: { origin: string }) {
+  const [step, setStep] = useState(0);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setStep(1);
+        const t1 = setTimeout(() => setStep(2), 1000);
+        const t2 = setTimeout(() => setStep(3), 1800);
+        const t3 = setTimeout(() => setStep(4), 2600);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+      }
+    }, { threshold: 0.5 });
+    
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="px-4 pb-24 sm:pb-32">
-      <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-[#1A1A1A] px-6 py-14 text-[#FFFFEB] sm:px-14 sm:py-20">
-        <div aria-hidden className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[#FFA946]/20 blur-3xl" />
+    <div ref={ref} className="relative rounded-2xl border border-white/10 bg-[#050505] shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col w-full h-full min-h-[290px] lg:min-h-full">
+      {/* Mac Titlebar */}
+      <div className="flex items-center px-4 py-3 bg-[#111111] border-b border-white/5 relative shrink-0">
+        <div className="flex gap-2">
+          <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-white/10"></div>
+          <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-white/10"></div>
+          <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-white/10"></div>
+        </div>
+        <div className="text-[11px] font-mono font-medium text-[#FFFFEB]/40 absolute left-1/2 -translate-x-1/2">
+          companion — bash
+        </div>
+      </div>
+      
+      {/* Terminal Body */}
+      <div className="p-5 font-mono text-[13px] leading-relaxed text-[#FFFFEB]/90 flex-1 overflow-hidden">
+         {step >= 1 && (
+           <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+             <p className="text-[#FFFFEB]/40"># macOS / Linux</p>
+             <p className="flex">
+               <span className="text-[#FFA946] mr-2">~</span>
+               <span><span className="text-[#34D399]">curl</span> -fsSL {origin}/install.sh | bash</span>
+             </p>
+           </div>
+         )}
+         
+         {step >= 2 && (
+           <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+             <p className="text-[#FFFFEB]/40"># Windows (PowerShell)</p>
+             <p className="flex">
+               <span className="text-[#FFA946] mr-2">~</span>
+               <span><span className="text-[#34D399]">irm</span> {origin}/install.ps1 | iex</span>
+             </p>
+           </div>
+         )}
+
+         {step >= 3 && (
+           <div className="mt-5 animate-in fade-in duration-300 space-y-1.5">
+             <p className="text-[#34D399] flex items-center gap-2"><span className="opacity-80">✓</span> Dependencies installed.</p>
+             <p className="text-[#34D399] flex items-center gap-2"><span className="opacity-80">✓</span> Local Whisper initialized.</p>
+           </div>
+         )}
+         
+         {step >= 4 && (
+           <div className="mt-1.5 animate-in fade-in duration-300 flex items-center gap-2">
+             <p className="text-[#34D399]"><span className="opacity-80">✓</span> Paired · Watching for new videos</p>
+             <span className="w-2 h-4 bg-[#34D399] animate-pulse inline-block" />
+           </div>
+         )}
+         
+         {step > 0 && step < 4 && (
+           <span className="mt-3 w-2 h-4 bg-[#FFFFEB]/50 animate-pulse inline-block" />
+         )}
+      </div>
+    </div>
+  );
+}
+
+export function Privacy() {
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "https://your-app",
+  );
+  return (
+    <section id="privacy" className="px-4 pb-24 sm:pb-32">
+      <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-[#1A1A1A] px-6 py-14 text-[#FFFFEB] sm:px-14 sm:py-20 shadow-2xl">
+        <div aria-hidden className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[#FFA946]/15 blur-3xl" />
+        <div aria-hidden className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-[#34D399]/10 blur-3xl" />
+        
         <div className="relative grid items-center gap-10 lg:grid-cols-2">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#FFA946]">Private by design</p>
-            <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight sm:text-5xl">Your voice stays <em className="font-normal italic text-[#F0D7FF]">on your computer.</em></h2>
-            <p className="mt-5 max-w-lg leading-relaxed text-[#FFFFEB]/70">
-              The free CaptionsEasy Companion transcribes and renders on your own machine with local Whisper, so there's no per-minute cloud bill and no queue. One command installs it; after that it just works in the background.
+          <div className="lg:pr-8">
+            <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight sm:text-5xl">Your voice stays <em className="font-normal italic text-[#F0D7FF]">on your computer.</em></h2>
+            <p className="mt-6 text-base sm:text-lg leading-relaxed text-[#FFFFEB]/75">
+              The free CaptionsEasy Companion transcribes and renders on your own machine with local Whisper, so there&apos;s no per-minute cloud bill and no queue. One command installs it; after that it just works in the background.
             </p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-5 font-mono text-[13px] leading-relaxed shadow-inner">
-            <p className="text-[#FFFFEB]/40"># Windows (PowerShell)</p>
-            <p><span className="text-[#34D399]">irm</span> {origin}/install.ps1 <span className="text-[#FFA946]">|</span> iex</p>
-            <p className="mt-3 text-[#FFFFEB]/40"># macOS / Linux</p>
-            <p><span className="text-[#34D399]">curl</span> -fsSL {origin}/install.sh <span className="text-[#FFA946]">|</span> bash</p>
-            <p className="mt-4 text-[#34D399]">✓ Paired · Watching for new videos…</p>
+          
+          <div className="h-[320px] lg:h-full">
+            <AnimatedTerminal origin={origin} />
           </div>
         </div>
       </div>
@@ -405,8 +608,7 @@ export function Pricing() {
     <section id="pricing" className="px-4 pb-24 sm:pb-32">
       <div className="mx-auto max-w-5xl">
         <div data-reveal className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">Pricing</p>
-          <h2 className="mt-3 font-styled text-4xl font-bold tracking-tight text-[#1A1A1A] sm:text-6xl">Free while you grow.</h2>
+          <h2 className="font-styled text-4xl font-bold tracking-tight text-[#1A1A1A] sm:text-6xl">Free while you grow.</h2>
         </div>
         <div className="mt-12 grid gap-5 md:grid-cols-2">
           {tiers.map((t) => (
@@ -461,8 +663,7 @@ export function Control() {
       <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12">
         <div data-reveal className="lg:col-span-4">
           <div className="lg:sticky lg:top-28">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">Precision editing</p>
-            <h2 className="mt-3 font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-5xl">
+            <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight text-[#1A1A1A] sm:text-5xl">
               Automatic, <em className="font-normal italic text-[#0F3D2E]">until you disagree.</em>
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#1A1A1A]/70 max-w-sm">
@@ -535,8 +736,7 @@ export function Faq() {
     <section id="faq" className="px-4 pb-24 sm:pb-32">
       <div className="mx-auto max-w-6xl">
         <div data-reveal className="text-center mb-12">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0F3D2E]/70">FAQ</p>
-          <h2 className="mt-3 font-styled text-5xl sm:text-6xl font-normal italic text-[#1A1A1A]">
+          <h2 className="font-styled text-5xl sm:text-6xl font-normal italic text-[#1A1A1A]">
             Good questions.
           </h2>
         </div>
@@ -644,7 +844,6 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "How it works", href: "/#how" },
       { label: "Looks gallery", href: "/#looks" },
-      { label: "Feature studio", href: "/#features" },
       { label: "Local Companion", href: "/settings" },
       { label: "Precision controls", href: "/#control" },
     ],
@@ -654,7 +853,6 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "TikTok & Shorts", href: "/#looks" },
       { label: "Instagram Reels", href: "/#looks" },
-      { label: "Podcast & Long-form", href: "/#features" },
       { label: "Hinglish & Multi-lingual", href: "/#faq" },
       { label: "Transparent Overlays", href: "/#faq" },
     ],
@@ -662,7 +860,6 @@ const FOOTER_COLUMNS = [
   {
     title: "RESOURCES",
     links: [
-      { label: "Pricing plans", href: "/#pricing" },
       { label: "Frequently asked questions", href: "/#faq" },
       { label: "Companion setup", href: "/settings" },
       { label: "Project studio", href: "/dashboard" },
@@ -687,18 +884,18 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* 4 Column Footer Links Grid */}
-        <div className="grid grid-cols-2 gap-10 sm:grid-cols-2 md:grid-cols-4 lg:gap-16 pb-16">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 lg:gap-16 pb-16">
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title} className="space-y-4">
               <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-[#1A1A1A]/50">
                 {col.title}
               </h4>
-              <ul className="space-y-2.5 text-xs sm:text-sm text-[#1A1A1A]/75">
+              <ul className="space-y-0.5 text-sm text-[#1A1A1A]/75 lg:space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="transition-colors hover:text-[#0F3D2E] hover:underline underline-offset-4"
+                      className="inline-flex min-h-10 items-center transition-colors hover:text-[#0F3D2E] hover:underline underline-offset-4 lg:min-h-0"
                     >
                       {link.label}
                     </Link>

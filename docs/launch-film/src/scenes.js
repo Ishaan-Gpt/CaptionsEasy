@@ -1,232 +1,279 @@
-film({ W: 1920, H: 1080, BPM: 120, BEATS: 60 });
+film({ BPM: 120, BEATS: 32, holds: [[9.9, 2], [14.9, 2], [16.9, 2]] });
 
-const APP = { name: "CaptionsEasy", url: "captionseasy.app", cta: "Start Creating", line: "Effortless Captions", facts: ["Powered by Groq", "Local rendering", "Zero cloud wait"] };
-const HOME = { x: 1470, y: 968 };
-const LEFT = { x: 40, y: 84, w: 620, h: 920 };
-const RIGHT = { x: 680, y: 84, w: 1200, h: 920 };
+const APP = { name: "CaptionsEasy", slogan: "Don't edit, just upload." };
+const WM = { size: 176, baseline: 700, row: 34 };
+const SIDE = [
+  { key: "inbox", label: "Inbox", color: "var(--accent)", y: 62, count: [12, 11] },
+  { key: "today", label: "Today", color: "#E0A526", y: 96, count: [5] },
+  { key: "upcoming", label: "Upcoming", color: "#8A62D6", y: 130, count: [] },
+  { key: "launch", label: "Launch", color: "#2F9E6B", y: 208, count: [3, 4] },
+  { key: "website", label: "Website", color: "#E0A526", y: 242, count: [7] },
+  { key: "hiring", label: "Hiring", color: "#8A62D6", y: 276, count: [2] },
+];
+const INBOX = [["Reply to the design review", "Website", "Today"], ["Write the launch post", "", "Tomorrow"],
+  ["Book the photo shoot", "Launch", "Fri"], ["Check the onboarding copy", "Website", "Fri"],
+  ["Plan the hiring loop", "Hiring", "Mon"], ["Update the pricing page", "Website", "Mon"],
+  ["Send the invoices", "", "Sep 30"], ["Order new badges", "", "Oct 2"]];
+const LAUNCH = [["Write the launch post", "", "Tomorrow"], ["Book the photo shoot", "", "Fri"],
+  ["Record the demo", "", "Fri"], ["Draft the release notes", "", "Mon"], ["Brief the support team", "", "Tue"],
+  ["Schedule the newsletter", "", "Wed"]];
+const ROW = { x: 268, y: 96, h: 56, w: 912 };
+const SEARCH = { x: 904, y: 20, w: 264, h: 38, r: 19 };
+const PALETTE = { x: 330, y: 128, w: 540, r: 16 };
+const RESULTS = [["New task", "⌘N"], ["Go to Today", "⌘1"], ["Open Launch", ""], ["Open Website", ""]];
+const FOUND = [["Open Launch", "↵"], ["Write the launch post", ""]];
+const QUERY = "launch";
+const W = (x, y) => ({ x: WIN.x + x, y: WIN.y + y });
+
 const K = {};
-
-const pebble = (id, face = true) => `<svg viewBox="0 0 200 210" width="100%" height="100%" style="overflow:visible">
-  ${face ? `<ellipse cx="100" cy="204" rx="62" ry="7" fill="rgba(23,21,15,.12)"/>` : ""}
-  <path d="M100 18 C156 18 186 64 186 116 C186 170 150 202 100 202 C50 202 14 170 14 116 C14 64 44 18 100 18Z" fill="var(--accent)"/>
-  <path d="M58 40 C70 30 88 26 104 27" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="9" stroke-linecap="round"/>
-  <g data-k="${id}Eyes"><ellipse cx="74" cy="104" rx="15" ry="19" fill="#fff"/><ellipse cx="126" cy="104" rx="15" ry="19" fill="#fff"/>
-    <g data-k="${id}Pupils"><circle cx="76" cy="108" r="8" fill="var(--ink)"/><circle cx="128" cy="108" r="8" fill="var(--ink)"/></g></g>
-  <path data-k="${id}Mouth" fill="var(--ink)"/></svg>`;
-
-function face(id, { blink = 0, wide = 0, smile = 0.5, look = 0 }) {
-  const open = Math.max(0.08, 1 - blink) * (1 + 0.35 * wide);
-  $[id + "Eyes"].setAttribute("transform", `translate(0 ${(104 * (1 - open)).toFixed(2)}) scale(1 ${open.toFixed(3)})`);
-  $[id + "Pupils"].setAttribute("transform", `translate(${(5 * look).toFixed(2)} 0)`);
-  const o = 12 * wide, c = 14 * smile;
-  $[id + "Mouth"].setAttribute("d", o > 1 ? `M100 ${(146 - o).toFixed(1)} a${(7 + o * 0.4).toFixed(1)} ${o.toFixed(1)} 0 1 0 0.1 0Z` : `M86 146 Q100 ${(146 + c).toFixed(1)} 114 146 Q100 ${(146 + c * 0.45).toFixed(1)} 86 146Z`);
+function timeline() {
+  Object.assign(K, {
+    gather: B(2), open: B(3), side: B(4), rows: B(5), point: B(6), select: B(7), drag: B(8), drop: B(9),
+    palette: B(10), type: B(10.5), found: B(10.5) + 0.2, enter: B(12), check: B(14), back: B(15), laptop: B(16),
+    close: B(17), row: B(18), word: B(19), slogan: B(20),
+  });
+  POINTER.splice(0, POINTER.length,
+    { t: 0, ...W(1010, 660) }, { t: K.point, ...W(420, ROW.y + ROW.h * 1.5), d: 0.6 },
+    { t: K.drag + 0.05, ...W(110, 224), d: 0.75 },
+    { t: B(13), ...W(ROW.x + 25, ROW.y + ROW.h / 2), d: 0.5 });
 }
+const POINTER = [];
 
 function build(stage) {
-  Object.assign(K, { h1: B(1), h2: B(3), h3: B(5), meet: B(9), f1: B(13), f2: B(21), f3: B(29), end: B(37), out: B(46.5), home: B(47) });
-  
+  timeline();
+  const side = SIDE.map((s) => `
+    <div class="abs" data-k="side_${s.key}" style="left:12px;top:${s.y}px;width:224px;height:32px;border-radius:8px">
+      <i class="abs" style="left:14px;top:9px;width:14px;height:14px;border-radius:5px;background:${s.color}"></i>
+      <span class="abs t" style="left:40px;top:5px;font-size:16px;font-weight:500">${s.label}</span>
+      <div class="abs mask" style="right:14px;top:6px;width:28px;height:20px"><div data-k="count_${s.key}" class="abs" style="right:0;top:0;width:28px;height:20px"></div></div>
+    </div>`).join("");
+  const row = ([title, tag, date], i, list) => `
+    <div class="abs" data-k="${list}${i}" style="left:0;top:0;width:${ROW.w}px;height:${ROW.h}px;border-radius:10px">
+      <div class="abs" style="left:16px;right:16px;bottom:0;height:1px;background:var(--hair)"></div>
+      <i class="abs" data-k="${list}Box${i}" style="left:14px;top:17px;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.6px var(--ink3)"></i>
+      <span class="abs t" data-k="${list}Title${i}" style="left:54px;top:15px;font-size:17.5px;font-weight:500">${title}</span>
+      ${tag ? `<span class="abs t" style="left:640px;top:15px;padding:0 10px;border-radius:8px;font-size:13.5px;font-weight:600;line-height:26px;background:var(--side);color:var(--ink2)">${tag}</span>` : ""}
+      <span class="abs t" style="right:18px;top:16px;font-size:14.5px;color:var(--ink3)">${date}</span>
+    </div>`;
+  const results = (list, key) => list.map(([label, hint], i) => `
+    <div class="abs" data-k="${key}${i}" style="left:8px;top:${64 + i * 46}px;width:${PALETTE.w - 16}px;height:42px;border-radius:9px">
+      <span class="abs t" style="left:14px;top:9px;font-size:17px;font-weight:500">${label}</span>
+      <span class="abs t" style="right:14px;top:10px;font-size:15px;color:var(--ink3)">${hint}</span>
+    </div>`).join("");
+  const app = `
+    <div class="abs" data-k="sidebar" style="left:0;top:0;width:248px;height:${WIN.h}px;background:var(--side);box-shadow:inset -1px 0 0 var(--hair)">
+      <div class="abs" data-k="sideSel" style="left:12px;width:224px;height:32px;border-radius:8px;background:var(--accentSoft)"></div>
+      ${side}
+      <span class="abs t" style="left:26px;top:180px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink3)">PROJECTS</span>
+    </div>
+    <div class="abs mask" style="left:284px;top:16px;width:400px;height:44px"><div data-k="title" class="abs" style="left:0;top:0;width:400px;height:44px"></div></div>
+    <div class="abs row" data-k="search" style="left:${SEARCH.x}px;top:${SEARCH.y}px;width:${SEARCH.w}px;height:${SEARCH.h}px;border-radius:${SEARCH.r}px;background:var(--side);padding:0 14px;gap:8px;font-size:15px;color:var(--ink3)">
+      <i style="width:13px;height:13px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--ink3)"></i><span>Search</span><span style="margin-left:auto">⌘K</span>
+    </div>
+    <div class="abs mask" data-k="list" style="left:${ROW.x}px;top:${ROW.y}px;width:${ROW.w}px;height:${WIN.h - ROW.y}px">
+      ${INBOX.map((r, i) => row(r, i, "in")).join("")}${LAUNCH.map((r, i) => row(r, i, "la")).join("")}
+    </div>
+    <div class="abs" data-k="ghost" style="left:0;top:0;width:${ROW.w}px;height:${ROW.h}px;border-radius:12px;background:var(--winBg);box-shadow:0 18px 40px rgba(20,20,30,.22)">
+      <i class="abs" style="left:14px;top:17px;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.6px var(--ink3)"></i>
+      <span class="abs t" style="left:54px;top:15px;font-size:17.5px;font-weight:500">${INBOX[1][0]}</span>
+    </div>
+    <div class="full" data-k="dim" style="background:rgba(10,10,14,.07)"></div>
+    <div class="abs" data-k="palette" style="overflow:hidden;background:var(--winBg);box-shadow:0 28px 70px rgba(15,15,25,.28),0 0 0 1px var(--hair)">
+      <div class="abs row" data-k="palIn" style="left:22px;top:0;height:60px;gap:12px;font-size:21px">
+        <i style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 2.4px var(--ink3)"></i>
+        <span class="t" data-k="query" style="line-height:60px"></span><i data-k="caret" style="width:2px;height:24px;background:var(--accent)"></i>
+        <span class="t" data-k="hint" style="line-height:60px;color:var(--ink3)">Type a command</span>
+      </div>
+      <div class="abs" style="left:0;right:0;top:60px;height:1px;background:var(--hair)"></div>
+      <div class="abs" data-k="palSel" style="left:8px;width:${PALETTE.w - 16}px;height:42px;border-radius:9px;background:var(--accentSoft)"></div>
+      <div data-k="all">${results(RESULTS, "res")}</div><div data-k="found">${results(FOUND, "fnd")}</div>
+    </div>`;
   stage.innerHTML = `
-    ${scene("hookScene", "var(--bg)", `
-      <div class="abs" style="left:150px;top:210px">${headline("h1", "Still typing", { size: 116 })}</div>
-      <div class="abs" style="left:150px;top:360px">${headline("h2", "subtitles", { size: 116 })}</div>
-      <div class="abs" style="left:150px;top:510px">${headline("h3", "by *hand?*", { size: 116, accent: "var(--accent2)" })}</div>
-      <div class="abs" style="left:150px;top:380px">${headline("meet", "Meet *CaptionsEasy.*", { size: 116 })}</div>
-      <div class="abs" data-k="browser" style="left:1250px;top:170px;width:1200px;height:760px;border-radius:24px;background:#fff;box-shadow:0 30px 60px rgba(26,26,26,.18);border:1px solid var(--hair)">
-        <div class="abs row" style="left:0;top:0;width:100%;height:48px;background:var(--panel);border-bottom:1px solid var(--hair);padding:0 16px;gap:8px">
-          <div style="width:12px;height:12px;border-radius:6px;background:#FF5F56"></div>
-          <div style="width:12px;height:12px;border-radius:6px;background:#FFBD2E"></div>
-          <div style="width:12px;height:12px;border-radius:6px;background:#27C93F"></div>
-          <div class="kit-mono center" style="flex:1;font-size:14px;color:var(--ink3);background:#fff;margin:0 16px;border-radius:6px;height:28px">captionseasy.app</div>
-        </div>
-        <div class="abs" style="left:24px;top:80px;font-family:var(--serif);font-size:32px;font-weight:700">CaptionsEasy</div>
-        <div class="abs" style="left:24px;top:140px;width:300px;height:200px;background:var(--field1);border-radius:16px;display:flex;align-items:center;justify-content:center"><div class="t" style="font-weight:600;font-size:24px">Drag Video</div></div>
-      </div>`)}
-      
-    ${scene("f1", "var(--field1)", `
-      ${panel("f1L", LEFT, "var(--panel)", `<div class="abs" style="left:40px;top:100px">${headline("f1h", "Raw speech to\n*Polished text.*", { size: 78, lh: 1.2 })}</div>`)}
-      ${panel("f1R", RIGHT, "var(--bg)", `
-        ${card("f1c", { x: 100, y: 100, w: 1000, h: 720 }, `
-          <div class="abs center" data-k="dropzone" style="left:40px;top:40px;width:920px;height:200px;border:3px dashed var(--accent);border-radius:24px;background:rgba(52,211,153,.1)"><span style="font-weight:700;font-size:28px;color:var(--accent)">File Dropped</span></div>
-          <div class="abs" data-k="toast1" style="left:40px;top:280px;width:920px"><div class="toast">uhh so today we are going to</div></div>
-          <div class="abs" data-k="toast2" style="left:40px;top:360px;width:920px"><div class="toast">build a launch film</div></div>
-          <div class="abs" data-k="toast3" style="left:40px;top:440px;width:920px"><div class="toast">and it's gonna be awesome</div></div>
-          <div class="abs" data-k="toast1p" style="left:40px;top:280px;width:920px"><div class="toast toast-polished">Today, we're building a launch film.</div></div>
-          <div class="abs" data-k="toast2p" style="left:40px;top:370px;width:920px"><div class="toast toast-polished">And it's going to be awesome.</div></div>
-        `)}`)}`)}
-        
-    ${scene("f2", "var(--field2)", `
-      ${panel("f2L", LEFT, "var(--panel)", `<div class="abs" style="left:40px;top:100px">${headline("f2h", "Style it in\n*one click.*", { size: 78, lh: 1.2, accent: "var(--ink)" })}</div>`)}
-      ${panel("f2R", RIGHT, "var(--bg)", `
-        ${card("f2c", { x: 60, y: 100, w: 1080, h: 720 }, `
-          <div class="abs t" style="left:40px;top:40px;font-size:32px;font-weight:700">Style Presets</div>
-          <div class="abs row" style="left:40px;top:100px;gap:16px">
-            <div data-k="preset1" class="center" style="width:200px;height:80px;border-radius:16px;background:var(--hair2);font-weight:600;font-size:20px;border:3px solid transparent">Minimal</div>
-            <div data-k="preset2" class="center" style="width:200px;height:80px;border-radius:16px;background:var(--hair2);font-weight:600;font-size:20px;border:3px solid transparent">Kalakar</div>
-            <div data-k="preset3" class="center" style="width:200px;height:80px;border-radius:16px;background:var(--accent);color:#fff;font-weight:600;font-size:20px;border:3px solid var(--accent)">Emerald</div>
-          </div>
-          <div class="abs center" data-k="styledTextWrap" style="left:40px;top:240px;width:1000px;height:400px;background:var(--ink);border-radius:32px;overflow:hidden">
-            <div class="abs conic-border" data-k="conicGlow" style="width:800px;height:120px;background:conic-gradient(from 0deg, var(--accent) 0%, var(--accent2) 50%, var(--accent) 100%)">
-              <div class="conic-inner"><span style="color:var(--ink)">Effortless</span><span style="color:var(--accent);margin-left:12px">Captions</span></div>
-            </div>
-          </div>
-        `)}`)}`)}
-        
-    ${scene("f3", "var(--field3)", `
-      ${panel("f3L", LEFT, "var(--panel)", `<div class="abs" style="left:40px;top:100px">${headline("f3h", "Rendered\n*locally.*", { size: 78, lh: 1.2, accent: "var(--ink)" })}</div>`)}
-      ${panel("f3R", RIGHT, "var(--bg)", `
-        ${card("f3c", { x: 60, y: 100, w: 1080, h: 720 }, `
-          <div class="abs center" style="left:40px;top:40px;width:1000px;height:640px">
-            <div style="width:800px">
-              <div class="t" style="font-size:48px;font-weight:700;margin-bottom:24px">Rendering Video...</div>
-              <div style="width:100%;height:32px;background:var(--hair2);border-radius:16px;overflow:hidden">
-                <div data-k="progressBar" style="width:0%;height:100%;background:var(--accent);border-radius:16px"></div>
-              </div>
-              <div data-k="progressText" class="kit-mono" style="margin-top:16px;font-size:24px;color:var(--accent)">0%</div>
-            </div>
-          </div>
-        `)}`)}`)}
-        
-    ${scene("endScene", "var(--bg)", `
-      <div class="abs" data-k="glow" style="left:560px;top:140px;width:800px;height:800px;border-radius:50%;background:radial-gradient(circle, rgba(52,211,153,.16) 0%, rgba(52,211,153,0) 70%)"></div>
-      <div class="abs row" data-k="lockup" style="left:0;top:330px;width:1920px;justify-content:center;gap:34px">
-        <div class="center" data-k="icon" style="width:150px;height:150px;border-radius:36px;background:var(--accent);color:#fff;font-size:92px;font-weight:800;font-family:var(--serif)">CE</div>
-        <div class="mask" style="height:176px"><div data-k="wordmark" class="t" style="font-size:154px;font-weight:700;letter-spacing:-.045em;font-family:var(--serif)">${APP.name}</div></div></div>
-      <div class="abs hl-center" style="left:0;top:540px;width:1920px">${headline("tag", APP.line, { size: 74, color: "var(--ink)", weight: 700, accent: "var(--accent)" })}</div>
-      <div class="abs row" style="left:0;top:690px;width:1920px;justify-content:center;gap:34px">
-        <div class="center" data-k="cta" style="height:78px;padding:0 44px;border-radius:39px;background:var(--ink);color:#fff;font-size:30px;font-weight:700">${APP.cta}</div>
-        <div class="row" style="font-family:var(--mono);font-size:34px;min-width:260px">${[...APP.url].map((ch, i) => `<span data-k="url${i}">${ch}</span>`).join("")}</div></div>
-      <div class="abs kit-mono" data-k="facts" style="left:0;top:940px;width:1920px;text-align:center;font-size:22px">${APP.facts.join("&nbsp;&nbsp;·&nbsp;&nbsp;")}</div>`)}
-      
-    <div class="abs" data-k="badge" style="left:${LEFT.x + 40}px;top:${LEFT.y + LEFT.h - 190}px;width:150px;height:150px;border-radius:50%;background:#fff;border:5px solid var(--accent);overflow:hidden">
-      <div class="abs" style="left:-6px;top:6px;width:162px;height:170px">${pebble("bd", false)}</div></div>
-    ${character("hero", pebble("hr"), 420, 441)}`;
-    
+    <div class="full" style="background:var(--bg)"></div>
+    ${desktopMarkup(app, { name: APP.name, icon: `<i class="abs" style="left:14px;top:14px;width:18px;height:18px;border-radius:50%;background:var(--accent)"></i>` })}
+    <div class="full" data-k="word">
+      <div class="abs" data-k="pill"></div>
+      <div class="abs mask" data-k="wmClip" style="height:${WM.size * 1.3}px"><div data-k="wm" class="t" style="font-size:${WM.size}px;font-weight:700;letter-spacing:-.035em;line-height:1.3;transform-origin:0 50%">${APP.name}</div></div>
+      <div class="abs mask" data-k="slClip" style="height:60px"><div data-k="sl" class="t" style="font-size:42px;font-weight:500;color:var(--ink2);line-height:58px">${APP.slogan}</div></div>
+      <div class="abs" data-k="dot" style="width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--accent)"></div>
+    </div>`;
   collect(stage);
-  const iconBox = $.icon.getBoundingClientRect(), stageBox = stage.getBoundingClientRect(), k = FILM.W / stageBox.width;
-  K.onIcon = { x: (iconBox.left - stageBox.left + iconBox.width / 2) * k, y: (iconBox.top - stageBox.top) * k + 6 };
-}
+  $.titleRoll = roller($.title, "font-size:30px;font-weight:700;letter-spacing:-.4px");
+  for (const s of SIDE) $["roll_" + s.key] = roller($["count_" + s.key], "font-size:13.5px;color:var(--ink3);right:0;left:auto");
 
-function heroAt(t) {
-  let x = HOME.x, y = HOME.y, s = 1, hop = 0, squash = 0, lean = 0, on = true;
-  const look = -0.9 * pulse(t, K.h1, 1.2) - 0.7 * prog(t, K.h2, 0.3) * (1 - prog(t, K.meet, 0.3));
-  const shock = pulse(t, K.h3 + 0.15, 0.9);
-  
-  if (t >= K.meet && t < K.end + 0.2) {
-    const f = clamp((t - K.meet) / 0.55);
-    x = lerp(HOME.x, 2250, f);
-    hop = 260 * 4 * f * (1 - f);
-    on = f < 1;
-  }
-  if (t >= K.end + 0.2 && t < K.home) {
-    const f = clamp((t - K.end - 0.2) / 0.6);
-    x = lerp(2250, K.onIcon.x, f);
-    y = lerp(HOME.y, K.onIcon.y, f);
-    s = lerp(1, 0.42, f);
-    hop = 300 * 4 * f * (1 - f);
-    squash = -0.25 * pulse(t, K.end + 0.8, 0.3);
-  }
-  if (t >= K.home) {
-    const f = clamp((t - K.home) / 0.6);
-    x = lerp(K.onIcon.x, HOME.x, f);
-    y = lerp(K.onIcon.y, HOME.y, f);
-    s = lerp(0.42, 1, E.out(f));
-    hop = 320 * 4 * f * (1 - f);
-    squash = -0.25 * pulse(t, K.home + 0.6, 0.3) * (1 - prog(t, K.home + 0.9, 0.2));
-  }
-  
-  squash += -0.2 * pulse(t, K.h3 + 0.1, 0.25) + 0.12 * shock;
-  lean = 0.06 * look;
-  show($.hero, on);
-  characterAt("hero", t, { x, y, s, hop, squash, lean });
-  const blink = Math.max(pulse(t, B(4), 0.16), pulse(t, B(41.5), 0.16), pulse(t, B(44), 0.16));
-  const glad = prog(t, K.end + 0.8, 0.3) - prog(t, K.home + 0.6, 0.3);
-  face("hr", { blink, wide: shock, smile: 0.5 + 0.5 * glad - 0.6 * shock, look });
+  WM.textW = measure(APP.name, WM.size, 700, "letter-spacing:-.035em");
+  const dot = 0.19 * WM.size, gap = 0.06 * WM.size;
+  WM.left = Math.round((FILM.W - (WM.textW + gap + dot)) / 2);
+  WM.top = Math.round(WM.baseline - WM.size * 0.98);
+  WM.dotX = Math.round(WM.left + WM.textW + gap + dot / 2);
+  WM.dotY = Math.round(WM.baseline - dot / 2 - 1);
+  Object.assign($.wmClip.style, { left: WM.left + "px", top: WM.top + "px", width: WM.textW + 8 + "px" });
+  const k = WM.row / WM.size, labelW = WM.textW * k;
+  WM.pill = { w: labelW + 118, h: 78, r: 39 };
+  WM.pill.w = Math.round(WM.pill.w);
+  WM.pill.x = (FILM.W - WM.pill.w) / 2;
+  WM.pill.y = (FILM.H - WM.pill.h) / 2;
+  WM.rowDot = { x: WM.pill.x + 40, y: FILM.H / 2 };
+  WM.rowText = { x: WM.pill.x + 70, y: Math.round(FILM.H / 2 - (WM.size * 1.3 * k) / 2) };
+  const slW = measure(APP.slogan, 42, 500);
+  Object.assign($.slClip.style, { left: Math.round((FILM.W - slW) / 2) + "px", top: WM.baseline + 58 + "px", width: slW + 4 + "px" });
 }
 
 function apply(t) {
-  sceneAt("hookScene", t, -1, K.f1 + 0.6);
-  headlineAt("h1", t, K.h1, K.meet);
-  headlineAt("h2", t, K.h2, K.meet + 0.05);
-  headlineAt("h3", t, K.h3, K.meet + 0.1);
-  headlineAt("meet", t, K.meet + 0.35);
-  
-  const up = clamp(spring(t, K.meet + 0.25, 0.55, 0.8), 0, 1.05);
-  show($.browser, t >= K.meet + 0.2);
-  setT($.browser, `translateY(${((1 - up) * 900).toFixed(2)}px)`);
-
-  sceneAt("f1", t, K.f1, K.f2 + 0.6);
-  driftAt($.f1L, t, K.f1);
-  driftAt($.f1R, t, K.f1, 160);
-  headlineAt("f1h", t, K.f1 + 0.3);
-  cardAt("f1c", t, K.f1 + 0.5);
-  
-  const t1 = clamp(spring(t, B(15), 0.5, 0.8), 0, 1.1);
-  const t2 = clamp(spring(t, B(15.5), 0.5, 0.8), 0, 1.1);
-  const t3 = clamp(spring(t, B(16), 0.5, 0.8), 0, 1.1);
-  setT($.toast1, `translateY(${((1-t1)*100).toFixed(2)}px)`); $.toast1.style.opacity = t1.toFixed(3);
-  setT($.toast2, `translateY(${((1-t2)*100).toFixed(2)}px)`); $.toast2.style.opacity = t2.toFixed(3);
-  setT($.toast3, `translateY(${((1-t3)*100).toFixed(2)}px)`); $.toast3.style.opacity = t3.toFixed(3);
-  
-  const pDrop = clamp(spring(t, B(18), 0.4, 0.7), 0, 1.1);
-  show($.toast1p, t >= B(18));
-  show($.toast2p, t >= B(18));
-  setT($.toast1p, `scale(${pDrop.toFixed(4)})`); $.toast1p.style.opacity = pDrop.toFixed(3);
-  setT($.toast2p, `scale(${pDrop.toFixed(4)})`); $.toast2p.style.opacity = pDrop.toFixed(3);
-  $.toast1.style.opacity = (t >= B(18) ? 0 : t1).toFixed(3);
-  $.toast2.style.opacity = (t >= B(18) ? 0 : t2).toFixed(3);
-  $.toast3.style.opacity = (t >= B(18) ? 0 : t3).toFixed(3);
-
-  sceneAt("f2", t, K.f2, K.f3 + 0.6);
-  driftAt($.f2L, t, K.f2);
-  driftAt($.f2R, t, K.f2, 160);
-  headlineAt("f2h", t, K.f2 + 0.3);
-  cardAt("f2c", t, K.f2 + 0.5);
-  
-  const glowRot = ((t * 60) % 360).toFixed(2);
-  $.conicGlow.style.background = `conic-gradient(from ${glowRot}deg, var(--accent) 0%, var(--accent2) 50%, var(--accent) 100%)`;
-  
-  sceneAt("f3", t, K.f3, K.end + 0.6);
-  driftAt($.f3L, t, K.f3);
-  driftAt($.f3R, t, K.f3, 160);
-  headlineAt("f3h", t, K.f3 + 0.3);
-  cardAt("f3c", t, K.f3 + 0.5);
-  
-  const renderP = clamp(prog(t, B(30), B(35) - B(30), E.linear));
-  $.progressBar.style.width = `${(renderP * 100).toFixed(1)}%`;
-  $.progressText.textContent = `${Math.floor(renderP * 100)}%`;
-  
-  const badge = clamp(spring(t, K.f1 + 0.6, 0.45, 0.7), 0, 1.1) * (1 - prog(t, K.end, 0.3, E.in));
-  show($.badge, badge > 0.001);
-  setT($.badge, `scale(${badge.toFixed(4)})`);
-  face("bd", { blink: pulse(t, B(18), 0.16) + pulse(t, B(26), 0.16), smile: 0.4 + 0.6 * Math.max(pulse(t, B(17), 0.6), pulse(t, B(31), 0.6)), look: 0.6 });
-
-  sceneAt("endScene", t, K.end);
-  const clear = prog(t, K.out, 0.45, E.in);
-  const iconP = clamp(spring(t, K.end + 0.35, 0.45, 0.72), 0, 1.1);
-  setT($.icon, `scale(${(iconP * (1 - clear)).toFixed(4)})`);
-  setT($.wordmark, `translateY(${(((1 - clamp(spring(t, K.end + 0.5, 0.5, 0.86), 0, 1.02)) + clear) * 105).toFixed(2)}%)`);
-  headlineAt("tag", t, B(39), K.out);
-  const cta = clamp(spring(t, B(41), 0.42, 0.74), 0, 1.08) * (1 - clear);
-  setT($.cta, `scale(${cta.toFixed(4)})`);
-  [...APP.url].forEach((_, i) => show($["url" + i], t >= B(41.6) + i * 0.05 && clear < 0.5));
-  $.facts.style.opacity = (prog(t, B(43), 0.5) * (1 - clear)).toFixed(3);
-  $.glow.style.opacity = (prog(t, K.end + 0.3, 0.8) * (1 - clear)).toFixed(3);
-
-  heroAt(t);
+  const v = camera(t);
+  const cls = prog(t, K.close, 0.45, E.inOut);
+  const worldOn = t >= K.open && t < K.row;
+  show($.world, worldOn);
+  if (worldOn) {
+    placeWorld(v, {
+      rect: t < K.open + 0.9 ? mixRect(pillInWindow(), FULL, prog(t, K.open + 0.1, 0.7, E.smooth)) : FULL,
+      chrome: prog(t, K.open + 0.45, 0.35, E.out),
+      desk: prog(t, K.back + 0.15, 0.85, E.smooth),
+      hw: prog(t, K.laptop, 0.6, E.out),
+      lid: 1 - cls,
+    });
+    applyApp(t);
+    placePointer(t, POINTER, [K.select, K.drag, K.check], K.point - 0.12, K.close);
+    $.pointer.style.opacity = (prog(t, K.point - 0.12, 0.2, E.out) * (1 - typing(t))).toFixed(3);
+  }
+  applyWord(t, v);
 }
 
-function cues() {
-  const wipe = (t) => ["whoosh", t - 0.05, { pan: 0.5 }];
-  return [
-    ...headlineCues("h1", K.h1), ...headlineCues("h2", K.h2), ...headlineCues("h3", K.h3),
-    ["hop", K.meet], ["whoosh", K.meet + 0.2, { pan: 0.3, gain: -2 }], ...headlineCues("meet", K.meet + 0.35),
-    wipe(K.f1), ...headlineCues("f1h", K.f1 + 0.3), ["thud", K.f1 + 0.62],
-    ["pop", B(15)], ["pop", B(15.5)], ["pop", B(16)], ["thud", B(18), { note: 7 }],
-    wipe(K.f2), ...headlineCues("f2h", K.f2 + 0.3), ["thud", K.f2 + 0.62],
-    wipe(K.f3), ...headlineCues("f3h", K.f3 + 0.3), ["thud", K.f3 + 0.62],
-    wipe(K.end), ["pop", K.end + 0.4, { note: 7 }], ["hop", K.end + 0.2], ["thud", K.end + 0.8, { gain: -3 }], ["chime", K.end + 0.55],
-    ...headlineCues("tag", B(39)), ["pop", B(41), { note: 9 }],
-    ...[...APP.url].map((_, i) => ["tick", B(41.6) + i * 0.05]),
-    ["hop", K.home], ["thud", K.home + 0.6, { gain: -3 }],
-  ];
+const typing = (t) => (t < K.palette || t > K.enter + 0.3 ? 0 : Math.min(prog(t, K.palette, 0.15), 1 - prog(t, K.enter + 0.15, 0.15)));
+
+function camera(t) {
+  return cameraAt(t, [
+    { t: 0, ...WHOLE_WINDOW },
+    { t: K.side + 0.2, ...onWindow(600, 390, 1.14) },
+    { t: K.drop + 0.4, ...onWindow(600, 384, 1.165), d: K.palette - K.drop - 0.4 },
+    { t: K.palette, ...onWindow(600, 340, 1.19) },
+    { t: K.enter + 0.15, ...onWindow(600, 390, 1.14) },
+    { t: K.check + 0.4, ...onWindow(600, 384, 1.165), d: K.back - K.check - 0.4 },
+    { t: K.back, ...WHOLE_SCREEN },
+    { t: K.laptop, ...WHOLE_LAPTOP },
+  ]);
+}
+
+function pillInWindow() {
+  const v = WHOLE_WINDOW, p = WM.pill;
+  return { x: (p.x - FILM.W / 2) / v.z + v.cx - WIN.x, y: (p.y - FILM.H / 2) / v.z + v.cy - WIN.y, w: p.w / v.z, h: p.h / v.z, r: p.r / v.z };
+}
+
+function applyApp(t) {
+  setT($.sidebar, `translateX(${((1 - clamp(spring(t, K.side, 0.55, 0.86), 0, 1)) * -260).toFixed(2)}px)`);
+  roll($.titleRoll, t, [{ t: K.side + 0.08, v: "Inbox" }, { t: K.enter + 0.1, v: "Launch" }]);
+  setT($.search, `scale(${clamp(spring(t, K.side + 0.14, 0.45, 0.8), 0, 1.05).toFixed(4)})`);
+  for (const s of SIDE) {
+    const steps = s.count.map((c, i) => ({ t: i ? K.drop + 0.12 : K.side + 0.2, v: String(c) }));
+    roll($["roll_" + s.key], t, steps);
+    const flash = s.key === "launch" ? pulse(t, K.drop + 0.05, 0.5) : 0;
+    $["side_" + s.key].style.background = flash > 0 ? `rgba(47,158,107,${(0.18 * flash).toFixed(3)})` : "";
+  }
+  const sel = track(t, SIDE[0].y, [{ t: K.enter + 0.05, to: SIDE[3].y, spring: [0.4, 0.86] }]);
+  $.sideSel.style.top = sel.toFixed(2) + "px";
+
+  const leave = (i) => prog(t, K.enter + i * 0.025, 0.26, E.in);
+  INBOX.forEach((_, i) => {
+    const el = $["in" + i];
+    const enter = clamp(spring(t, K.rows + i * 0.05, 0.5, 0.86), 0, 1.02);
+    const gap = i > 1 ? clamp(spring(t, K.drag + 0.25, 0.45, 0.86), 0, 1) : 0;
+    const out = leave(i);
+    setT(el, `translate(${(-out * 60).toFixed(2)}px,${((i - gap) * ROW.h + (1 - enter) * 34).toFixed(2)}px)`);
+    el.style.clipPath = `inset(0 ${(out * 100).toFixed(2)}% 0 0)`;
+    const selected = i === 1 && t >= K.select + 0.06 && t < K.drag + 0.1;
+    el.style.background = selected ? "var(--accent)" : "";
+    el.style.color = selected ? "#fff" : "";
+    show(el, t >= K.rows + i * 0.05 && out < 1 && !(i === 1 && t >= K.drag + 0.1));
+  });
+  LAUNCH.forEach((_, i) => {
+    const el = $["la" + i], at = K.enter + 0.3 + i * 0.05;
+    setT(el, `translateY(${(i * ROW.h + (1 - clamp(spring(t, at, 0.5, 0.86), 0, 1.02)) * 34).toFixed(2)}px)`);
+    show(el, t >= at);
+  });
+  const done = prog(t, K.check + 0.05, 0.3, E.out);
+  $.laBox0.style.background = done > 0 ? `rgba(47,158,107,${done.toFixed(3)})` : "";
+  $.laBox0.style.boxShadow = `inset 0 0 0 1.6px ${done > 0.5 ? "#2F9E6B" : "var(--ink3)"}`;
+  $.laTitle0.style.color = done > 0.5 ? "var(--ink3)" : "";
+  $.laTitle0.style.textDecoration = done > 0.5 ? "line-through" : "";
+
+  applyDrag(t);
+  applyPalette(t);
+}
+
+function applyDrag(t) {
+  const on = t >= K.drag + 0.1 && t < K.drop + 0.35;
+  show($.ghost, on);
+  if (!on) return;
+  const p = pointerAt(t, POINTER);
+  const lift = clamp(spring(t, K.drag + 0.1, 0.35, 0.8), 0, 1);
+  const into = prog(t, K.drop, 0.3, E.inOut);
+  const held = { x: p.x - WIN.x - 40, y: p.y - WIN.y - ROW.h / 2, w: 360, h: ROW.h, r: 12 };
+  const start = { x: ROW.x, y: ROW.y + ROW.h, w: ROW.w, h: ROW.h, r: 10 };
+  const target = { x: 12, y: SIDE[3].y, w: 224, h: 32, r: 8 };
+  const r = into > 0 ? mixRect(held, target, into) : mixRect(start, held, lift);
+  rectCss($.ghost, r);
+  $.ghost.style.opacity = (1 - prog(t, K.drop + 0.15, 0.2)).toFixed(3);
+}
+
+function applyPalette(t) {
+  const open = clamp(spring(t, K.palette, 0.42, 0.84), 0, 1.02), close = prog(t, K.enter + 0.05, 0.34, E.inOut);
+  const on = t >= K.palette && close < 1;
+  show($.palette, on);
+  show($.dim, on);
+  if (!on) return;
+  $.dim.style.opacity = (Math.min(open, 1) * (1 - close)).toFixed(3);
+  const typed = Math.max(0, Math.min(QUERY.length, Math.floor((t - K.type) / 0.08) + 1));
+  const narrowed = t >= K.found;
+  const h = 60 + 8 + (narrowed ? FOUND.length : RESULTS.length) * 46 + 4;
+  const card = { x: PALETTE.x, y: PALETTE.y, w: PALETTE.w, h: track(t, 60 + 8 + RESULTS.length * 46 + 4, [{ t: K.found, to: h, spring: [0.35, 0.9] }]), r: PALETTE.r };
+  const rect = close > 0 ? mixRect(card, { x: 12, y: SIDE[3].y, w: 224, h: 32, r: 8 }, close) : mixRect({ ...SEARCH }, card, open);
+  rectCss($.palette, rect);
+  const inner = 1 - prog(t, K.enter + 0.05, 0.15);
+  for (const key of ["palIn", "palSel", "all", "found"]) $[key].style.opacity = (prog(t, K.palette + 0.12, 0.15) * inner).toFixed(3);
+  $.query.textContent = t >= K.type ? QUERY.slice(0, typed) : "";
+  show($.hint, t < K.type);
+  show($.caret, Math.floor((t - K.palette) / 0.45) % 2 === 0 || (t >= K.type && t < K.type + QUERY.length * 0.08 + 0.2));
+  show($.all, !narrowed);
+  show($.found, narrowed);
+  $.palSel.style.top = "64px";
+  setT($.fnd0, `scale(${press(t, K.enter, 0.97).toFixed(4)})`);
+}
+
+function applyWord(t, v) {
+  const k = WM.row / WM.size;
+  const g = t < K.row ? prog(t, K.gather, 0.55, E.inOut) : 1 - prog(t, K.word, 0.6, E.inOut);
+  const leave = prog(t, K.open + 0.05, 0.3, E.in);
+  const arrive = prog(t, K.row + 0.35, 0.35, E.out);
+  const letters = t < K.open + 0.4 || t >= K.row + 0.35;
+  show($.wmClip, letters);
+  show($.dot, letters);
+  show($.slClip, t < K.open || t >= K.slogan);
+
+  const x = lerp(WM.left, WM.rowText.x, g), y = lerp(WM.top, WM.rowText.y, g);
+  $.wmClip.style.transformOrigin = "0 0";
+  setT($.wmClip, `translate(${(x - WM.left).toFixed(2)}px,${(y - WM.top).toFixed(2)}px) scale(${lerp(1, k, g).toFixed(4)})`);
+  if (t < K.row) sink($.wm, leave);
+  else rise($.wm, arrive);
+  const beat = 1 + 0.1 * pulse(t, 0, 0.32);
+  const size = t < K.row ? 1 - leave : arrive;
+  setT($.dot, T(lerp(WM.dotX, WM.rowDot.x, g), lerp(WM.dotY, WM.rowDot.y, g), lerp(1, 26 / 34, g) * beat * size));
+
+  const pillOn = (t >= K.gather && t < K.open + 0.02) || (t >= K.row && t < K.word + 0.45);
+  show($.pill, pillOn);
+  if (!pillOn) return;
+  let pill, white = 1;
+  if (t < K.row) {
+    const w = WM.pill.w * prog(t, K.gather + 0.2, 0.35, E.out);
+    pill = { ...WM.pill, w, x: FILM.W / 2 - w / 2 };
+  } else {
+    const deckWorld = { x: -LAPTOP.bezel - LAPTOP.deckOver, y: SCREEN.H + LAPTOP.bezel, w: SCREEN.W + 2 * (LAPTOP.bezel + LAPTOP.deckOver), h: LAPTOP.deckH };
+    const a = toStage(v, deckWorld.x, deckWorld.y);
+    const m = prog(t, K.row, 0.5, E.smooth), shrink = prog(t, K.word, 0.45, E.in);
+    pill = mixRect({ x: a.x, y: a.y, w: deckWorld.w * v.z, h: deckWorld.h * v.z, r: 0 }, WM.pill, m);
+    pill = { ...pill, w: pill.w * (1 - shrink), x: pill.x + (pill.w * shrink) / 2 };
+    white = m;
+  }
+  const mix = (c) => `color-mix(in srgb, var(--winBg) ${(white * 100).toFixed(1)}%, var(${c}))`;
+  $.pill.style.background = `linear-gradient(180deg,${mix("--metal1")},${mix("--metal2")})`;
+  rectCss($.pill, pill);
 }
