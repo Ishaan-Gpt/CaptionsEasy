@@ -158,8 +158,8 @@ export default function SettingsPage() {
     try {
       await authService.updateProfile({ name: displayName.trim() });
       setSaved(true);
-    } catch (err: any) {
-      setSaveError(err.message || "Failed to save profile.");
+    } catch (err) {
+      setSaveError((err instanceof Error && err.message) || "Failed to save profile.");
     } finally {
       setSaving(false);
     }
@@ -171,8 +171,8 @@ export default function SettingsPage() {
     try {
       await authService.requestPasswordReset(email);
       setResetSent(true);
-    } catch (err: any) {
-      setResetError(err.message || "Couldn't send the reset email.");
+    } catch (err) {
+      setResetError((err instanceof Error && err.message) || "Couldn't send the reset email.");
     }
   };
 
