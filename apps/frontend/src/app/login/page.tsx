@@ -64,13 +64,13 @@ export default function LoginPage() {
   // Redirect if already authenticated; also catches the OAuth return.
   useEffect(() => {
     if (authService.isAuthenticated()) {
-      router.push("/dashboard");
+      router.replace("/start");
       return;
     }
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) router.push("/dashboard");
+      if (session) router.replace("/start");
     });
     return () => subscription.unsubscribe();
   }, [router]);
@@ -95,10 +95,10 @@ export default function LoginPage() {
         setMode("verify-sent");
       } else {
         await authService.login(email, password);
-        router.push("/dashboard");
+        router.replace("/start");
       }
-    } catch (err: any) {
-      setError(friendlyAuthError(err.message || "Authentication failed."));
+    } catch (err) {
+      setError(friendlyAuthError((err instanceof Error ? err.message : "") || "Authentication failed."));
     } finally {
       setLoading(false);
     }
@@ -109,8 +109,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await authService.loginWithGoogle();
-    } catch (err: any) {
-      setError(friendlyAuthError(err.message || "Google sign-in failed."));
+    } catch (err) {
+      setError(friendlyAuthError((err instanceof Error ? err.message : "") || "Google sign-in failed."));
       setLoading(false);
     }
   };
@@ -120,8 +120,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await authService.loginWithGithub();
-    } catch (err: any) {
-      setError(friendlyAuthError(err.message || "GitHub sign-in failed."));
+    } catch (err) {
+      setError(friendlyAuthError((err instanceof Error ? err.message : "") || "GitHub sign-in failed."));
       setLoading(false);
     }
   };
@@ -133,8 +133,8 @@ export default function LoginPage() {
       const { error: rErr } = await supabase.auth.resend({ type: "signup", email });
       if (rErr) throw new Error(rErr.message);
       setResent(true);
-    } catch (err: any) {
-      setError(friendlyAuthError(err.message || "Couldn't resend the email."));
+    } catch (err) {
+      setError(friendlyAuthError((err instanceof Error ? err.message : "") || "Couldn't resend the email."));
     }
   };
 

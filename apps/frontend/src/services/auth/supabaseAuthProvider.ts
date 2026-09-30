@@ -1,3 +1,4 @@
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { User } from "../types";
 import { AuthProvider } from "./types";
 import { supabase } from "./supabaseClient";
@@ -17,7 +18,7 @@ const getProjectRef = (url: string | undefined): string => {
 const projectRef = getProjectRef(supabaseUrl);
 const STORAGE_KEY = projectRef ? `sb-${projectRef}-auth-token` : "sb-auth-token";
 
-function mapSupabaseUser(sbUser: any): User {
+function mapSupabaseUser(sbUser: SupabaseUser): User {
   const name = sbUser.user_metadata?.name || sbUser.email?.split("@")[0] || "User";
   return {
     id: sbUser.id,
@@ -64,6 +65,8 @@ export const supabaseAuthProvider: AuthProvider = {
       email,
       password,
       options: {
+        // the confirmation link lands straight in the studio (without this it falls back to the landing page)
+        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/start` : undefined,
         data: {
           name,
           avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(name)}`,
@@ -108,7 +111,7 @@ export const supabaseAuthProvider: AuthProvider = {
   },
 
   async loginWithGoogle() {
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/start` : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -121,7 +124,7 @@ export const supabaseAuthProvider: AuthProvider = {
   },
 
   async loginWithGithub() {
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/start` : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
