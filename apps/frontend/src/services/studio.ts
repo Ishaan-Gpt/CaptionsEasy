@@ -46,6 +46,7 @@ export interface StudioData {
   document: { revision: number; doc: CaptionDoc | null };
   job: StudioJob | null;
   canTranscribe: boolean;
+  cloudAvailable: boolean;
   companionOnline: boolean;
 }
 
@@ -177,7 +178,7 @@ export const studioService = {
     return apiClient.get<ExportRow[]>(`/projects/${projectId}/exports`);
   },
 
-  createExport(projectId: string, body: { kind: ExportKind; crf?: number; width?: number; height?: number }) {
+  createExport(projectId: string, body: { kind: ExportKind; crf?: number; width?: number; height?: number; range?: { startMs: number; endMs: number } }) {
     return apiClient.post<{ exportId: string; ready: boolean; downloadUrl?: string; jobId?: string; companionOnline?: boolean }>(`/projects/${projectId}/exports`, { json: body });
   },
 
@@ -185,8 +186,24 @@ export const studioService = {
     return (await apiClient.get<{ url: string }>(`/exports/${exportId}/download`)).url;
   },
 
-  transcribe(projectId: string) {
-    return apiClient.post<{ jobId: string; companionOnline: boolean }>(`/projects/${projectId}/transcribe`);
+  listLooks() {
+    return apiClient.get<{ id: string; name: string; template_id: string; style_json: CaptionStyleV2; settings_json: Partial<ProjectSettings> }[]>("/looks");
+  },
+  saveLook(name: string, style: CaptionStyleV2, settings: Partial<ProjectSettings>) {
+    return apiClient.post<{ id: string }>("/looks", { json: { name, style, settings } });
+  },
+  deleteLook(id: string) {
+    return apiClient.delete(`/looks/${id}`);
+  },
+  getBrand() {
+    return apiClient.get<{ colors: string[]; fontId: string | null }>("/brand");
+  },
+  saveBrand(colors: string[], fontId: string | null) {
+    return apiClient.put<{ colors: string[]; fontId: string | null }>("/brand", { json: { colors, fontId } });
+  },
+
+  transcribe(projectId: string, engine: "auto" | "local" | "cloud" = "auto") {
+    return apiClient.post<{ jobId: string; companionOnline: boolean }>(`/projects/${projectId}/transcribe`, { json: { engine } });
   },
 
   cancelJob(jobId: string) {

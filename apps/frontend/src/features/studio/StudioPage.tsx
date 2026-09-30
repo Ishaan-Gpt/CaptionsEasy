@@ -17,6 +17,8 @@ import { ProcessingPanel } from "./ProcessingPanel";
 import { StudioPlayer } from "./StudioPlayer";
 import { Timeline } from "./Timeline";
 import { UploadPanel } from "./UploadPanel";
+import { useWaveform } from "./useWaveform";
+import { retimeWord } from "@motion-ai/caption-engine/core";
 import { useStudio, type SaveState } from "./useStudio";
 
 type Tab = "captions" | "looks" | "style" | "settings";
@@ -71,6 +73,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   }, [fontKey]);
 
   const canvas = useMemo(() => ({ width, height, fps }), [width, height, fps]);
+  const wave = useWaveform(video?.id, video?.url, video?.size);
   const pages = useMemo(() => (doc && style && fontsReady ? computePages(doc, settings, style, canvas) : []), [doc, style, settings, canvas, fontsReady]);
   const currentPage = pages.find((p) => timeMs >= p.startMs && timeMs < p.endMs) ?? null;
 
@@ -154,7 +157,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             </nav>
             <div className="min-h-0 flex-1">
               {tab === "captions" && <CaptionsPanel doc={doc} pages={pages} currentPageId={currentPage?.id ?? null} selectedId={selectedId} onSelect={setSelectedId} onSeek={seek} edit={s.edit} />}
-              {tab === "looks" && <LooksPanel currentLookId={s.lookId} onChoose={s.chooseLook} />}
+              {tab === "looks" && <LooksPanel currentLookId={s.lookId} onChoose={s.chooseLook} currentStyle={style} currentSettings={settings} />}
               {tab === "style" && <StylePanel style={style} patch={s.patchStyle} />}
               {tab === "settings" && <SettingsPanel settings={settings} patch={s.patchSettings} />}
             </div>
@@ -182,14 +185,27 @@ export default function StudioPage({ projectId }: { projectId: string }) {
                 note={replacing ? "Choose the new video. Captions will be generated for it." : video?.status === "uploading" ? "The last upload didn't finish. Choose your video again." : undefined}
               />
             ) : (
-              <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} canTranscribe={data.canTranscribe} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} />
+              <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} canTranscribe={data.canTranscribe} cloudAvailable={data.cloudAvailable} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} />
             )}
           </div>
-          {hasEditor ? <Timeline pages={pages} durationMs={durationMs} timeMs={timeMs} onSeek={seek} /> : null}
+          {hasEditor && doc ? (
+            <Timeline
+              pages={pages}
+              words={doc.words}
+              durationMs={durationMs}
+              timeMs={timeMs}
+              selectedId={selectedId}
+              peaks={wave.peaks}
+              waveState={wave.state}
+              onSeek={seek}
+              onSelect={(id) => { setSelectedId(id); if (id) setTab("captions"); }}
+              onRetime={(id, st, en) => s.edit((d) => retimeWord(d, id, st, en))}
+            />
+          ) : null}
         </main>
       </div>
 
-      {showExport ? <ExportModal projectId={projectId} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
+      {showExport ? <ExportModal projectId={projectId} video={{ width, height, durationMs }} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
 
       {s.conflict ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

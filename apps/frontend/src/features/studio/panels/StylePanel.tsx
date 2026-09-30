@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { studioService } from "@/services/studio";
 import { ACTIVE_EFFECTS, ENTRANCES, type CaptionStyleV2, type ProjectSettings } from "@capseasy/shared";
 import { KNOWN_FONTS, TEMPLATES, getTemplate } from "@capseasy/templates";
 import { ColorField, Section, Segmented, Select, Slider, Toggle } from "../controls";
@@ -19,9 +21,33 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
   const effects = ACTIVE_EFFECTS.filter((e) => caps.activeEffects.includes(e));
   const entrances = ENTRANCES.filter((e) => caps.entrances.includes(e));
   const reveal = style.templateOptions.reveal === "all" ? "all" : "progressive";
+  const qc = useQueryClient();
+  const brand = useQuery({ queryKey: ["brand"], queryFn: () => studioService.getBrand() });
+  const colors = brand.data?.colors ?? [];
+  const saveBrand = async () => {
+    const mine = [solid(style), style.active.color, style.stroke.color, style.background.color].filter((c) => /^#[0-9a-f]{6}$/i.test(c));
+    await studioService.saveBrand([...new Set([...mine, ...colors])].slice(0, 12), style.fontId);
+    await qc.invalidateQueries({ queryKey: ["brand"] });
+  };
 
   return (
     <div className="h-full overflow-y-auto">
+      <Section title="Brand kit" hint={colors.length ? "Click a colour to use it as the highlight, Shift+click for the text." : "Save your colours and font once, reuse them on every project."}>
+        {colors.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {colors.map((c) => (
+              <button key={c} title={c} aria-label={`Brand colour ${c}`} onClick={(e) => patch((s) => (e.shiftKey ? { ...s, fill: { type: "solid", color: c } } : { ...s, active: { ...s.active, color: c } }))} className="h-7 w-7 rounded-md border border-white/20" style={{ backgroundColor: c }} />
+            ))}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => void saveBrand()} className="rounded-md bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20">Save current colours &amp; font</button>
+          {brand.data?.fontId && brand.data.fontId !== style.fontId ? (
+            <button onClick={() => patch((s) => ({ ...s, fontId: brand.data!.fontId! }))} className="rounded-md bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20">Use brand font ({brand.data.fontId})</button>
+          ) : null}
+        </div>
+      </Section>
+
       <Section title="Layout">
         <Select label="Template" value={style.templateId} options={TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => patch((s) => ({ ...s, templateId: v }))} />
         <p className="text-xs text-white/40">{tpl.description}</p>

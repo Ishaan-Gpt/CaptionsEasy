@@ -1,12 +1,16 @@
 import { requireUser } from "@/lib/api/auth";
 import { ApiFailure, notFound, ok, route, type Ctx } from "@/lib/api/http";
 import { logJobEvent, setProjectStatus } from "@/lib/api/jobs";
+import { after } from "next/server";
+import { markCloudRunning, runCloudTranscribe } from "@/lib/api/cloudAsr";
 import { getAdmin } from "@/lib/supabase/admin";
+
+export const maxDuration = 300;
 
 export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
   const user = await requireUser(req);
   const { id } = await params;
-  const { data: job } = await user.db.from("jobs").select("id, status, kind, project_id, payload").eq("id", id).maybeSingle();
+  const { data: job } = await user.db.from("jobs").select("id, status, kind, engine, project_id, payload").eq("id", id).maybeSingle();
   if (!job) throw notFound("Job");
   if (job.status !== "failed" && job.status !== "cancelled") throw new ApiFailure("CONFLICT", "Only failed or cancelled jobs can be retried.");
 
@@ -20,6 +24,10 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
     if (exportId) await admin.from("exports").update({ status_v2: "queued", status: "queued" }).eq("id", exportId);
   } else {
     await setProjectStatus(job.project_id, "processing");
+  }
+  if (job.engine === "cloud") {
+    await markCloudRunning(id);
+    after(() => runCloudTranscribe(id));
   }
   await logJobEvent(id, "retry", 0, "Retried by user");
   return ok({ status: "queued" });

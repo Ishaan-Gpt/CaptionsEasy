@@ -10,11 +10,12 @@ interface Props {
   job: StudioJob | null;
   companionOnline: boolean;
   canTranscribe: boolean;
+  cloudAvailable: boolean;
   onChanged: () => void;
   onReplaceVideo: () => void;
 }
 
-export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnline, canTranscribe, onChanged, onReplaceVideo }) => {
+export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnline, canTranscribe, cloudAvailable, onChanged, onReplaceVideo }) => {
   const [busy, setBusy] = useState(false);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -60,6 +61,12 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
           <Link href="/settings" className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-black hover:bg-emerald-400">Set up Companion</Link>
           <Button disabled={busy} onClick={() => act(() => studioService.cancelJob(job.id))}>Cancel</Button>
         </div>
+        {cloudAvailable ? (
+          <div className="mt-4 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm">
+            <p className="text-sky-100">In a hurry? Transcribe this video in the cloud instead (uses your monthly cloud minutes).</p>
+            <Button className="mt-2" disabled={busy} onClick={() => act(() => studioService.transcribe(projectId, "cloud"))}>☁ Use the cloud instead</Button>
+          </div>
+        ) : null}
         <p className="mt-4 text-xs text-white/40">This page updates by itself the moment your computer connects.</p>
       </Center>
     );

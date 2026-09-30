@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { LOOKS, loadFontFamily, lookCategories, type LookDefinition } from "@capseasy/templates";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
+import { LOOKS, loadFontFamily, lookCategories, resolveStyle, type LookDefinition } from "@capseasy/templates";
+import { studioService } from "@/services/studio";
 
 interface Props {
   currentLookId: string | null;
   onChoose: (look: LookDefinition) => void;
+  currentStyle: CaptionStyleV2;
+  currentSettings: ProjectSettings;
 }
 
 function swatchStyle(look: LookDefinition): React.CSSProperties {
@@ -22,9 +27,32 @@ function swatchStyle(look: LookDefinition): React.CSSProperties {
   } as React.CSSProperties;
 }
 
-export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose }) => {
-  const cats = useMemo(() => ["All", ...lookCategories()], []);
+export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose, currentStyle, currentSettings }) => {
+  const qc = useQueryClient();
+  const mine = useQuery({ queryKey: ["my-looks"], queryFn: () => studioService.listLooks() });
+  const myLooks = useMemo<LookDefinition[]>(
+    () => (mine.data ?? []).map((l) => ({ id: `user:${l.id}`, name: l.name, description: "Saved look", category: "My looks", templateId: l.template_id, style: resolveStyle(l.style_json), settings: l.settings_json })),
+    [mine.data],
+  );
+  const cats = useMemo(() => ["All", ...(myLooks.length ? ["My looks"] : []), ...lookCategories()], [myLooks.length]);
   const [cat, setCat] = useState("All");
+  const [saving, setSaving] = useState(false);
+  const saveCurrent = async () => {
+    const name = window.prompt("Name this look", "My look")?.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      await studioService.saveLook(name, currentStyle, { maxWordsPerCard: currentSettings.maxWordsPerCard, maxLines: currentSettings.maxLines, gapBehavior: currentSettings.gapBehavior });
+      await qc.invalidateQueries({ queryKey: ["my-looks"] });
+      setCat("My looks");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const removeLook = (look: LookDefinition) => {
+    if (!window.confirm(`Delete "${look.name}"?`)) return;
+    void studioService.deleteLook(look.id.slice(5)).then(() => qc.invalidateQueries({ queryKey: ["my-looks"] }));
+  };
   const [, setTick] = useState(0);
 
   // preview each look in its real font
@@ -33,10 +61,14 @@ export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose }) => {
     void Promise.all(families.map(loadFontFamily)).then(() => setTick((n) => n + 1));
   }, []);
 
-  const shown = cat === "All" ? LOOKS : LOOKS.filter((l) => l.category === cat);
+  const all = [...myLooks, ...LOOKS];
+  const shown = cat === "All" ? all : all.filter((l) => l.category === cat);
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap gap-1.5 border-b border-white/10 p-3">
+        <button onClick={() => void saveCurrent()} disabled={saving} className="w-full rounded-lg border border-dashed border-emerald-500/60 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50">
+          {saving ? "Saving…" : "＋ Save current style as a look"}
+        </button>
         {cats.map((c) => (
           <button key={c} onClick={() => setCat(c)} className={`rounded-full px-2.5 py-1 text-xs transition ${cat === c ? "bg-emerald-500 text-black" : "bg-white/10 text-white/70 hover:bg-white/20"}`}>{c}</button>
         ))}
@@ -53,8 +85,11 @@ export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose }) => {
                 {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
               </span>
             </div>
-            <div className="px-2.5 py-2">
-              <div className="truncate text-sm font-medium text-white">{look.name}</div>
+            <div className="relative px-2.5 py-2">
+              {look.category === "My looks" ? (
+                <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="absolute right-2 top-2 text-xs text-white/30 hover:text-red-300">✕</span>
+              ) : null}
+              <div className="truncate pr-4 text-sm font-medium text-white">{look.name}</div>
               <div className="truncate text-[11px] text-white/40">{look.category}</div>
             </div>
           </button>

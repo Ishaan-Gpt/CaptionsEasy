@@ -91,7 +91,7 @@ try {
   await pair.close();
 
   const t0 = Date.now();
-  const comp = runCli(["start", "--once"]);
+  const comp = runCli(["start", "--once"], (l) => log("   [companion]", l));
   // the open studio tab should flip from 'waiting' to progress to the editor by itself (polling)
   await page.waitForFunction(() => document.querySelector('[aria-label="Timeline"]') !== null, { timeout: 240000 });
   log("editor appeared", ((Date.now() - t0) / 1000).toFixed(0), "s after starting companion");
@@ -150,12 +150,69 @@ try {
   const doc2 = await api("GET", `/projects/${pid}/document`, token);
   check("Ctrl+Z undoes and re-saves", doc2.data.doc.words.some((w) => w.text === "incredible"), JSON.stringify(doc2.data.doc?.words?.map((w) => w.text)));
 
+  // ---------- 8b. new editor features
+  page.on("dialog", (d) => void d.accept(d.type() === "prompt" ? "E2E look" : undefined));
+  // multi-track timeline: waveform decoded, word blocks rendered
+  await page.waitForFunction(() => !/Loading audio/.test(document.body.innerText), { timeout: 30000 });
+  const wf = await page.evaluate(() => { const c = [...document.querySelectorAll("canvas")].find((x) => x.getAttribute("aria-hidden") === "true"); return c ? c.width : 0; });
+  check("audio waveform decoded and drawn on the timeline", wf > 100, String(wf));
+  const before = (await api("GET", `/projects/${pid}/document`, token)).data;
+  const target = before.doc.words.find((w) => /scrolling/i.test(w.text));
+  const handle = await page.$(`[aria-label="Move end of ${target.text}"]`);
+  check("word blocks have drag handles on the timeline", !!handle);
+  if (handle) {
+    const b = await handle.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 - 25, b.y + b.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForFunction(() => /Saved/.test(document.body.innerText), { timeout: 20000 });
+    await sleep(1500);
+    const after = (await api("GET", `/projects/${pid}/document`, token)).data;
+    const moved = after.doc.words.find((w) => w.id === target.id);
+    check("dragging a word's end handle retimes it (saved)", moved.endMs < target.endMs && moved.endMs > target.startMs, `${target.endMs} -> ${moved.endMs}`);
+  }
+  await page.screenshot({ path: join(SHOTS, "8b-timeline.png") });
+
+  // saved looks + brand kit
+  await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Looks/.test(b.textContent))?.click());
+  await sleep(600);
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Save current style as a look/.test(b.textContent))?.click());
+  await page.waitForFunction(() => /E2E look/.test(document.body.innerText), { timeout: 15000 });
+  check("'Save current style as a look' saves and lists it under My looks", (await api("GET", "/looks", token)).data?.length === 1);
+  await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Style/.test(b.textContent))?.click());
+  await sleep(600);
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Save current colours/.test(b.textContent))?.click());
+  await sleep(2000);
+  const brand = await api("GET", "/brand", token);
+  check("brand kit saves colours + font", brand.data?.colors?.length >= 2 && !!brand.data.fontId, JSON.stringify(brand.data));
+  await page.screenshot({ path: join(SHOTS, "8c-style-brand.png") });
+
+  // SRT import (then undo back so the rest of the test sees the transcript)
+  await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Captions/.test(b.textContent))?.click());
+  await sleep(500);
+  const srtInput = await page.$('input[accept*=".srt"]');
+  const srtPath = join(OUT, "import.srt");
+  (await import("node:fs")).writeFileSync(srtPath, "1\n00:00:00,500 --> 00:00:02,000\nImported first line\n\n2\n00:00:02,200 --> 00:00:04,000\nand a second one\n");
+  await srtInput.uploadFile(srtPath);
+  await page.waitForFunction(() => /Imported/.test(document.body.innerText), { timeout: 15000 });
+  await page.waitForFunction(() => /Saved/.test(document.body.innerText), { timeout: 20000 });
+  await sleep(1500);
+  const imp = (await api("GET", `/projects/${pid}/document`, token)).data;
+  check("Import SRT replaces the captions (saved)", imp.doc.words.map((w) => w.text).join(" ") === "Imported first line and a second one", JSON.stringify(imp.doc.words.map((w) => w.text)));
+  await page.evaluate(() => document.activeElement?.blur?.());
+  await page.keyboard.down("Control"); await page.keyboard.press("z"); await page.keyboard.up("Control");
+  await sleep(1800);
+  const back = (await api("GET", `/projects/${pid}/document`, token)).data;
+  check("undo restores the transcript after an import", back.doc.words.some((w) => /incredible/i.test(w.text)), JSON.stringify(back.doc.words.map((w) => w.text)).slice(0, 120));
+
   // ---------- 9. export modal -> SRT
   await page.evaluate(() => [...document.querySelectorAll("header button")].find((b) => b.textContent.trim() === "Export")?.click());
   await page.waitForFunction(() => !!document.querySelector('[role="dialog"]'), { timeout: 10000 });
   await page.screenshot({ path: join(SHOTS, "9-export.png") });
+  check("export modal offers resolution + trim", await page.evaluate(() => /Resolution/.test(document.body.innerText) && /Only export part of the video/.test(document.body.innerText)));
   await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] button')].find((b) => /\.srt/.test(b.textContent))?.click());
-  await page.waitForFunction(() => ![...document.querySelectorAll('[role="dialog"] button')].some((b) => b.disabled), { timeout: 20000 });
+  await page.waitForFunction(() => ![...document.querySelectorAll('[role="dialog"] button')].some((b) => b.disabled && /Subtitles|Video with captions|overlay|transcript/i.test(b.textContent)), { timeout: 20000 });
   await sleep(500);
   const exps = await api("GET", `/projects/${pid}/exports`, token);
   check("clicking 'Subtitles (.srt)' created a ready export", exps.data.some((e) => e.kind === "srt" && e.status_v2 === "ready"), JSON.stringify(exps.data));

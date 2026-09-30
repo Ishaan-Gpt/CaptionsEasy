@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import type { CaptionDoc, Emotion, Page } from "@capseasy/shared";
-import { autoEmoji, clearAutoEmoji, findMatches, findReplace, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import { autoEmoji, clearAutoEmoji, findMatches, findReplace, importSubtitles, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { Button, fmtTime } from "../controls";
 
 const EMOTIONS: Emotion[] = ["neutral", "excited", "funny", "serious", "sad", "angry", "surprised", "question", "hype", "calm"];
@@ -38,6 +38,22 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
         <div className="flex gap-2">
           <Button className="!py-1 text-xs" onClick={() => edit((d) => autoEmoji(d))} title="Adds emoji to key words (money, fire, love…). Turn on 'Show emoji' in Style.">✨ Add emojis</Button>
           <Button className="!py-1 text-xs" onClick={() => edit((d) => clearAutoEmoji(d))}>Clear emojis</Button>
+          <label className="ml-auto inline-flex cursor-pointer items-center rounded-lg bg-white/10 px-3 py-1 text-xs font-medium text-white hover:bg-white/20" title="Replace the captions with an .srt or .vtt file (you can undo)">
+            Import SRT
+            <input
+              type="file"
+              accept=".srt,.vtt,text/vtt,application/x-subrip"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                const imported = importSubtitles(await f.text(), doc.language);
+                if (imported.words.length === 0) return void window.alert("No captions were found in that file.");
+                edit((d) => ({ ...imported, language: d.language, direction: d.direction }));
+              }}
+            />
+          </label>
         </div>
         {find ? (
           <div className="flex items-center justify-between text-xs text-white/50">

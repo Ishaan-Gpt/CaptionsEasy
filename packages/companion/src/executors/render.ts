@@ -68,7 +68,7 @@ export async function runRender(ctx: JobContext) {
 
     const inputProps = {
       src,
-      media: { width: job.width, height: job.height, fps: job.fps, durationMs: claimed.media?.durationMs ?? 0, rotation: 0 },
+      media: { width: claimed.media?.width || job.width, height: claimed.media?.height || job.height, fps: job.fps, durationMs: claimed.media?.durationMs ?? 0, rotation: 0 },
       doc: job.docSnapshot,
       style: job.style,
       settings: job.settings,
@@ -82,7 +82,15 @@ export async function runRender(ctx: JobContext) {
     signal.addEventListener("abort", () => cancel(), { once: true });
 
     await report("Rendering", 15);
-    const common = { composition, serveUrl, inputProps, outputLocation: output, cancelSignal, timeoutInMilliseconds: FRAME_TIMEOUT_MS, concurrency: Math.max(1, Math.floor(cpus().length / 2)) } as const;
+    // trim: render only the requested frames (video, audio and captions stay in sync)
+    const last = composition.durationInFrames - 1;
+    const frameRange: [number, number] | undefined = job.range
+      ? [Math.max(0, Math.min(last, Math.floor((job.range.startMs / 1000) * composition.fps))), Math.max(0, Math.min(last, Math.ceil((job.range.endMs / 1000) * composition.fps) - 1))]
+      : undefined;
+    // resolution: the composition is authored at the source size; scale uniformly to the requested width
+    const srcW = claimed.media?.width || job.width;
+    const scale = srcW ? Math.min(1, job.width / srcW) : 1;
+    const common = { composition, serveUrl, inputProps, outputLocation: output, cancelSignal, frameRange, scale, timeoutInMilliseconds: FRAME_TIMEOUT_MS, concurrency: Math.max(1, Math.floor(cpus().length / 2)) } as const;
     const onProgress = ({ progress }: { progress: number }) => void report("Rendering", slice(15, 88, progress));
 
     if (job.format === "mp4") {
@@ -103,7 +111,7 @@ export async function runRender(ctx: JobContext) {
       kind: "render",
       path: "server-computed",
       size,
-      durationMs: composition.durationInFrames ? (composition.durationInFrames / composition.fps) * 1000 : undefined,
+      durationMs: frameRange ? ((frameRange[1] - frameRange[0] + 1) / composition.fps) * 1000 : (composition.durationInFrames / composition.fps) * 1000,
       renderMs: Date.now() - started,
     });
   } finally {

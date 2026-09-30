@@ -1,7 +1,8 @@
-import { CaptionDocSchema, CompleteBody } from "@capseasy/shared";
+import { CompleteBody } from "@capseasy/shared";
 import { requireWorker } from "@/lib/api/auth";
 import { ApiFailure, ok, parseBody, route, type Ctx } from "@/lib/api/http";
-import { logJobEvent, requireHeldJob, setProjectStatus } from "@/lib/api/jobs";
+import { logJobEvent, requireHeldJob } from "@/lib/api/jobs";
+import { saveTranscription } from "@/lib/api/transcripts";
 import { objectSize } from "@/lib/api/storage";
 import { getAdmin } from "@/lib/supabase/admin";
 
@@ -27,35 +28,7 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   const now = new Date().toISOString();
 
   if (body.kind === "transcribe") {
-    const payload = job.payload as { videoId: string };
-    const { data: transcript, error: tErr } = await admin.from("transcripts").insert({
-      project_id: job.project_id, owner_id: job.owner_id, language: body.language, provider: body.engine, engine: body.engine, model: body.model,
-      version: 1, duration_ms: body.durationMs ?? null, words_json: body.words,
-      // legacy shape (seconds) so the old studio page keeps working during the migration
-      transcript_json: { language: body.language, provider: body.engine, words: body.words.map((w) => ({ word: w.text, start: w.startMs / 1000, end: w.endMs / 1000, probability: w.confidence ?? null })) },
-    }).select("id").single();
-    if (tErr || !transcript) throw new ApiFailure("INTERNAL", "Could not store the transcript", tErr?.message);
-
-    const doc = CaptionDocSchema.parse({ version: 2, language: body.language, words: body.words, meta: { userEdited: false, createdFromTranscriptId: transcript.id } });
-    const { data: existing } = await admin.from("caption_documents").select("id, revision, doc").eq("project_id", job.project_id).maybeSingle();
-    if (existing) {
-      // never silently destroy hand edits: keep a restorable snapshot first
-      if ((existing.doc as { meta?: { userEdited?: boolean } })?.meta?.userEdited) {
-        await admin.from("caption_document_versions").insert({ document_id: existing.id, owner_id: job.owner_id, revision: existing.revision, reason: "before-retranscribe", doc: existing.doc });
-      }
-      await admin.from("caption_documents").update({ doc, revision: existing.revision + 1, source_transcript_id: transcript.id, updated_at: now }).eq("id", existing.id);
-    } else {
-      await admin.from("caption_documents").insert({ project_id: job.project_id, owner_id: job.owner_id, doc, source_transcript_id: transcript.id });
-    }
-    // legacy uploads never recorded their metadata; fill it from the companion's probe
-    const { data: v } = await admin.from("videos").select("duration_ms, width, height").eq("id", payload.videoId).maybeSingle();
-    await admin.from("videos").update({
-      status: "ready", updated_at: now, has_audio: true,
-      ...(v && !v.duration_ms && body.durationMs ? { duration_ms: Math.round(body.durationMs) } : {}),
-      ...(v && !v.width && body.width && body.height ? { width: body.width, height: body.height } : {}),
-    }).eq("id", payload.videoId);
-    await setProjectStatus(job.project_id, "ready");
-    if (body.durationMs) await admin.from("usage_events").insert({ owner_id: job.owner_id, kind: "local_transcribe_s", amount: Math.round(body.durationMs / 1000), project_id: job.project_id, job_id: id });
+    await saveTranscription(job, body);
   } else if (body.kind === "proxy") {
     const { videoId } = job.payload as { videoId: string };
     const { path } = await verifiedPath(`${job.owner_id}/${job.project_id}/preview/${videoId}.mp4`);

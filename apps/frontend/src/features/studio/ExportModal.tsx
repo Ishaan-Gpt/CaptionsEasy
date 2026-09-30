@@ -21,17 +21,32 @@ const KIND_LABEL: Record<string, string> = { mp4: "MP4", mov_alpha: "ProRes over
 
 interface Props {
   projectId: string;
+  video: { width: number; height: number; durationMs: number };
   companionOnline: boolean;
   saving: boolean;
   onClose: () => void;
   flushSave: () => Promise<void>;
 }
 
-export const ExportModal: React.FC<Props> = ({ projectId, companionOnline, saving, onClose, flushSave }) => {
+export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline, saving, onClose, flushSave }) => {
   const qc = useQueryClient();
   const [busyKind, setBusyKind] = useState<ExportKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quality, setQuality] = useState<"high" | "balanced" | "small">("high");
+  const [res, setRes] = useState<"source" | "1080" | "720">("source");
+  const [trim, setTrim] = useState(false);
+  const [startS, setStartS] = useState(0);
+  const [endS, setEndS] = useState(Math.round(video.durationMs / 100) / 10);
+  const totalS = Math.round(video.durationMs / 100) / 10;
+  const short = Math.min(video.width, video.height);
+  // scale by the SHORT edge so portrait and landscape both mean "720p/1080p"; keep even dimensions for H.264
+  const dims = (): { width: number; height: number } | undefined => {
+    if (res === "source" || short <= Number(res)) return undefined;
+    const k = Number(res) / short;
+    const even = (n: number) => Math.max(2, Math.round((n * k) / 2) * 2);
+    return { width: even(video.width), height: even(video.height) };
+  };
+  const trimValid = !trim || (endS - startS >= 0.5 && startS >= 0 && endS <= totalS + 0.05);
 
   const exportsQ = useQuery({
     queryKey: ["exports", projectId],
@@ -52,8 +67,14 @@ export const ExportModal: React.FC<Props> = ({ projectId, companionOnline, savin
     setBusyKind(o.kind);
     try {
       await flushSave(); // never export stale captions
-      const res = await studioService.createExport(projectId, { kind: o.kind, crf: quality === "high" ? 20 : quality === "balanced" ? 24 : 29 });
-      if (res.ready && res.downloadUrl) triggerDownload(res.downloadUrl);
+      const body = {
+        kind: o.kind,
+        crf: quality === "high" ? 20 : quality === "balanced" ? 24 : 29,
+        ...(o.needsComputer ? dims() ?? {} : {}),
+        ...(o.needsComputer && trim ? { range: { startMs: Math.round(startS * 1000), endMs: Math.round(endS * 1000) } } : {}),
+      };
+      const created = await studioService.createExport(projectId, body);
+      if (created.ready && created.downloadUrl) triggerDownload(created.downloadUrl);
       await qc.invalidateQueries({ queryKey: ["exports", projectId] });
       await qc.invalidateQueries({ queryKey: ["studio", projectId] });
     } catch (e) {
@@ -89,11 +110,36 @@ export const ExportModal: React.FC<Props> = ({ projectId, companionOnline, savin
             </div>
           </div>
 
+          <div className="mb-3 flex items-center justify-between text-sm text-white/70">
+            <span>Resolution</span>
+            <div className="inline-flex rounded-lg bg-white/10 p-0.5">
+              {([["source", `Original (${short}p)`], ["1080", "1080p"], ["720", "720p"]] as const).map(([v, label]) => (
+                <button key={v} disabled={v !== "source" && short <= Number(v)} onClick={() => setRes(v)} className={`rounded-md px-2.5 py-1 text-xs disabled:opacity-30 ${res === v ? "bg-emerald-500 text-black" : "text-white/70"}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-4 rounded-xl bg-white/[0.03] p-3 text-sm text-white/70">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" checked={trim} onChange={(e) => setTrim(e.target.checked)} className="accent-emerald-500" />
+              Only export part of the video
+            </label>
+            {trim ? (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span>From</span>
+                <input type="number" min={0} max={totalS} step={0.1} value={startS} onChange={(e) => setStartS(Number(e.target.value))} className="w-20 rounded border border-white/10 bg-[#1f1f1f] px-2 py-1" aria-label="Trim start (seconds)" />
+                <span>to</span>
+                <input type="number" min={0} max={totalS} step={0.1} value={endS} onChange={(e) => setEndS(Number(e.target.value))} className="w-20 rounded border border-white/10 bg-[#1f1f1f] px-2 py-1" aria-label="Trim end (seconds)" />
+                <span className="text-white/40">seconds of {totalS}s</span>
+                {!trimValid ? <span className="text-red-300">Pick a range of at least 0.5 s</span> : null}
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid gap-2 sm:grid-cols-2">
             {OPTIONS.map((o) => (
               <button
                 key={o.kind}
-                disabled={busyKind !== null}
+                disabled={busyKind !== null || (o.needsComputer && !trimValid)}
                 onClick={() => void start(o)}
                 className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-emerald-500/60 hover:bg-emerald-500/5 disabled:opacity-50"
               >
