@@ -6,6 +6,7 @@ import { WHISPER_MODELS } from "@capseasy/shared";
 import { CompanionApi } from "./api";
 import { dirs, ensureDirs, loadConfig, saveConfig } from "./config";
 import { login } from "./login";
+import { autostartEnabled, autostartPath, disableAutostart, enableAutostart } from "./autostart";
 import { runCompanion } from "./loop";
 import { buildCapabilities, diskFreeGb, VERSION } from "./system";
 import { ensureModel, ensureWhisperBinary, installedModels } from "./whisper";
@@ -84,6 +85,23 @@ program
     } else add("Paired & authorised", false, "run: capseasy login");
     for (const [name, ok, note] of rows) console.log(`${ok ? "✔" : "✘"} ${name.padEnd(26)} ${note}`);
     process.exitCode = rows.every((r) => r[1]) ? 0 : 1;
+  });
+
+program
+  .command("autostart <action>")
+  .description("enable | disable | status: start the Companion automatically when you log in")
+  .action((action: string) => {
+    ensureDirs();
+    if (action === "enable") {
+      const r = enableAutostart(dirs.logs);
+      console.log(`Autostart enabled (${r.path}). ${r.note}`);
+    } else if (action === "disable") {
+      console.log(disableAutostart() ? "Autostart disabled." : "Autostart was not enabled.");
+    } else if (action === "status") {
+      console.log(autostartEnabled() ? `Enabled (${autostartPath()})` : "Disabled");
+    } else {
+      throw new Error("Use: capseasy autostart enable | disable | status");
+    }
   });
 
 const models = program.command("models").description("Manage local speech models");

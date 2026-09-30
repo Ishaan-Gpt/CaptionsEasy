@@ -57,8 +57,9 @@ export class CompanionApi {
   heartbeat(body: { version: string; platform: string; capabilities: WorkerCapabilities; currentJobId: string | null }) {
     return this.req<{ workerId: string; minVersion: string; pollHintMs: number; cancelJobIds: string[] }>("POST", "/worker/heartbeat", body);
   }
-  claim(kinds: string[]) {
-    return this.req<ClaimedJob>("POST", "/worker/jobs/claim", { kinds });
+  /** Long-polls: the server holds the request up to `waitMs` and answers the moment a job is queued. */
+  claim(kinds: string[], waitMs = 0) {
+    return this.req<ClaimedJob>("POST", "/worker/jobs/claim", { kinds, waitMs }, { retries: 1 });
   }
   progress(jobId: string, stage: string, progress: number, message?: string) {
     return this.req<{ cancelRequested: boolean }>("POST", `/worker/jobs/${jobId}/progress`, { stage, progress, message }, { retries: 1 });

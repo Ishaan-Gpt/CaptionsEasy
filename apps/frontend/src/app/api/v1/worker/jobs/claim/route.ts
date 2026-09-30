@@ -6,17 +6,26 @@ import { LEASE_SECONDS, logJobEvent } from "@/lib/api/jobs";
 import { HOUR, signedGet, signedPut } from "@/lib/api/storage";
 import { getAdmin } from "@/lib/supabase/admin";
 
+export const maxDuration = 60;
+
 const EXPORT_EXT: Record<string, string> = { mp4: "mp4", mov_alpha: "mov", webm_alpha: "webm", png: "png" };
 
 /** Atomically claim the next queued job for this user (FOR UPDATE SKIP LOCKED) and hand back signed URLs. */
 export const POST = route(async (req: Request) => {
   const worker = await requireWorker(req);
-  const { kinds } = await parseBody(req, ClaimBody);
+  const { kinds, waitMs } = await parseBody(req, ClaimBody);
   const admin = getAdmin();
 
-  const { data: claimed, error } = await admin.rpc("claim_next_job", { p_worker: worker.id, p_kinds: kinds, p_lease_s: LEASE_SECONDS });
-  if (error) throw new ApiFailure("INTERNAL", "Could not claim a job", error.message);
-  const job = Array.isArray(claimed) ? claimed[0] : claimed;
+  // long-poll: re-check every 750 ms until a job appears, the wait elapses, or the companion hangs up
+  const deadline = Date.now() + waitMs;
+  let job = null;
+  for (;;) {
+    const { data: claimed, error } = await admin.rpc("claim_next_job", { p_worker: worker.id, p_kinds: kinds, p_lease_s: LEASE_SECONDS });
+    if (error) throw new ApiFailure("INTERNAL", "Could not claim a job", error.message);
+    job = Array.isArray(claimed) ? claimed[0] : claimed;
+    if (job || Date.now() >= deadline || req.signal.aborted) break;
+    await new Promise((r) => setTimeout(r, 750));
+  }
   if (!job) return new NextResponse(null, { status: 204 });
 
   const payload = job.payload as JobPayload;

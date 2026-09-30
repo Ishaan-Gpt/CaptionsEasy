@@ -56,7 +56,11 @@ export const HeartbeatBody = z.object({
   capabilities: WorkerCapabilitiesSchema.optional(),
   currentJobId: z.string().uuid().nullable().optional(),
 });
-export const ClaimBody = z.object({ kinds: z.array(z.enum(JOB_KINDS)).min(1) });
+export const ClaimBody = z.object({
+  kinds: z.array(z.enum(JOB_KINDS)).min(1),
+  /** long-poll: hold the request up to this long waiting for a job (instant pickup without a socket) */
+  waitMs: z.number().int().min(0).max(25_000).default(0),
+});
 export const ProgressBody = z.object({
   stage: z.string().max(60),
   progress: z.number().min(0).max(100),

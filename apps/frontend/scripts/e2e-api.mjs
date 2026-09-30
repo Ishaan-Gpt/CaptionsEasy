@@ -124,6 +124,19 @@ try {
   check("heartbeat", hb.status === 200 && hb.data.workerId === tok.data.workerId, JSON.stringify(hb));
   const other = await call("POST", "/worker/jobs/claim", { token: W, body: { kinds: ["render"] } });
   check("claim with no matching kind -> 204", other.status === 204, JSON.stringify(other));
+  // long-poll: a waiting companion gets a job the moment it is queued (instant pickup, no socket)
+  const lpStart = Date.now();
+  const lp = call("POST", "/worker/jobs/claim", { token: W, body: { kinds: ["thumbnail"], waitMs: 15000 } });
+  await new Promise((r) => setTimeout(r, 1500));
+  const queuedAt = Date.now();
+  await admin.from("jobs").insert({ project_id: pid, owner_id: A.id, kind: "thumbnail", job_type: "thumbnail", status: "queued", payload: { kind: "thumbnail", videoId: reg.data.videoId } });
+  const lpRes = await lp;
+  const pickup = Date.now() - queuedAt;
+  check(`long-poll claim picks up a new job fast (${pickup} ms after it was queued)`, lpRes.status === 200 && lpRes.data?.job?.kind === "thumbnail" && pickup < 2500, JSON.stringify(lpRes).slice(0, 200));
+  const idle0 = Date.now();
+  const idle = await call("POST", "/worker/jobs/claim", { token: W, body: { kinds: ["thumbnail"], waitMs: 2000 } });
+  check("long-poll with nothing to do returns 204 after the wait", idle.status === 204 && Date.now() - idle0 >= 1800, String(Date.now() - idle0));
+  void lpStart;
   const claim = await call("POST", "/worker/jobs/claim", { token: W, body: { kinds: ["transcribe", "render", "proxy"] } });
   check("claim transcribe job with signed source url", claim.status === 200 && claim.data.job.kind === "transcribe" && !!claim.data.urls.sourceGet, JSON.stringify(claim).slice(0, 300));
   const src = await fetch(claim.data.urls.sourceGet);

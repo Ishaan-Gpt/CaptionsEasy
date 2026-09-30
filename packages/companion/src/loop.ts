@@ -31,8 +31,6 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
   const api = new CompanionApi(cfg.apiBase, cfg.token);
   let active: Active | null = null;
   let stopped = false;
-  let pollMs = 3000;
-  let idleSince = Date.now();
   let refuseJobs = false;
 
   const stop = (why: string) => {
@@ -45,7 +43,6 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
     try {
       const hb = await api.heartbeat({ version: VERSION, platform: process.platform, capabilities: await buildCapabilities(), currentJobId: active?.id ?? null });
       if (hb) {
-        pollMs = hb.pollHintMs || 3000;
         if (cmp(VERSION, hb.minVersion) < 0) {
           if (!refuseJobs) log.error(`This companion (${VERSION}) is older than the required ${hb.minVersion}. Update it, then restart.`);
           refuseJobs = true;
@@ -122,7 +119,6 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
     } finally {
       clearInterval(keepalive);
       active = null;
-      idleSince = Date.now();
     }
   };
 
@@ -134,7 +130,8 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
     while (!stopped) {
       if (!active && !refuseJobs) {
         try {
-          const claimed = await api.claim(["transcribe", "render", "proxy"]);
+          // long-poll (20 s): picks a new job up within ~1 s instead of waiting for the next poll tick
+          const claimed = await api.claim(["transcribe", "render", "proxy"], 20_000);
           if (claimed) {
             await execute(claimed);
             if (opts.once) break;
@@ -145,9 +142,8 @@ export async function runCompanion(cfg: Config, opts: { once?: boolean; signal?:
           else log.warn(`claim failed: ${e instanceof Error ? e.message : e}`);
         }
       }
-      // idle: poll quickly while the user is around, back off after 5 minutes of nothing
-      const backoff = Date.now() - idleSince > 5 * 60_000 ? 15_000 : pollMs;
-      await sleep(backoff + Math.random() * 1000);
+      // the claim itself already waited; only pause briefly (longer after errors or when refusing jobs)
+      await sleep(refuseJobs ? 15_000 : 250 + Math.random() * 250);
     }
   } finally {
     clearInterval(hbTimer);
