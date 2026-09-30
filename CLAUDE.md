@@ -1476,6 +1476,13 @@ instantly, MP4 + ProRes/WebM alpha rendered by the Companion.
 3. Enable "leaked password protection" in Supabase Auth.
 4. Commit the rebuilt tarball (`pnpm companion:pack`) with the deploy so installers fetch the matching build.
 
+**Design round (2026-09-30, after MVP2):**
+- **Service status widget**: `/health/ready` reports `database` + `queue` (`queue_health()` RPC: claim function present + reaper ran recently); the old "job queue: down" came from a removed Redis flag.
+- **Looks curated to 34 distinct ones** (`packages/templates/src/registry.ts`, `CURATED_NEW` + `CURATED_LEGACY`); `registry.test` enforces a unique template/font/effect/fill/background signature per look so colour-swapped clones cannot come back. Default look `hormozi_box`.
+- **Studio**: competitor-style grid (Captions top-left, Preview centre, Properties right, Timeline across the bottom with an edit toolbar); phone layout = preview on top + tabbed panels + bottom nav; palette tokens `st-*` / `sand-*` in `globals.css` match the landing page (cream/obsidian/lavender/orange/emerald).
+- **Landing** rebuilt in `apps/frontend/src/components/home/`: GSAP brand loader (once per session, skipped for reduced motion), Lenis driven by the GSAP ticker so ScrollTrigger stays in sync, word-reveal hero with a phone cycling REAL looks (`LivePreview` = the actual `CaptionedVideo` in `@remotion/player`), scroll-drawn How-it-works line, live looks grid (swipe carousel on phone), features bento, Companion privacy section (install commands use the real origin), pricing from `PLANS` (Pro "soon", no invented prices), FAQ, closing CTA. Gotcha: never put Tailwind `transition` (which includes opacity/transform) on an element GSAP animates; use `transition-[translate,box-shadow]`. `scripts/shots.mjs` supports `SHOT_SCROLL=1` so scroll reveals fire before a full-page shot.
+- **Companion 0.1.3**: Windows whisper.cpp install no longer breaks on paths containing spaces (Remotion's installer passes unquoted paths to PowerShell; we download + `Expand-Archive -LiteralPath` ourselves).
+
 **What's left (as of MVP2, 2026-09-30):**
 1. **Owner actions** (only you can do these): rotate both Groq keys (old installer leaked them; the local copy in `apps/backend/.env` was deleted with the legacy backend), set Vercel env (`SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`, `GROQ_API_KEY`, `GROQ_API_KEY_BACKUP`, `NEXT_PUBLIC_API_URL=/api/v1`), enable Supabase leaked-password protection, then smoke-test the install command on the live URL.
 2. **macOS / Linux companion verification** on real machines (code + unit tests are in place; whisper.cpp builds from source there and needs git + make).

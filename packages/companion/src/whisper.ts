@@ -1,5 +1,7 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { downloadWhisperModel, installWhisperCpp, toCaptions, transcribe, type Language, type WhisperModel } from "@remotion/install-whisper-cpp";
 import { fromWhisperCaptions, type NormalizeOptions } from "@motion-ai/caption-engine/core";
 import type { Word } from "@capseasy/shared";
@@ -18,6 +20,25 @@ export const whisperInstalled = () => existsSync(exePath());
 
 let installing: Promise<void> | null = null;
 
+const WIN_ZIP_URL = "https://remotion-ffmpeg-binaries.s3.eu-central-1.amazonaws.com/whisper-bin-x64-1-5-5.zip";
+const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+
+/**
+ * Windows: Remotion's installer hands the zip path to PowerShell unquoted, which breaks for any path with a
+ * space (e.g. a profile folder like "Jane Doe"). Same prebuilt 1.5.5 binary, extracted with quoted literal paths.
+ */
+async function installWindows(to: string) {
+  const res = await fetch(WIN_ZIP_URL);
+  if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
+  const zip = join(dirs.cache, "whisper-bin-x64.zip");
+  writeFileSync(zip, Buffer.from(await res.arrayBuffer()));
+  try {
+    await promisify(execFile)("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Expand-Archive -Force -LiteralPath ${psQuote(zip)} -DestinationPath ${psQuote(to)}`], { windowsHide: true });
+  } finally {
+    rmSync(zip, { force: true });
+  }
+}
+
 /** Installs whisper.cpp once (prebuilt zip on Windows; git clone + make elsewhere). Concurrent callers share one install. */
 export function ensureWhisperBinary(): Promise<void> {
   if (whisperInstalled()) return Promise.resolve();
@@ -26,12 +47,16 @@ export function ensureWhisperBinary(): Promise<void> {
     rmSync(whisperDir(), { recursive: true, force: true });
     mkdirSync(dirs.cache, { recursive: true });
     mkdirSync(dirs.data, { recursive: true });
-    const prev = process.cwd();
-    try {
-      process.chdir(dirs.cache); // the installer drops its download zip into the current directory
-      await installWhisperCpp({ to: whisperDir(), version: WHISPER_CPP_VERSION, printOutput: false });
-    } finally {
-      process.chdir(prev);
+    if (process.platform === "win32") {
+      await installWindows(whisperDir());
+    } else {
+      const prev = process.cwd();
+      try {
+        process.chdir(dirs.cache); // the installer drops its download zip into the current directory
+        await installWhisperCpp({ to: whisperDir(), version: WHISPER_CPP_VERSION, printOutput: false });
+      } finally {
+        process.chdir(prev);
+      }
     }
     if (!whisperInstalled()) throw new Error(`the whisper executable was not found at ${exePath()} after installing`);
     log.info("whisper.cpp installed");

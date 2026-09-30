@@ -27,6 +27,14 @@ for (const [label, vp] of [["desktop", { width: 1440, height: 900 }], ["phone", 
     if (session) await page.evaluateOnNewDocument((k, v) => localStorage.setItem(k, v), session.key, session.value);
     await page.goto(`http://localhost:3000${path}`, { waitUntil: "load", timeout: 120000 });
     await new Promise((r) => setTimeout(r, Number(process.env.SHOT_WAIT ?? 2500)));
+    if (process.env.SHOT_SCROLL === "1") {
+      // walk down the page so scroll-triggered reveals fire, then return to the top
+      const h = await page.evaluate(() => document.documentElement.scrollHeight);
+      for (let y = 0; y < h; y += 400) { await page.evaluate((v) => window.scrollTo(0, v), y); await new Promise((r) => setTimeout(r, 120)); }
+      await new Promise((r) => setTimeout(r, 1500));
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await new Promise((r) => setTimeout(r, 1200));
+    }
     const name = `${label}${path.replace(/[^a-z0-9]+/gi, "_")}`;
     const full = process.env.SHOT_FULL !== "0";
     await page.screenshot({ path: join(out, `${name}.png`), fullPage: full });
