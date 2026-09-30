@@ -65,13 +65,13 @@ describe("template registry", () => {
 });
 
 describe("emotion styling", () => {
-  it("swaps motion at default reactivity, colour only when turned up", async () => {
+  it("scales motion at default reactivity, colour only when turned up, never replaces the chosen effect", async () => {
     const { applyEmotion, getTemplate, resolveStyle } = await import("./index");
     const tpl = getTemplate("sentence_highlight");
     const base = resolveStyle({ templateId: "sentence_highlight", active: { effect: "pop", color: "#FFFFFF", scale: 1.1, boxRadius: 12 } });
     expect(applyEmotion(base, tpl, "neutral")).toBe(base);
     const angry = applyEmotion(base, tpl, "angry");
-    expect(angry.active.effect).toBe("shake");
+    expect(angry.active.effect).toBe("pop");
     expect(angry.active.color).toBe("#FFFFFF");
     const hot = applyEmotion({ ...base, emotionReactivity: 1 }, tpl, "angry");
     expect(hot.active.color).toBe("#FF3B3B");

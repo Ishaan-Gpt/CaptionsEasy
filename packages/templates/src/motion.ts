@@ -68,9 +68,30 @@ export function entranceStyle(style: CaptionStyleV2, localMs: number, fps: numbe
       const s = springMs(localMs, 0, fps, SPRINGS.bouncy);
       return { opacity: Math.min(1, p * 3), transform: `scale(${0.6 + s * 0.4})` };
     }
+    case "glitch": {
+      // RGB-split jitter that settles (deterministic: derived from the frame number, never Math.random)
+      const f = Math.floor((localMs / 1000) * fps);
+      const j = (1 - p) * 8 * k;
+      const dx = ((f * 7919) % 5) - 2;
+      return { opacity: Math.min(1, p * 3), transform: `translateX(${dx * j * 0.6}px)`, filter: j > 0.4 ? `drop-shadow(${j}px 0 rgba(255,0,80,0.85)) drop-shadow(${-j}px 0 rgba(0,240,255,0.85))` : undefined };
+    }
+    case "wave":
     case "rise":
     default: return { opacity: p, transform: `translateY(${(1 - p) * 16 * k}px)` };
   }
+}
+
+/** Per-item delay for staggered entrances: words ~70 ms apart, letters ~28 ms apart (scaled by entrance speed). */
+export function staggerDelayMs(style: CaptionStyleV2, index: number, unit: "word" | "char"): number {
+  const base = unit === "word" ? 70 : 28;
+  return index * base * Math.max(0.4, style.entrance.durationMs / 220);
+}
+
+/** Which unit a layout should stagger by ("wave" always animates letter by letter). */
+export function staggerUnit(style: CaptionStyleV2): "none" | "word" | "char" {
+  if (style.entrance.type === "none") return "none";
+  if (style.entrance.type === "wave") return "char";
+  return style.entrance.stagger;
 }
 
 export function exitStyle(style: CaptionStyleV2, msUntilEnd: number, settled?: boolean): React.CSSProperties {

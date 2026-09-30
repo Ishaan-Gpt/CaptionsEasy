@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import type { PlayerRef } from "@remotion/player";
 import { computePages } from "@capseasy/compositions";
 import { EMOJI_FONT, getTemplate, loadFontFamily } from "@capseasy/templates";
-import { emojiFor, mergeWithPrevious, retimeWord, setEmphasis, setHidden, setWordEmoji, splitCardAt } from "@motion-ai/caption-engine/core";
+import { emojiFor, insertWordAfter, mergeWithPrevious, retimeRun, setEmphasis, setHidden, setWordEmoji, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import { EyeOff, Redo2, Smile, Star, Undo2 } from "lucide-react";
 import { authService } from "@/services/auth";
 import { ApiError } from "@/services/api-client";
 import { Button } from "./controls";
@@ -201,44 +202,62 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} pairedComputers={data.pairedComputers ?? []} canTranscribe={data.canTranscribe} cloudAvailable={data.cloudAvailable} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} />
   ));
 
+  const ensureEmoji = () => s.patchStyle((st) => (st.emoji.enabled ? st : { ...st, emoji: { ...st.emoji, enabled: true } }));
+  const heroSupported = style ? getTemplate(style.templateId).layout !== "typewriter" : true;
   const captions = doc && style ? (
-    <CaptionsPanel doc={doc} pages={pages} currentPageId={currentPage?.id ?? null} selectedId={selectedId} onSelect={setSelectedId} onSeek={seek} edit={s.edit} />
+    <CaptionsPanel doc={doc} pages={pages} currentPageId={currentPage?.id ?? null} selectedId={selectedId} onSelect={setSelectedId} onSeek={seek} edit={s.edit} onEmojiAdded={ensureEmoji} heroSupported={heroSupported} />
   ) : null;
 
   const sidePanel = (t: SideTab) =>
     style ? (
       t === "style" ? <StylePanel style={style} patch={s.patchStyle} />
       : t === "looks" ? <LooksPanel currentLookId={s.lookId} onChoose={s.chooseLook} currentStyle={style} currentSettings={settings} />
-      : <SettingsPanel settings={settings} patch={s.patchSettings} />
+      : <SettingsPanel settings={settings} patch={s.patchSettings} layout={getTemplate(style.templateId).layout} />
     ) : null;
 
-  // editing toolbar for the selected word (sits on the timeline, like pro editors)
-  const tool = (label: string, icon: string, onClick: () => void, opts: { disabled?: boolean; active?: boolean } = {}) => (
+  // actions for the selected word, shown in the timeline toolbar (icon buttons, like pro editors)
+  const tool = (label: string, icon: React.ReactNode, onClick: () => void, opts: { disabled?: boolean; active?: boolean } = {}) => (
     <button
       key={label}
       onClick={onClick}
       disabled={opts.disabled}
       title={label}
       aria-label={label}
-      className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav text-obsidian" : "text-st-text/90 hover:bg-st-hover"}`}
+      aria-pressed={opts.active}
+      className={`grid h-8 w-8 place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${opts.active ? "bg-st-lav/20 text-st-lav" : "text-st-text/85 hover:bg-st-hover"}`}
     >
-      <span aria-hidden className="text-sm leading-none">{icon}</span>
-      <span className="hidden 2xl:inline">{label}</span>
+      {icon}
     </button>
   );
   const none = !selected;
-  const toolbar = (
-    <div className="flex items-center gap-0.5">
-      {tool("Split card here", "✂", () => selected && s.edit((d) => splitCardAt(d, selected.id)), { disabled: none })}
-      {tool("Join previous", "⇤", () => selected && s.edit((d) => mergeWithPrevious(d, selected.id)), { disabled: none })}
-      {tool(selected?.emphasis === "hero" ? "Hero word" : "Make hero", "★", () => selected && s.edit((d) => setEmphasis(d, selected.id, selected.emphasis === "hero" ? "none" : "hero")), { disabled: none, active: selected?.emphasis === "hero" })}
-      {tool(selected?.emoji ? "Remove emoji" : "Add emoji", "☺", () => selected && s.edit((d) => setWordEmoji(d, selected.id, selected.emoji ? null : { char: emojiFor(selected.text) ?? "✨", position: "above" })), { disabled: none, active: Boolean(selected?.emoji) })}
-      {tool("Hide word", "⌫", () => { if (!selected) return; s.edit((d) => setHidden(d, selected.id, true)); setSelectedId(null); }, { disabled: none })}
-      <span className="mx-1.5 h-5 w-px bg-st-line" />
-      {tool("Undo", "↶", s.undo, { disabled: !s.canUndo })}
-      {tool("Redo", "↷", s.redo, { disabled: !s.canRedo })}
-    </div>
+  const ic = "h-4 w-4";
+  const extraTools = (
+    <>
+      {tool(selected?.emphasis === "hero" ? "Key word (click to unset)" : "Make key word", <Star className={ic} />, () => selected && s.edit((d) => setEmphasis(d, selected.id, selected.emphasis === "hero" ? "none" : "hero")), { disabled: none || !heroSupported, active: selected?.emphasis === "hero" })}
+      {tool(selected?.emoji ? "Remove emoji" : "Add emoji", <Smile className={ic} />, () => { if (!selected) return; s.edit((d) => setWordEmoji(d, selected.id, selected.emoji ? null : { char: emojiFor(selected.text) ?? "✨", position: "above" })); if (!selected.emoji) ensureEmoji(); }, { disabled: none, active: Boolean(selected?.emoji) })}
+      {tool("Hide word", <EyeOff className={ic} />, () => { if (!selected) return; s.edit((d) => setHidden(d, selected.id, true)); setSelectedId(null); }, { disabled: none })}
+      {tool("Undo", <Undo2 className={ic} />, s.undo, { disabled: !s.canUndo })}
+      {tool("Redo", <Redo2 className={ic} />, s.redo, { disabled: !s.canRedo })}
+    </>
   );
+
+  const addWordAt = (atMs: number): string | null => {
+    let created: string | null = null;
+    s.edit((d) => {
+      const before = [...d.words].filter((w) => !w.hidden && w.startMs <= atMs).pop() ?? null;
+      const withWord = insertWordAfter(d, before?.id ?? null, "new");
+      const w = withWord.words.find((x) => !d.words.some((y) => y.id === x.id));
+      if (!w) return d;
+      created = w.id;
+      // place it at the playhead when there is room there
+      const next = withWord.words[withWord.words.indexOf(w) + 1];
+      const start = Math.max(w.startMs, atMs);
+      const end = Math.min(next ? next.startMs : start + 400, start + 400);
+      return end - start >= 80 ? retimeRun(withWord, w.id, w.id, start, end) : withWord;
+    });
+    if (created) setSelectedId(created);
+    return created;
+  };
 
   const timeline = doc ? (
     <Timeline
@@ -251,8 +270,13 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       waveState={wave.state}
       onSeek={seek}
       onSelect={setSelectedId}
-      onRetime={(id, st, en) => s.edit((d) => retimeWord(d, id, st, en))}
-      toolbar={toolbar}
+      onRetimeRun={(a, b, st, en, ripple) => s.edit((d) => retimeRun(d, a, b, st, en, ripple))}
+      onRename={(id, text) => s.edit((d) => setWordText(d, id, text))}
+      onAddWord={addWordAt}
+      onSplit={() => selected && s.edit((d) => splitCardAt(d, selected.id))}
+      onJoin={() => selected && s.edit((d) => mergeWithPrevious(d, selected.id))}
+      onOpenSettings={() => { if (desktop) setSideTab("timing"); else setMobileTab("timing"); }}
+      extraTools={extraTools}
       fill={!desktop}
     />
   ) : null;
@@ -286,25 +310,49 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     );
   }
 
-  // ---------- desktop: captions top-left, preview centre, properties right, timeline across the bottom
+  const properties = (
+    <aside aria-label="Properties" className="row-span-2 flex min-h-0 flex-col border-l border-st-line bg-st-panel">
+      <nav className="flex shrink-0 gap-1 border-b border-st-line p-2" role="tablist">
+        {SIDE_TABS.map((t) => (
+          <button key={t.id} role="tab" aria-selected={sideTab === t.id} onClick={() => setSideTab(t.id)} className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sideTab === t.id ? "bg-st-raised text-st-text shadow-[inset_0_-2px_0_var(--color-st-lav)]" : "text-st-muted hover:text-st-text"}`}>{t.label}</button>
+        ))}
+      </nav>
+      <div key={sideTab} className="st-rise min-h-0 flex-1">{sidePanel(sideTab)}</div>
+    </aside>
+  );
+  const captionsSection = (
+    <section aria-label="Captions" className="flex min-h-0 flex-col border-b border-r border-st-line bg-st-panel">
+      <PanelTitle title="Captions" hint={`${pages.length} cards`} />
+      <div className="min-h-0 flex-1">{captions}</div>
+    </section>
+  );
+
+  // ---------- desktop, PORTRAIT video: captions + timeline stacked on the left, a tall preview in the middle
+  // that uses the full height (like pro short-form editors), properties on the right
+  if (desktop && height > width) {
+    return (
+      <div className="studio flex h-[100dvh] flex-col">
+        {header}
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(380px,1fr)_auto_minmax(320px,24vw)] grid-rows-[minmax(0,42%)_minmax(0,1fr)]">
+          {captionsSection}
+          <section aria-label="Preview" className="row-span-2 h-full min-h-0 bg-[radial-gradient(ellipse_at_center,#1d1d1a,#11110f_70%)]" style={{ aspectRatio: `${width} / ${height}`, maxWidth: "46vw" }}>{stage}</section>
+          {properties}
+          <section aria-label="Timeline section" className="min-h-0 border-r border-st-line">{timeline}</section>
+        </div>
+        {overlays}
+      </div>
+    );
+  }
+
+  // ---------- desktop, landscape/square video: captions top-left, preview centre, properties right, timeline across the bottom
   if (desktop) {
     return (
       <div className="studio flex h-[100dvh] flex-col">
         {header}
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,24vw)_minmax(0,1fr)_minmax(320px,23vw)] grid-rows-[minmax(0,1fr)_minmax(250px,38%)]">
-          <section aria-label="Captions" className="flex min-h-0 flex-col border-b border-r border-st-line bg-st-panel">
-            <PanelTitle title="Captions" hint={`${pages.length} cards`} />
-            <div className="min-h-0 flex-1">{captions}</div>
-          </section>
+          {captionsSection}
           <section aria-label="Preview" className="min-h-0 border-b border-st-line bg-[radial-gradient(ellipse_at_center,#1d1d1a,#11110f_70%)]">{stage}</section>
-          <aside aria-label="Properties" className="row-span-2 flex min-h-0 flex-col border-l border-st-line bg-st-panel">
-            <nav className="flex shrink-0 gap-1 border-b border-st-line p-2" role="tablist">
-              {SIDE_TABS.map((t) => (
-                <button key={t.id} role="tab" aria-selected={sideTab === t.id} onClick={() => setSideTab(t.id)} className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${sideTab === t.id ? "bg-st-raised text-st-text shadow-[inset_0_-2px_0_var(--color-st-lav)]" : "text-st-muted hover:text-st-text"}`}>{t.label}</button>
-              ))}
-            </nav>
-            <div key={sideTab} className="st-rise min-h-0 flex-1">{sidePanel(sideTab)}</div>
-          </aside>
+          {properties}
           <section aria-label="Timeline section" className="col-span-2 min-h-0">{timeline}</section>
         </div>
         {overlays}

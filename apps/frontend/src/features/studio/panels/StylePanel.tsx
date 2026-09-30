@@ -3,8 +3,8 @@
 import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { studioService } from "@/services/studio";
-import { ACTIVE_EFFECTS, ENTRANCES, type CaptionStyleV2, type ProjectSettings } from "@capseasy/shared";
-import { KNOWN_FONTS, TEMPLATES, getTemplate } from "@capseasy/templates";
+import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
+import { BACKGROUND_TYPES, EXIT_TYPES, KNOWN_FONTS, TEMPLATES, controlVisible, effectsFor, entrancesFor, getTemplate, type ControlId } from "@capseasy/templates";
 import { ColorField, Section, Segmented, Select, Slider, Toggle } from "../controls";
 
 const opts = (xs: readonly string[]) => xs.map((x) => ({ value: x, label: x.replace(/-/g, " ") }));
@@ -15,11 +15,15 @@ interface StyleProps {
   patch: (fn: (s: CaptionStyleV2) => CaptionStyleV2) => void;
 }
 
+/**
+ * Every control here is shown only when the current template honours it (`controlVisible`, shared with
+ * packages/templates/src/controls.test.tsx, which proves each visible control changes the rendered video).
+ */
 export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
   const tpl = getTemplate(style.templateId);
-  const caps = tpl.capabilities;
-  const effects = ACTIVE_EFFECTS.filter((e) => caps.activeEffects.includes(e));
-  const entrances = ENTRANCES.filter((e) => caps.entrances.includes(e));
+  const show = (id: ControlId) => controlVisible(id, tpl, style);
+  const effects = effectsFor(tpl);
+  const entrances = entrancesFor(tpl);
   const reveal = style.templateOptions.reveal === "all" ? "all" : "progressive";
   const qc = useQueryClient();
   const brand = useQuery({ queryKey: ["brand"], queryFn: () => studioService.getBrand() });
@@ -29,6 +33,7 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
     await studioService.saveBrand([...new Set([...mine, ...colors])].slice(0, 12), style.fontId);
     await qc.invalidateQueries({ queryKey: ["brand"] });
   };
+  const bgEditable = show("backgroundColor") || show("background");
 
   return (
     <div className="h-full overflow-y-auto">
@@ -36,7 +41,7 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
         {colors.length ? (
           <div className="flex flex-wrap gap-1.5">
             {colors.map((c) => (
-              <button key={c} title={c} aria-label={`Brand colour ${c}`} onClick={(e) => patch((s) => (e.shiftKey ? { ...s, fill: { type: "solid", color: c } } : { ...s, active: { ...s.active, color: c } }))} className="h-7 w-7 rounded-md border border-st-line" style={{ backgroundColor: c }} />
+              <button key={c} title={c} aria-label={`Brand colour ${c}`} onClick={(e) => patch((s) => (e.shiftKey && tpl.capabilities.color ? { ...s, fill: { type: "solid", color: c } } : { ...s, active: { ...s.active, color: c } }))} className="h-7 w-7 rounded-md border border-st-line" style={{ backgroundColor: c }} />
             ))}
           </div>
         ) : null}
@@ -51,7 +56,7 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
       <Section title="Layout">
         <Select label="Template" value={style.templateId} options={TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => patch((s) => ({ ...s, templateId: v }))} />
         <p className="text-xs text-st-faint">{tpl.description}</p>
-        {tpl.layout === "sentence" ? (
+        {show("reveal") ? (
           <div className="flex items-center justify-between text-sm text-st-text/90">
             <span>Words appear</span>
             <Segmented value={reveal} options={[{ value: "progressive", label: "As spoken" }, { value: "all", label: "All at once" }]} onChange={(v) => patch((s) => ({ ...s, templateOptions: { ...s.templateOptions, reveal: v } }))} />
@@ -62,62 +67,92 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
       <Section title="Text">
         <Select label="Font" value={style.fontId} options={KNOWN_FONTS.map((f) => ({ value: f, label: f }))} onChange={(v) => patch((s) => ({ ...s, fontId: v }))} />
         <Slider label="Size" value={style.fontSize} min={24} max={140} onChange={(v) => patch((s) => ({ ...s, fontSize: v }))} />
-        {caps.weight ? <Slider label="Weight" value={style.fontWeight} min={300} max={900} step={100} onChange={(v) => patch((s) => ({ ...s, fontWeight: v }))} /> : null}
+        {show("weight") ? <Slider label="Weight" value={style.fontWeight} min={300} max={900} step={100} onChange={(v) => patch((s) => ({ ...s, fontWeight: v }))} /> : null}
         <Select label="Case" value={style.casing} options={[{ value: "none", label: "As spoken" }, { value: "upper", label: "UPPERCASE" }, { value: "lower", label: "lowercase" }, { value: "title", label: "Title Case" }]} onChange={(v) => patch((s) => ({ ...s, casing: v as CaptionStyleV2["casing"] }))} />
-        {caps.alignment ? <Select label="Align" value={style.align} options={opts(["left", "center", "right"])} onChange={(v) => patch((s) => ({ ...s, align: v as CaptionStyleV2["align"] }))} /> : null}
+        {show("align") ? <Select label="Align" value={style.align} options={opts(["left", "center", "right"])} onChange={(v) => patch((s) => ({ ...s, align: v as CaptionStyleV2["align"] }))} /> : null}
         <Slider label="Letter spacing" value={style.letterSpacing} min={-4} max={20} step={0.5} onChange={(v) => patch((s) => ({ ...s, letterSpacing: v }))} />
+        <Slider label="Word spacing" value={style.wordSpacing} min={-10} max={40} step={1} onChange={(v) => patch((s) => ({ ...s, wordSpacing: v }))} />
         <Slider label="Line height" value={style.lineHeight} min={0.8} max={2} step={0.05} onChange={(v) => patch((s) => ({ ...s, lineHeight: v }))} />
       </Section>
 
       <Section title="Color">
-        {caps.color ? <ColorField label="Text" value={solid(style)} onChange={(v) => patch((s) => ({ ...s, fill: { type: "solid", color: v } }))} /> : null}
-        <ColorField label={caps.hero ? "Highlight / hero" : "Highlight"} value={style.active.color} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, color: v } }))} />
-        {effects.length > 1 ? <Select label="Spoken-word effect" value={style.active.effect} options={opts(effects)} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, effect: v as CaptionStyleV2["active"]["effect"] } }))} /> : null}
-        {style.active.effect === "box" ? <ColorField label="Box color" value={style.active.boxColor ?? style.active.color} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, boxColor: v } }))} /> : null}
-        {style.active.effect !== "none" && style.active.effect !== "color" ? <Slider label="Effect strength" value={style.active.scale} min={1} max={1.5} step={0.02} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, scale: v } }))} /> : null}
+        {show("fillType") ? (
+          <div className="flex items-center justify-between text-sm text-st-text/90">
+            <span>Text fill</span>
+            <Segmented value={style.fill.type} options={[{ value: "solid", label: "Solid" }, { value: "gradient", label: "Gradient" }]} onChange={(v) => patch((s) => ({ ...s, fill: v === "gradient" ? { type: "gradient", stops: [{ color: solid(s), at: 0 }, { color: s.active.color, at: 1 }], angle: 90 } : { type: "solid", color: solid(s) } }))} />
+          </div>
+        ) : null}
+        {show("textColor") ? <ColorField label={style.fill.type === "gradient" ? "Gradient start" : "Text"} value={solid(style)} onChange={(v) => patch((s) => ({ ...s, fill: s.fill.type === "gradient" ? { ...s.fill, stops: [{ color: v, at: 0 }, ...s.fill.stops.slice(1)] } : { type: "solid", color: v } }))} /> : null}
+        {show("gradientColor2") && style.fill.type === "gradient" ? (
+          <>
+            <ColorField label="Gradient end" value={style.fill.stops[style.fill.stops.length - 1]!.color} onChange={(v) => patch((s) => (s.fill.type === "gradient" ? { ...s, fill: { ...s.fill, stops: [...s.fill.stops.slice(0, -1), { color: v, at: 1 }] } } : s))} />
+            <Slider label="Gradient angle" value={style.fill.angle} min={0} max={360} step={5} unit="°" onChange={(v) => patch((s) => (s.fill.type === "gradient" ? { ...s, fill: { ...s.fill, angle: v } } : s))} />
+          </>
+        ) : null}
+        {show("highlightColor") ? <ColorField label={tpl.capabilities.hero ? "Highlight / key word" : "Highlight"} value={style.active.color} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, color: v } }))} /> : null}
+        {show("effect") ? <Select label="Spoken-word effect" value={style.active.effect} options={opts(effects)} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, effect: v as CaptionStyleV2["active"]["effect"] } }))} /> : null}
+        {show("boxColor") ? <ColorField label="Box color" value={style.active.boxColor ?? style.active.color} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, boxColor: v } }))} /> : null}
+        {show("dimUnspoken") ? <Slider label="Not-yet-spoken words" value={Math.round(style.inactiveOpacity * 100)} min={10} max={100} step={5} unit="%" onChange={(v) => patch((s) => ({ ...s, inactiveOpacity: v / 100 }))} /> : null}
+        {show("effectStrength") ? <Slider label="Effect strength" value={style.active.scale} min={1} max={1.5} step={0.02} onChange={(v) => patch((s) => ({ ...s, active: { ...s.active, scale: v } }))} /> : null}
       </Section>
 
-      {caps.hero ? (
-        <Section title="Hero word" hint="The most important word on each card. Click a word in Captions to make it the hero.">
-          <Slider label="Hero size" value={style.hero.scale} min={1} max={3} step={0.05} unit="×" onChange={(v) => patch((s) => ({ ...s, hero: { ...s.hero, scale: v } }))} />
-          <Select label="Hero font" value={style.hero.fontId ?? style.fontId} options={KNOWN_FONTS.map((f) => ({ value: f, label: f }))} onChange={(v) => patch((s) => ({ ...s, hero: { ...s.hero, fontId: v } }))} />
+      {show("heroScale") ? (
+        <Section title="Key word" hint="The most important word on each card. Click a word in Captions and choose Make hero.">
+          <Slider label="Key word size" value={style.hero.scale} min={1} max={3} step={0.05} unit="×" onChange={(v) => patch((s) => ({ ...s, hero: { ...s.hero, scale: v } }))} />
+          {show("heroFont") ? <Select label="Key word font" value={style.hero.fontId ?? style.fontId} options={KNOWN_FONTS.map((f) => ({ value: f, label: f }))} onChange={(v) => patch((s) => ({ ...s, hero: { ...s.hero, fontId: v } }))} /> : null}
         </Section>
       ) : null}
 
       <Section title="Outline & shadow">
-        <Toggle label="Outline" checked={style.stroke.enabled} onChange={(v) => patch((s) => ({ ...s, stroke: { ...s.stroke, enabled: v } }))} />
-        {style.stroke.enabled ? (
+        <Toggle label="Outline" checked={style.stroke.enabled} onChange={(v) => patch((s) => ({ ...s, stroke: { ...s.stroke, enabled: v, width: s.stroke.width || 3 } }))} />
+        {show("outlineWidth") ? (
           <>
             <Slider label="Outline width" value={style.stroke.width} min={1} max={16} step={0.5} onChange={(v) => patch((s) => ({ ...s, stroke: { ...s.stroke, width: v } }))} />
             <ColorField label="Outline color" value={style.stroke.color} onChange={(v) => patch((s) => ({ ...s, stroke: { ...s.stroke, color: v } }))} />
           </>
         ) : null}
         <Toggle label="Drop shadow" checked={style.shadows.length > 0} onChange={(v) => patch((s) => ({ ...s, shadows: v ? [{ x: 0, y: 4, blur: 6, color: "rgba(0,0,0,0.6)" }] : [] }))} />
+        {show("shadowColor") ? (
+          <>
+            <ColorField label="Shadow color" value={style.shadows[0]!.color.startsWith("#") ? style.shadows[0]!.color : "#000000"} onChange={(v) => patch((s) => ({ ...s, shadows: s.shadows.map((x, i) => (i === 0 ? { ...x, color: v } : x)) }))} />
+            <Slider label="Shadow softness" value={style.shadows[0]!.blur} min={0} max={40} onChange={(v) => patch((s) => ({ ...s, shadows: s.shadows.map((x, i) => (i === 0 ? { ...x, blur: v } : x)) }))} />
+            <Slider label="Shadow distance" value={style.shadows[0]!.y} min={0} max={30} onChange={(v) => patch((s) => ({ ...s, shadows: s.shadows.map((x, i) => (i === 0 ? { ...x, y: v } : x)) }))} />
+          </>
+        ) : null}
         <Toggle label="Glow" checked={style.glow.enabled} onChange={(v) => patch((s) => ({ ...s, glow: { ...s.glow, enabled: v, color: v && s.glow.color === "#FFFFFF" ? s.active.color : s.glow.color } }))} />
+        {show("glowColor") ? (
+          <>
+            <ColorField label="Glow color" value={style.glow.color} onChange={(v) => patch((s) => ({ ...s, glow: { ...s.glow, color: v } }))} />
+            <Slider label="Glow size" value={style.glow.radius} min={2} max={60} onChange={(v) => patch((s) => ({ ...s, glow: { ...s.glow, radius: v } }))} />
+          </>
+        ) : null}
       </Section>
 
-      {caps.background ? (
+      {bgEditable ? (
         <Section title="Background">
-          <Select label="Style" value={style.background.type} options={opts(["none", "pill", "box"])} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, type: v as CaptionStyleV2["background"]["type"] } }))} />
-          {style.background.type !== "none" ? (
+          {show("background") ? <Select label="Style" value={BACKGROUND_TYPES.includes(style.background.type as (typeof BACKGROUND_TYPES)[number]) ? style.background.type : "box"} options={opts(BACKGROUND_TYPES)} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, type: v as CaptionStyleV2["background"]["type"] } }))} /> : null}
+          {show("backgroundColor") ? (
             <>
               <ColorField label="Color" value={style.background.color} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, color: v } }))} />
               <Slider label="Opacity" value={style.background.opacity} min={0.1} max={1} step={0.05} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, opacity: v } }))} />
             </>
           ) : null}
+          {show("backgroundPadding") ? <Slider label="Padding" value={style.background.padding} min={0} max={60} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, padding: v } }))} /> : null}
+          {show("backgroundRadius") ? <Slider label="Corner radius" value={style.background.radius} min={0} max={100} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, radius: v } }))} /> : null}
+          {show("backgroundBlur") ? <Slider label="Frosted blur" value={style.background.blur} min={0} max={40} onChange={(v) => patch((s) => ({ ...s, background: { ...s.background, blur: v } }))} /> : null}
         </Section>
       ) : null}
 
-      <Section title="Position" hint="You can also drag the green handle on the video.">
+      <Section title="Position" hint="You can also drag the handle on the video.">
         <Slider label="Vertical" value={Math.round(style.position.y * 100)} min={5} max={95} unit="%" onChange={(v) => patch((s) => ({ ...s, position: { ...s.position, y: v / 100 } }))} />
         <Slider label="Horizontal" value={Math.round(style.position.x * 100)} min={5} max={95} unit="%" onChange={(v) => patch((s) => ({ ...s, position: { ...s.position, x: v / 100 } }))} />
         <Slider label="Max width" value={Math.round(style.maxWidth * 100)} min={30} max={100} unit="%" onChange={(v) => patch((s) => ({ ...s, maxWidth: v / 100 }))} />
         <Slider label="Rotation" value={style.rotation} min={-15} max={15} step={0.5} unit="°" onChange={(v) => patch((s) => ({ ...s, rotation: v }))} />
       </Section>
 
-      <Section title="Emoji" hint="Emoji pop above the caption when their word is spoken. Add them from the Captions tab.">
+      <Section title="Emoji" hint="Emoji pop above the caption when their word is spoken. Add them from the Captions tab or the timeline toolbar.">
         <Toggle label="Show emoji" checked={style.emoji.enabled} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, enabled: v } }))} />
-        {style.emoji.enabled ? (
+        {show("emojiSize") ? (
           <>
             <Slider label="Emoji size" value={style.emoji.size} min={0.5} max={3} step={0.1} unit="×" onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, size: v } }))} />
             <Select label="Animation" value={style.emoji.animation} options={opts(["pop", "float", "spin", "none"])} onChange={(v) => patch((s) => ({ ...s, emoji: { ...s.emoji, animation: v as CaptionStyleV2["emoji"]["animation"] } }))} />
@@ -126,37 +161,68 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
       </Section>
 
       <Section title="Motion">
-        <Select label="Entrance" value={style.entrance.type} options={opts(entrances)} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, type: v as CaptionStyleV2["entrance"]["type"] } }))} />
-        <Select label="Exit" value={style.exit.type} options={opts(["none", "fade", "fall", "zoom-out", "blur-out", "slide-up"])} onChange={(v) => patch((s) => ({ ...s, exit: { ...s.exit, type: v as CaptionStyleV2["exit"]["type"] } }))} />
-        <Slider label="Motion intensity" value={style.motionIntensity} min={0} max={2} step={0.05} onChange={(v) => patch((s) => ({ ...s, motionIntensity: v }))} />
+        {show("entrance") ? <Select label="Entrance" value={style.entrance.type} options={opts(entrances)} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, type: v as CaptionStyleV2["entrance"]["type"], durationMs: Math.max(150, s.entrance.durationMs) } }))} /> : null}
+        {show("entrance") && style.entrance.type !== "none" ? <Slider label="Entrance speed" value={style.entrance.durationMs} min={80} max={800} step={20} unit=" ms" onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, durationMs: v } }))} /> : null}
+        {show("stagger") ? (
+          <div className="flex items-center justify-between text-sm text-st-text/90">
+            <span>Animate</span>
+            <Segmented value={style.entrance.stagger} options={[{ value: "none", label: "Whole card" }, { value: "word", label: "Word by word" }, { value: "char", label: "Letters" }]} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, stagger: v as CaptionStyleV2["entrance"]["stagger"] } }))} />
+          </div>
+        ) : null}
+        {show("easing") ? <Select label="Easing" value={style.entrance.easing} options={[{ value: "outExpo", label: "Snappy" }, { value: "outCubic", label: "Smooth" }, { value: "outQuad", label: "Gentle" }, { value: "inOutCubic", label: "Ease in-out" }, { value: "linear", label: "Linear" }]} onChange={(v) => patch((s) => ({ ...s, entrance: { ...s.entrance, easing: v as CaptionStyleV2["entrance"]["easing"] } }))} /> : null}
+        <Select label="Exit" value={style.exit.type} options={opts(EXIT_TYPES)} onChange={(v) => patch((s) => ({ ...s, exit: { ...s.exit, type: v as CaptionStyleV2["exit"]["type"], durationMs: Math.max(150, s.exit.durationMs) } }))} />
+        {style.exit.type !== "none" ? <Slider label="Exit speed" value={style.exit.durationMs} min={80} max={800} step={20} unit=" ms" onChange={(v) => patch((s) => ({ ...s, exit: { ...s.exit, durationMs: v } }))} /> : null}
+        {show("motionIntensity") ? <Slider label="Motion intensity" value={style.motionIntensity} min={0} max={2} step={0.05} onChange={(v) => patch((s) => ({ ...s, motionIntensity: v }))} /> : null}
         <Slider label="Emotion reactivity" value={style.emotionReactivity} min={0} max={1} step={0.05} onChange={(v) => patch((s) => ({ ...s, emotionReactivity: v }))} />
       </Section>
     </div>
   );
 };
 
+/** one-click caption pacing (remotion2.md): words per card + the pause that starts a new card */
+const PACING = [
+  { id: "fast", label: "Fast", words: 2, pauseMs: 250 },
+  { id: "normal", label: "Normal", words: 4, pauseMs: 400 },
+  { id: "slow", label: "Slow", words: 7, pauseMs: 700 },
+] as const;
+
 interface SettingsProps {
   settings: ProjectSettings;
   patch: (p: Partial<ProjectSettings>) => void;
+  /** current layout: lines/characters settings only matter to layouts that flow text in lines */
+  layout: string;
 }
 
-export const SettingsPanel: React.FC<SettingsProps> = ({ settings, patch }) => (
-  <div className="h-full overflow-y-auto">
-    <Section title="Card size" hint="How much text shows at once.">
-      <Slider label="Words per card" value={settings.maxWordsPerCard} min={1} max={12} onChange={(v) => patch({ maxWordsPerCard: v })} />
-      <Slider label="Max lines" value={settings.maxLines} min={1} max={3} onChange={(v) => patch({ maxLines: v })} />
-      <Slider label="Characters per line" value={settings.maxCharsPerLine} min={8} max={60} onChange={(v) => patch({ maxCharsPerLine: v })} />
-    </Section>
-    <Section title="Timing">
-      <Slider label="Start a new card after a pause of" value={settings.pauseMs} min={150} max={1500} step={50} unit=" ms" onChange={(v) => patch({ pauseMs: v })} />
-      <Slider label="Keep card on screen after speech" value={settings.holdMs} min={0} max={1500} step={50} unit=" ms" onChange={(v) => patch({ holdMs: v })} />
-      <Slider label="Minimum card time" value={settings.minCardMs} min={200} max={2000} step={50} unit=" ms" onChange={(v) => patch({ minCardMs: v })} />
-      <Select label="During silence" value={settings.gapBehavior} options={[{ value: "hold", label: "Keep last card" }, { value: "clear", label: "Clear screen" }]} onChange={(v) => patch({ gapBehavior: v as ProjectSettings["gapBehavior"] })} />
-      <Slider label="Sync offset" value={settings.syncOffsetMs} min={-1000} max={1000} step={10} unit=" ms" onChange={(v) => patch({ syncOffsetMs: v })} />
-    </Section>
-    <Section title="Clean-up">
-      <Toggle label="Remove filler words" hint="um, uh, hmm…" checked={settings.removeFillers} onChange={(v) => patch({ removeFillers: v })} />
-      <Select label="Profanity" value={settings.profanity} options={[{ value: "off", label: "Leave as is" }, { value: "mask", label: "Mask (f***)" }, { value: "emoji", label: "Replace with 🤬" }, { value: "hide", label: "Hide" }]} onChange={(v) => patch({ profanity: v as ProjectSettings["profanity"] })} />
-    </Section>
-  </div>
-);
+export const SettingsPanel: React.FC<SettingsProps> = ({ settings, patch, layout }) => {
+  const usesLines = layout !== "word" && layout !== "stack3" && layout !== "kinetic";
+  const pace = PACING.find((p) => p.words === settings.maxWordsPerCard && p.pauseMs === settings.pauseMs)?.id ?? "custom";
+  return (
+    <div className="h-full overflow-y-auto">
+      {layout !== "word" ? (
+        <Section title="Pacing" hint="Fast suits hooks and Shorts, slow suits podcasts and tutorials.">
+          <Segmented value={pace} options={[...PACING.map((p) => ({ value: p.id, label: p.label })), ...(pace === "custom" ? [{ value: "custom", label: "Custom" }] : [])]} onChange={(v) => { const p = PACING.find((x) => x.id === v); if (p) patch({ maxWordsPerCard: p.words, pauseMs: p.pauseMs }); }} />
+        </Section>
+      ) : null}
+      <Section title="Card size" hint="How much text shows at once.">
+        {layout !== "word" ? <Slider label="Words per card" value={settings.maxWordsPerCard} min={1} max={12} onChange={(v) => patch({ maxWordsPerCard: v })} /> : null}
+        {usesLines ? (
+          <>
+            <Slider label="Max lines" value={settings.maxLines} min={1} max={3} onChange={(v) => patch({ maxLines: v })} />
+            <Slider label="Characters per line" value={settings.maxCharsPerLine} min={8} max={60} onChange={(v) => patch({ maxCharsPerLine: v })} />
+          </>
+        ) : null}
+      </Section>
+      <Section title="Timing">
+        <Slider label="Start a new card after a pause of" value={settings.pauseMs} min={150} max={1500} step={50} unit=" ms" onChange={(v) => patch({ pauseMs: v })} />
+        <Slider label="Keep card on screen after speech" value={settings.holdMs} min={0} max={1500} step={50} unit=" ms" onChange={(v) => patch({ holdMs: v })} />
+        <Slider label="Minimum card time" value={settings.minCardMs} min={200} max={2000} step={50} unit=" ms" onChange={(v) => patch({ minCardMs: v })} />
+        <Select label="During silence" value={settings.gapBehavior} options={[{ value: "hold", label: "Keep last card" }, { value: "clear", label: "Clear screen" }]} onChange={(v) => patch({ gapBehavior: v as ProjectSettings["gapBehavior"] })} />
+        <Slider label="Sync offset" value={settings.syncOffsetMs} min={-1000} max={1000} step={10} unit=" ms" onChange={(v) => patch({ syncOffsetMs: v })} />
+      </Section>
+      <Section title="Clean-up">
+        <Toggle label="Remove filler words" hint="um, uh, hmm…" checked={settings.removeFillers} onChange={(v) => patch({ removeFillers: v })} />
+        <Select label="Profanity" value={settings.profanity} options={[{ value: "off", label: "Leave as is" }, { value: "mask", label: "Mask (f***)" }, { value: "emoji", label: "Replace with 🤬" }, { value: "hide", label: "Hide" }]} onChange={(v) => patch({ profanity: v as ProjectSettings["profanity"] })} />
+      </Section>
+    </div>
+  );
+};

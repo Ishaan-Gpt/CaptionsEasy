@@ -49,7 +49,7 @@ export const STACK_SKINS: Record<string, StackSkin> = {
     splash: true,
   },
   glow_stack: {
-    bodyFont: () => "Baloo 2",
+    bodyFont: (s) => s.fontId,
     bodyWeight: () => 800,
     bodyColor: () => "#FFFFFF",
     bodySizeScale: 1.2,
@@ -67,7 +67,7 @@ export const STACK_SKINS: Record<string, StackSkin> = {
     splash: true,
   },
   cartoon_stack: {
-    bodyFont: () => "Caveat",
+    bodyFont: (s) => s.fontId,
     bodyWeight: () => 700,
     bodyColor: (s) => firstColor(s.fill) || "#FFFFFF",
     bodySizeScale: 0.85,

@@ -58,10 +58,21 @@ const CURATED_NEW = new Set([
 ]);
 // the five three-line stack skins are genuinely different designs; the other legacy looks were colour variants
 const CURATED_LEGACY = new Set(["staggered_splash", "glow_stack_classic", "cartoon_stack_classic", "serif_pop_classic", "vintage_cinematic"]);
+/**
+ * The stack skins used to ignore the stored spoken-word effect ("pop") and hard-code some body fonts. Now that
+ * those controls are wired, pin what these looks actually showed so they render exactly as before.
+ */
+const LEGACY_FIXES: Record<string, unknown> = {
+  staggered_splash: { active: { effect: "none" } },
+  glow_stack_classic: { active: { effect: "none" } },
+  cartoon_stack_classic: { fontId: "Caveat", active: { effect: "none" } },
+  serif_pop_classic: { active: { effect: "color" } },
+  vintage_cinematic: { active: { effect: "none" } },
+};
 
 export const LOOKS: LookDefinition[] = [
   ...NEW_LOOKS.filter((l) => CURATED_NEW.has(l.id)).map((l) => ({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
-  ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => ({ ...l, category: "Classic", style: CaptionStyleSchema.parse(l.style) })),
+  ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => ({ ...l, category: "Classic", style: CaptionStyleSchema.parse(deepMerge(l.style, LEGACY_FIXES[l.id])) })),
 ];
 
 const looksById = new Map(LOOKS.map((l) => [l.id, l]));

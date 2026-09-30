@@ -12,17 +12,19 @@
   },
   "dependencies": {
     "@capseasy/shared": "workspace:*",
-    "react": "19.2.4",
-    "remotion": "4.0.484",
     "@motion-ai/caption-engine": "workspace:*",
     "@remotion/google-fonts": "4.0.484",
-    "@remotion/layout-utils": "4.0.484"
+    "@remotion/layout-utils": "4.0.484",
+    "react": "19.2.4",
+    "remotion": "4.0.484"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "vitest": "^4.1.9",
+    "@types/node": "^20",
     "@types/react": "^19",
+    "@types/react-dom": "^19.2.3",
+    "react-dom": "19.2.4",
     "tsx": "^4.19.0",
-    "@types/node": "^20"
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.9"
   }
 }

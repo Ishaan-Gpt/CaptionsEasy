@@ -287,3 +287,28 @@ describe("emoji", () => {
     expect(cleared.words.filter((w) => w.emoji).map((w) => w.emoji!.char)).toEqual(["🥰"]);
   });
 });
+
+describe("retimeRun (timeline line/word moves)", () => {
+  it("moves a line keeping relative timing, bounded by neighbours without ripple", async () => {
+    const { retimeRun } = await import("./ops");
+    const d = docOf([mk("a", 0, 200, "a"), mk("b", 300, 500, "b"), mk("c", 500, 700, "c"), mk("d", 1000, 1200, "d")]);
+    const moved = retimeRun(d, "b", "c", 400, 800);
+    expect(moved.words.map((w) => [w.startMs, w.endMs])).toEqual([[0, 200], [400, 600], [600, 800], [1000, 1200]]);
+    // pushed into the next word: stops at the neighbour and keeps its length
+    const blocked = retimeRun(d, "b", "c", 700, 1100);
+    expect(blocked.words[2]!.endMs).toBe(1000);
+    expect(blocked.words[1]!.startMs).toBe(600);
+  });
+  it("stretches a line proportionally", async () => {
+    const { retimeRun } = await import("./ops");
+    const d = docOf([mk("b", 300, 500, "b"), mk("c", 500, 700, "c")]);
+    const s = retimeRun(d, "b", "c", 300, 1100);
+    expect(s.words.map((w) => [w.startMs, w.endMs])).toEqual([[300, 700], [700, 1100]]);
+  });
+  it("ripples later words when linked", async () => {
+    const { retimeRun } = await import("./ops");
+    const d = docOf([mk("a", 0, 200, "a"), mk("b", 300, 500, "b"), mk("d", 1000, 1200, "d")]);
+    const r = retimeRun(d, "a", "a", 100, 300, true);
+    expect(r.words.map((w) => [w.startMs, w.endMs])).toEqual([[100, 300], [400, 600], [1100, 1300]]);
+  });
+});

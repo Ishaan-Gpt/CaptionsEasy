@@ -1,5 +1,5 @@
 import React from "react";
-import { exitStyle, SPRINGS, springMs } from "../motion";
+import { activeEffect, effectiveIntensity, entranceStyle, exitStyle, SPRINGS, springMs } from "../motion";
 import { fitSize } from "../measure";
 import { backgroundCss, baseTextCss, containerCss, displayText, famCss, layoutBox, scaleOf } from "../text";
 import type { PageRenderProps } from "../types";
@@ -8,6 +8,7 @@ import type { PageRenderProps } from "../types";
 export const WordLayout: React.FC<PageRenderProps> = ({ page, timeMs, style, canvas, measure, settled }) => {
   const sc = scaleOf(canvas);
   const box = layoutBox(style, canvas, page.position);
+  const intensity = effectiveIntensity(style, page.emotion);
 
   let idx = page.words.findIndex((w) => timeMs >= w.startMs && timeMs < w.endMs);
   if (idx === -1) {
@@ -26,21 +27,31 @@ export const WordLayout: React.FC<PageRenderProps> = ({ page, timeMs, style, can
     fontFamily: famCss(style.fontId), fontWeight: style.fontWeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing * sc,
   }, measure);
 
+  // the beat pop: how far it springs follows motion intensity (x emotion)
   const pop = settled ? 1 : springMs(timeMs, word.startMs, canvas.fps, SPRINGS.punch);
-  const emphasised = word.emphasis === "strong" || word.emphasis === "hero";
+  const from = Math.max(0.3, 1 - 0.1 * intensity);
   const rot = typeof style.templateOptions.tilt === "number" ? (idx % 2 === 0 ? -1 : 1) * style.templateOptions.tilt * pop : 0;
+  // the shown word is always the one being spoken, so the chosen spoken-word effect applies to it
+  const fx = timeMs < word.endMs ? activeEffect(style, word, timeMs, canvas.fps, sc, intensity, settled) : { css: {} };
+  const { transform: fxTransform, ...fxCss } = fx.css;
+  const emphasised = word.emphasis === "strong" || word.emphasis === "hero";
   const css: React.CSSProperties = {
     ...baseTextCss(style, sc, size),
-    transform: `scale(${(0.9 + pop * 0.1) * (1 + (style.active.scale - 1) * (emphasised ? 1 : 0))}) rotate(${rot}deg)`,
+    position: "relative",
+    display: "inline-block",
+    transform: `scale(${from + pop * (1 - from)}) rotate(${rot}deg)${fxTransform ? ` ${fxTransform}` : ""}`,
     ...(word.color ? { color: word.color, WebkitTextFillColor: word.color, backgroundImage: "none" } : {}),
     ...(emphasised ? { color: style.active.color, WebkitTextFillColor: style.active.color, backgroundImage: "none" } : {}),
+    ...fxCss,
   };
 
   return (
     <div style={containerCss(box, style.rotation)}>
-      <div style={{ ...backgroundCss(style, sc), ...exitStyle(style, page.endMs - timeMs, settled) }}>
+      <div style={{ ...backgroundCss(style, sc), ...entranceStyle(style, timeMs - word.startMs, canvas.fps, intensity, settled), ...exitStyle(style, page.endMs - timeMs, settled) }}>
         <div key={word.id} style={css}>
+          {fx.behind ? <span style={{ position: "absolute", pointerEvents: "none", ...fx.behind.css }} /> : null}
           {display}
+          {fx.bar ? <span style={{ position: "absolute", pointerEvents: "none", ...fx.bar.css }} /> : null}
         </div>
       </div>
     </div>

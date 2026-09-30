@@ -16,9 +16,13 @@ interface Props {
   onSelect: (wordId: string | null) => void;
   onSeek: (ms: number) => void;
   edit: (fn: (d: CaptionDoc) => CaptionDoc, opts?: { coalesceKey?: string }) => void;
+  /** emoji only render while Style > Show emoji is on: adding some turns it on so the button never looks dead */
+  onEmojiAdded: () => void;
+  /** false for layouts that cannot show a key word differently (typewriter) */
+  heroSupported: boolean;
 }
 
-export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, selectedId, onSelect, onSeek, edit }) => {
+export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, selectedId, onSelect, onSeek, edit, onEmojiAdded, heroSupported }) => {
   const [find, setFind] = useState("");
   const [replace, setReplace] = useState("");
   const [showHidden, setShowHidden] = useState(false);
@@ -36,7 +40,7 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
           <input value={replace} onChange={(e) => setReplace(e.target.value)} placeholder="Replace with" className="min-w-0 flex-1 rounded-md border border-st-line bg-st-raised px-2 py-1.5 text-sm outline-none focus:border-st-lav" />
         </div>
         <div className="flex gap-2">
-          <Button className="!py-1 text-xs" onClick={() => edit((d) => autoEmoji(d))} title="Adds emoji to key words (money, fire, love…). Turn on 'Show emoji' in Style.">✨ Add emojis</Button>
+          <Button className="!py-1 text-xs" onClick={() => { edit((d) => autoEmoji(d)); onEmojiAdded(); }} title="Adds emoji to key words (money, fire, love…). Turn on 'Show emoji' in Style.">✨ Add emojis</Button>
           <Button className="!py-1 text-xs" onClick={() => edit((d) => clearAutoEmoji(d))}>Clear emojis</Button>
           <label className="ml-auto inline-flex cursor-pointer items-center rounded-lg bg-st-raised px-3 py-1 text-xs font-medium text-st-text hover:bg-st-hover" title="Replace the captions with an .srt or .vtt file (you can undo)">
             Import SRT
@@ -126,9 +130,11 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, sele
             <button onClick={() => onSelect(null)} className="text-st-faint hover:text-st-text" aria-label="Close editor">✕</button>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Button className="!py-1 text-xs" onClick={() => edit((d) => setEmphasis(d, selected.id, selected.emphasis === "hero" ? "none" : "hero"))}>
-              {selected.emphasis === "hero" ? "★ Hero word" : "☆ Make hero"}
-            </Button>
+            {heroSupported ? (
+              <Button className="!py-1 text-xs" onClick={() => edit((d) => setEmphasis(d, selected.id, selected.emphasis === "hero" ? "none" : "hero"))}>
+                {selected.emphasis === "hero" ? "★ Key word" : "☆ Make key word"}
+              </Button>
+            ) : null}
             <Button className="!py-1 text-xs" onClick={() => edit((d) => splitCardAt(d, selected.id))}>Split card here</Button>
             <Button className="!py-1 text-xs" onClick={() => edit((d) => mergeWithPrevious(d, selected.id))}>Join previous</Button>
             <Button tone="danger" className="!py-1 text-xs" onClick={() => { edit((d) => setHidden(d, selected.id, true)); onSelect(null); }}>Hide word</Button>

@@ -103,3 +103,34 @@ export function containerCss(box: { width: number; cx: number; cy: number }, rot
     textAlign: "center",
   };
 }
+
+/**
+ * Space between two words, as a CSS length. A literal space glyph is too narrow in condensed display fonts
+ * (Anton, Bebas, Bangers) and is swallowed by thick outlines, boxes and pop scaling, which made words touch.
+ * So words are separate boxes with an explicit gap: a base of ~0.3em, plus whatever the look draws beyond the
+ * glyphs (outline, the active-word box/marker, pop growth), plus the user's Word spacing.
+ */
+export function wordGapEm(style: CaptionStyleV2, effect: CaptionStyleV2["active"]["effect"] | null = style.active.effect): number {
+  let em = 0.3;
+  if (effect === "box") em += 0.34;
+  else if (effect === "marker") em += 0.12;
+  if (effect === "pop" || effect === "scale-up" || effect === "box") em += Math.max(0, style.active.scale - 1) * 1.6;
+  return em;
+}
+export function wordGapPx(style: CaptionStyleV2, sc: number): number {
+  return (style.stroke.enabled ? style.stroke.width * sc : 0) + style.wordSpacing * sc;
+}
+export const wordGapCss = (style: CaptionStyleV2, sc: number, effect?: CaptionStyleV2["active"]["effect"] | null) =>
+  `calc(${wordGapEm(style, effect === undefined ? style.active.effect : effect).toFixed(3)}em + ${wordGapPx(style, sc).toFixed(2)}px)`;
+
+/** Rendered width of one line of separately-boxed words (glyphs + gaps), for fitting text to the caption box. */
+export function lineWidth(
+  texts: string[], size: number, style: CaptionStyleV2, sc: number,
+  measureFn: (t: string, s: { fontFamily: string; fontWeight: number | string; fontSize: number; letterSpacing?: number; fontStyle?: string }) => number,
+  effect?: CaptionStyleV2["active"]["effect"] | null,
+): number {
+  const spec = { fontFamily: famCss(style.fontId), fontWeight: style.fontWeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing * sc, fontSize: size };
+  const glyphs = texts.reduce((a, t) => a + measureFn(t, spec), 0);
+  const gaps = Math.max(0, texts.length - 1) * (wordGapEm(style, effect === undefined ? style.active.effect : effect) * size + wordGapPx(style, sc));
+  return glyphs + gaps;
+}

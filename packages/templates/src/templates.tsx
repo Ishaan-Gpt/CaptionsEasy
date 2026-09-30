@@ -7,7 +7,11 @@ import { BarLayout, BubbleLayout, HighlighterLayout, KaraokeLayout, KineticLayou
 import type { PageRenderProps, TemplateCapabilities, TemplateDefinition } from "./types";
 
 const ALL_EFFECTS = ACTIVE_EFFECTS;
-const CORE_ENTRANCES = ["none", "fade", "rise", "drop", "pop", "zoom", "slide-left", "slide-right", "blur-in", "flip", "elastic", "mask-reveal"] as const;
+/** what a three-line stack's body words can do while spoken (the hero word has its own styling) */
+const STACK_EFFECTS = ["none", "color", "pop", "underline", "glow", "bounce"] as const;
+const CORE_ENTRANCES = ["none", "fade", "rise", "drop", "pop", "zoom", "slide-left", "slide-right", "blur-in", "flip", "elastic", "mask-reveal", "glitch", "wave"] as const;
+/** layouts that animate each card their own way (bubble pop, kinetic rows) take no extra card entrance */
+const OWN_MOTION = ["none"] as const;
 
 const caps = (over: Partial<TemplateCapabilities>): TemplateCapabilities => ({
   hero: true, alignment: true, stagger: false, accentPeriod: false, weight: true, color: true, background: true, emoji: false,
@@ -20,41 +24,42 @@ const stack = (skinId: string): React.FC<PageRenderProps> => {
   return C;
 };
 
-/** The 8 legacy templates, ported. Capabilities mirror what each skin actually honours (legacy TEMPLATE_STYLES). */
+/** The 8 legacy templates, ported, plus the P8 layouts. Capabilities list only what each layout really honours
+ *  (enforced by controls.test.tsx: every visible control must change the render). */
 export const TEMPLATES: TemplateDefinition[] = [
   {
     id: "staggered_3line", name: "Staggered 3-Line", description: "Staggered layout with an Anton hero word", layout: "stack3",
-    defaults: { fontId: "Outfit", fontWeight: 700, fontSize: 50, active: { effect: "color", color: "#00F5C4", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Anton", fontWeight: 900, scale: 1.5, rotate: 0 }, templateOptions: { layoutMode: "splash" } },
+    defaults: { fontId: "Outfit", fontWeight: 700, fontSize: 50, active: { effect: "none", color: "#00F5C4", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Anton", fontWeight: 900, scale: 1.5, rotate: 0 }, templateOptions: { layoutMode: "splash" } },
     settingsDefaults: { maxWordsPerCard: 5 },
-    capabilities: caps({ alignment: false, stagger: true, weight: false }), fonts: ["Outfit", "Anton"], Page: stack("staggered_3line"),
+    capabilities: caps({ alignment: false, stagger: true, weight: false, activeEffects: STACK_EFFECTS }), fonts: ["Outfit", "Anton"], Page: stack("staggered_3line"),
   },
   {
     id: "glow_stack", name: "Glow Stack", description: "Rounded white text, flat deep-blue hero word, splash layout", layout: "stack3",
-    defaults: { fontId: "Baloo 2", fontWeight: 800, fontSize: 50, active: { effect: "color", color: "#4FA8FF", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Anton", fontWeight: 900, scale: 2.3, rotate: 0 }, templateOptions: { layoutMode: "splash" } },
+    defaults: { fontId: "Baloo 2", fontWeight: 800, fontSize: 50, active: { effect: "none", color: "#4FA8FF", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Anton", fontWeight: 900, scale: 2.3, rotate: 0 }, templateOptions: { layoutMode: "splash" } },
     settingsDefaults: { maxWordsPerCard: 4 },
-    capabilities: caps({ alignment: false, stagger: true, weight: false, color: false }), fonts: ["Baloo 2", "Anton"], Page: stack("glow_stack"),
+    capabilities: caps({ alignment: false, stagger: true, weight: false, color: false, activeEffects: STACK_EFFECTS }), fonts: ["Baloo 2", "Anton"], Page: stack("glow_stack"),
   },
   {
     id: "cartoon_stack", name: "Cartoon Stack", description: "Playful Fredoka hero with a thick border and Caveat body", layout: "stack3",
-    defaults: { fontId: "Fredoka", fontWeight: 700, fontSize: 50, active: { effect: "color", color: "#EDE0A6", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Fredoka", fontWeight: 700, scale: 1.6, rotate: 0 } },
+    defaults: { fontId: "Caveat", fontWeight: 700, fontSize: 50, active: { effect: "none", color: "#EDE0A6", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Fredoka", fontWeight: 700, scale: 1.6, rotate: 0 } },
     settingsDefaults: { maxWordsPerCard: 5 },
-    capabilities: caps({ weight: false }), fonts: ["Fredoka", "Caveat"], Page: stack("cartoon_stack"),
+    capabilities: caps({ weight: false, activeEffects: STACK_EFFECTS }), fonts: ["Fredoka", "Caveat"], Page: stack("cartoon_stack"),
   },
   {
     id: "serif_pop", name: "Serif Pop", description: "Bold brush-script hero word with a pop dot", layout: "stack3",
     defaults: { fontId: "Playfair Display", fontWeight: 800, fontSize: 50, active: { effect: "color", color: "#FFEE00", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Kaushan Script", fontWeight: 400, scale: 1.8, rotate: 0 }, templateOptions: { accentPeriod: true } },
     settingsDefaults: { maxWordsPerCard: 5 },
-    capabilities: caps({ accentPeriod: true, weight: false, color: false }), fonts: ["Playfair Display", "Kaushan Script"], Page: stack("serif_pop"),
+    capabilities: caps({ accentPeriod: true, alignment: false, weight: false, color: false, activeEffects: STACK_EFFECTS }), fonts: ["Playfair Display", "Kaushan Script"], Page: stack("serif_pop"),
   },
   {
     id: "cinematic_emerald", name: "Cinematic Emerald", description: "Outfit body with a giant glowing italic Playfair hero", layout: "stack3",
-    defaults: { fontId: "Outfit", fontWeight: 600, fontSize: 48, active: { effect: "color", color: "#8CFF3E", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Playfair Display", fontWeight: 900, scale: 2.2, rotate: 0 } },
+    defaults: { fontId: "Outfit", fontWeight: 600, fontSize: 48, active: { effect: "none", color: "#8CFF3E", scale: 1.08, boxRadius: 12 }, hero: { fontId: "Playfair Display", fontWeight: 900, scale: 2.2, rotate: 0 } },
     settingsDefaults: { maxWordsPerCard: 5 },
-    capabilities: caps({ color: false }), fonts: ["Outfit", "Playfair Display"], Page: stack("cinematic_emerald"),
+    capabilities: caps({ color: false, activeEffects: STACK_EFFECTS }), fonts: ["Outfit", "Playfair Display"], Page: stack("cinematic_emerald"),
   },
   {
     id: "word_by_word", name: "Word by Word", description: "Single bold uppercase word owns the frame", layout: "word",
-    defaults: { fontId: "Montserrat", fontWeight: 900, fontSize: 58, casing: "upper", active: { effect: "pop", color: "#00F5C4", scale: 1.08, boxRadius: 12 } },
+    defaults: { fontId: "Montserrat", fontWeight: 900, fontSize: 58, casing: "upper", entrance: { type: "none", durationMs: 200, stagger: "none", easing: "outExpo" }, active: { effect: "scale-up", color: "#00F5C4", scale: 1.08, boxRadius: 12 } },
     settingsDefaults: { maxWordsPerCard: 1 },
     capabilities: caps({ alignment: false }), fonts: ["Montserrat"], Page: WordLayout,
   },
@@ -81,7 +86,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     defaults: { fontId: "Montserrat", fontWeight: 900, fontSize: 56, casing: "upper", templateOptions: { reveal: "all" }, active: { effect: "box", color: "#000000", boxColor: "#22C55E", scale: 1.06, boxRadius: 14 } },
     settingsDefaults: { maxWordsPerCard: 3 },
     capabilities: caps({ activeEffects: ["box", "pop", "color", "none"] }), fonts: ["Montserrat"], Page: SentenceLayout,
-    emotionMap: { hype: { effect: "box", scale: 1.15 }, angry: { effect: "box" } },
+    emotionMap: { hype: { scale: 1.15 } },
   },
   {
     id: "typewriter", name: "Typewriter", description: "Letters type out as they're spoken, with a blinking cursor", layout: "typewriter",
@@ -99,7 +104,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: "chat_bubble", name: "Chat Bubble", description: "Messages pop in as chat bubbles, alternating sides", layout: "bubble",
     defaults: { fontId: "Inter", fontWeight: 600, fontSize: 48, active: { effect: "color", color: "#FFFFFF", scale: 1, boxRadius: 12 }, background: { type: "bubble", color: "#0A84FF", opacity: 1, padding: 22, radius: 34, blur: 0 } },
     settingsDefaults: { maxWordsPerCard: 7, maxLines: 3 },
-    capabilities: caps({ hero: false, alignment: false, activeEffects: ["none", "color", "underline"] }), fonts: ["Inter"], Page: BubbleLayout,
+    capabilities: caps({ hero: false, alignment: false, activeEffects: ["none", "color", "underline"], entrances: OWN_MOTION }), fonts: ["Inter"], Page: BubbleLayout,
   },
   {
     id: "highlighter", name: "Highlighter", description: "A marker swipes behind the spoken word and stays on the key word", layout: "highlighter",
@@ -111,7 +116,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: "kinetic", name: "Kinetic", description: "Stacked words at different sizes; the key word huge and tilted", layout: "kinetic",
     defaults: { fontId: "Inter", fontWeight: 800, fontSize: 60, casing: "upper", hero: { fontId: "Anton", fontWeight: 900, scale: 1.8, rotate: -5 }, active: { effect: "pop", color: "#FFD400", scale: 1.1, boxRadius: 12 } },
     settingsDefaults: { maxWordsPerCard: 5 },
-    capabilities: caps({ alignment: false, activeEffects: ["pop"] }), fonts: ["Inter", "Anton"], Page: KineticLayout,
+    capabilities: caps({ alignment: false, activeEffects: ["pop"], entrances: OWN_MOTION }), fonts: ["Inter", "Anton"], Page: KineticLayout,
   },
 ];
 

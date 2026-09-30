@@ -70,6 +70,45 @@ export function retimeWord(doc: CaptionDoc, id: string, startMs: number, endMs: 
   return touch(doc, { words });
 }
 
+/**
+ * Move and/or stretch a run of consecutive words (one word, or a whole caption line) to [startMs, endMs],
+ * keeping their relative timing. Without ripple the run stays between its neighbours; with ripple every later
+ * word shifts by as much as the run's end moved (like a linked/ripple edit in an NLE).
+ */
+export function retimeRun(doc: CaptionDoc, firstId: string, lastId: string, startMs: number, endMs: number, ripple = false): CaptionDoc {
+  const i0 = indexOfWord(doc, firstId);
+  const i1 = indexOfWord(doc, lastId);
+  if (i0 < 0 || i1 < i0) return doc;
+  const s0 = doc.words[i0]!.startMs;
+  const e0 = doc.words[i1]!.endMs;
+  const prev = doc.words[i0 - 1];
+  const next = doc.words[i1 + 1];
+  const count = i1 - i0 + 1;
+  let s = Math.max(prev ? prev.endMs : 0, startMs);
+  let e = Math.max(s + MIN_WORD_MS * count, endMs);
+  if (!ripple && next && e > next.startMs) {
+    const len = e - s;
+    e = next.startMs;
+    // a pure move keeps its length; a stretch just stops at the neighbour
+    if (Math.abs(len - (e0 - s0)) < 1) s = Math.max(prev ? prev.endMs : 0, e - len);
+    if (e - s < MIN_WORD_MS * count) return doc;
+  }
+  s = Math.round(s);
+  e = Math.round(e);
+  const k = (e - s) / Math.max(1, e0 - s0);
+  const at = (t: number) => Math.round(s + (t - s0) * k);
+  const delta = e - e0;
+  const words = doc.words.map((w, j) => {
+    if (j >= i0 && j <= i1) {
+      const ns = at(w.startMs);
+      return { ...w, startMs: ns, endMs: Math.max(ns + MIN_WORD_MS, at(w.endMs)) };
+    }
+    if (ripple && j > i1) return { ...w, startMs: Math.max(0, w.startMs + delta), endMs: Math.max(MIN_WORD_MS, w.endMs + delta) };
+    return w;
+  });
+  return touch(doc, { words });
+}
+
 /** "Split here": the word starts a new card. */
 export function splitCardAt(doc: CaptionDoc, wordId: string): CaptionDoc {
   const i = indexOfWord(doc, wordId);

@@ -7,3 +7,4 @@ export { applyEmotion, emotionModifier, DEFAULT_EMOTION_MAP } from "./emotion";
 export { TEMPLATES, TEMPLATE_IDS } from "./templates";
 export { getTemplate, hasTemplate, listTemplates, resolveStyle, deepMerge, LOOKS, getLook, lookCategories, applyLook, FALLBACK_TEMPLATE } from "./registry";
 export { PageView } from "./PageView";
+export { controlVisible, effectsFor, entrancesFor, EXIT_TYPES, BACKGROUND_TYPES, type ControlId } from "./controls";

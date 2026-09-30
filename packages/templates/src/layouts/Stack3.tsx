@@ -77,7 +77,7 @@ export const Stack3Layout: React.FC<PageRenderProps & { skinId: string }> = ({ p
             baseCss={baseCss}
             trailingSpace={i < ws.length - 1}
             settled={settled}
-            effect={skin.bodyHighlightFlash ? "color" : null}
+            effect={style.active.effect}
           />
         ))}
       </div>

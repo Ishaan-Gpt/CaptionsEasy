@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { CaptionDocSchema, type CaptionStyleV2, ProjectSettingsSchema, type CaptionDoc, type Page, type ProjectSettings } from "@capseasy/shared";
 import { applyFillerFilter, applyProfanity, derivePages } from "@motion-ai/caption-engine/core";
-import { EMOJI_FONT, PageView, famCss, getTemplate, layoutBox, measure, resolveStyle, scaleOf, useFontsReady, type Canvas } from "@capseasy/templates";
+import { EMOJI_FONT, PageView, famCss, getTemplate, layoutBox, measure, resolveStyle, scaleOf, useFontsReady, wordGapEm, wordGapPx, type Canvas } from "@capseasy/templates";
 import type { CaptionedVideoInput } from "./props";
 
 /** Doc -> what the audience should see (filters are display-time, so the stored doc is never mutated). */
@@ -21,8 +21,13 @@ export function computePages(doc: CaptionDoc, settings: ProjectSettings, style: 
   const sc = scaleOf(canvas);
   const box = layoutBox(style, canvas);
   const spec = { fontFamily: famCss(style.fontId), fontWeight: style.fontWeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing * sc };
+  const size = style.fontSize * sc;
+  const at = { ...spec, fontSize: size };
+  // words render as separate boxes with an explicit gap (see wordGapCss), not a space glyph: measure the same way
+  const space = Math.max(0, measure("a a", at) - measure("aa", at));
+  const gap = wordGapEm(style) * size + wordGapPx(style, sc);
   return derivePages(prepareDoc(doc, settings), settings, {
-    measure: (text) => measure(text, { ...spec, fontSize: style.fontSize * sc }),
+    measure: (text) => measure(text, at) + (text.split(" ").length - 1) * (gap - space),
     maxLineWidth: box.width,
   });
 }
