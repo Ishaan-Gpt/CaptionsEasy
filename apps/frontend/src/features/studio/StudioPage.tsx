@@ -47,6 +47,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
   const [fontsReady, setFontsReady] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const playerRef = useRef<PlayerRef>(null);
 
   useEffect(() => {
@@ -174,10 +175,14 @@ export default function StudioPage({ projectId }: { projectId: string }) {
                 onMovePosition={(p) => s.patchStyle((st) => ({ ...st, position: p }))}
                 onTime={setTimeMs}
               />
-            ) : noVideoYet ? (
-              <UploadPanel projectId={projectId} onUploaded={() => void s.refetch()} note={video?.status === "uploading" ? "The last upload didn't finish. Choose your video again." : undefined} />
+            ) : noVideoYet || replacing ? (
+              <UploadPanel
+                projectId={projectId}
+                onUploaded={() => { setReplacing(false); void s.refetch(); }}
+                note={replacing ? "Choose the new video. Captions will be generated for it." : video?.status === "uploading" ? "The last upload didn't finish. Choose your video again." : undefined}
+              />
             ) : (
-              <ProcessingPanel job={data.job} companionOnline={data.companionOnline} hasVideo onChanged={() => void s.refetch()} />
+              <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} canTranscribe={data.canTranscribe} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} />
             )}
           </div>
           {hasEditor ? <Timeline pages={pages} durationMs={durationMs} timeMs={timeMs} onSeek={seek} /> : null}

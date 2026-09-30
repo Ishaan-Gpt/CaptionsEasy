@@ -45,6 +45,7 @@ export interface StudioData {
   } | null;
   document: { revision: number; doc: CaptionDoc | null };
   job: StudioJob | null;
+  canTranscribe: boolean;
   companionOnline: boolean;
 }
 
@@ -182,6 +183,10 @@ export const studioService = {
 
   async exportDownloadUrl(exportId: string): Promise<string> {
     return (await apiClient.get<{ url: string }>(`/exports/${exportId}/download`)).url;
+  },
+
+  transcribe(projectId: string) {
+    return apiClient.post<{ jobId: string; companionOnline: boolean }>(`/projects/${projectId}/transcribe`);
   },
 
   cancelJob(jobId: string) {

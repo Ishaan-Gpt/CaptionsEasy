@@ -74,6 +74,8 @@ export const TranscribeResult = z.object({
   model: z.string(),
   language: z.string().default("en"),
   durationMs: z.number().nonnegative().optional(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
   words: z.array(WordSchema).max(200_000),
 });
 export const ProxyResult = z.object({ kind: z.literal("proxy"), previewPath: z.string() });

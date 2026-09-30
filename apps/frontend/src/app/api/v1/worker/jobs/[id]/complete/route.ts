@@ -47,7 +47,13 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
     } else {
       await admin.from("caption_documents").insert({ project_id: job.project_id, owner_id: job.owner_id, doc, source_transcript_id: transcript.id });
     }
-    await admin.from("videos").update({ status: "ready", updated_at: now }).eq("id", payload.videoId);
+    // legacy uploads never recorded their metadata; fill it from the companion's probe
+    const { data: v } = await admin.from("videos").select("duration_ms, width, height").eq("id", payload.videoId).maybeSingle();
+    await admin.from("videos").update({
+      status: "ready", updated_at: now, has_audio: true,
+      ...(v && !v.duration_ms && body.durationMs ? { duration_ms: Math.round(body.durationMs) } : {}),
+      ...(v && !v.width && body.width && body.height ? { width: body.width, height: body.height } : {}),
+    }).eq("id", payload.videoId);
     await setProjectStatus(job.project_id, "ready");
     if (body.durationMs) await admin.from("usage_events").insert({ owner_id: job.owner_id, kind: "local_transcribe_s", amount: Math.round(body.durationMs / 1000), project_id: job.project_id, job_id: id });
   } else if (body.kind === "proxy") {

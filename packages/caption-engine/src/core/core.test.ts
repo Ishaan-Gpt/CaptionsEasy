@@ -238,6 +238,12 @@ describe("legacy migration + color", () => {
     expect(doc.language).toBe("hi");
     expect(doc.words[0]).toMatchObject({ text: "Namaste", startMs: 500, endMs: 1100, confidence: 0.9 });
   });
+  it("migrates the real legacy {text,start_ms,end_ms,highlighted} shape", () => {
+    const doc = legacyTranscriptToDoc({ words: [{ text: "naam", start_ms: 0, end_ms: 440, confidence: 0.5, highlighted: false }, { text: "clients?", start_ms: 440, end_ms: 900, highlighted: true }] });
+    expect(doc.words.map((w) => [w.text, w.startMs, w.endMs])).toEqual([["naam", 0, 440], ["clients?", 440, 900]]);
+    expect(doc.words[1]!.emphasis).toBe("strong");
+    expect(doc.words[0]!.emphasis).toBeUndefined();
+  });
   it("maps a legacy style blob into CaptionStyleV2", () => {
     const s = legacyStyleToV2({ caption_template: "word_by_word", highlight_color: "#00F5FF", font: "Lilita One", size: 58, weight: "900", outline: 4, shadow: 4, text_transform: "uppercase", y_position_percent: 71.4, background_style: "pill", highlight_anim: "glow" });
     expect(s).toMatchObject({ templateId: "word_by_word", fontId: "Lilita One", fontWeight: 900, casing: "upper" });

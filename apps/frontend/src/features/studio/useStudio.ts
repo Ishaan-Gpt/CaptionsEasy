@@ -26,7 +26,7 @@ export function useStudio(projectId: string) {
       const d = q.state.data as StudioData | undefined;
       if (!d) return false;
       if (d.job) return 2500;
-      if (d.video && !d.document.doc && d.project.status !== "FAILED") return 4000;
+      if (d.video && !d.document.doc && !d.canTranscribe) return 4000;
       return false;
     },
   });

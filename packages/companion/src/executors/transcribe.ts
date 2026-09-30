@@ -51,6 +51,8 @@ export async function runTranscribe(ctx: JobContext) {
       model: job.model,
       language: language || "en",
       durationMs: info.durationMs,
+      width: info.width,
+      height: info.height,
       words,
     });
   } finally {

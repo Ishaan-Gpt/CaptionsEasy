@@ -13,9 +13,15 @@ export function legacyTranscriptToDoc(t: unknown): CaptionDoc {
     const startMs = w.start != null ? Number(w.start) * 1000 : Number(w.start_ms ?? w.startMs ?? 0);
     const endMs = w.end != null ? Number(w.end) * 1000 : Number(w.end_ms ?? w.endMs ?? 0);
     const p = (w.probability ?? w.confidence) as number | undefined;
-    return { text, startMs, endMs, confidence: typeof p === "number" ? p : undefined };
+    return { text, startMs, endMs, confidence: typeof p === "number" ? p : undefined, highlighted: w.highlighted === true };
   });
-  const words: Word[] = normalizeTokens(tokens).map((w) => ({ ...w, id: w.id || newId() }));
+  const highlightedAt = new Set(tokens.filter((t) => t.highlighted).map((t) => Math.round(t.startMs)));
+  const words: Word[] = normalizeTokens(tokens).map((w) => ({
+    ...w,
+    id: w.id || newId(),
+    // the old editor's manual highlights become emphasis in the new doc
+    ...(highlightedAt.has(w.startMs) ? { emphasis: "strong" as const, source: { ...w.source, emphasis: "user" as const } } : {}),
+  }));
   return CaptionDocSchema.parse({ version: 2, language: src.language ?? "en", words });
 }
 

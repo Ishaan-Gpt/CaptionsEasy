@@ -6,13 +6,15 @@ import { studioService, type StudioJob } from "@/services/studio";
 import { Button } from "./controls";
 
 interface Props {
+  projectId: string;
   job: StudioJob | null;
   companionOnline: boolean;
-  hasVideo: boolean;
+  canTranscribe: boolean;
   onChanged: () => void;
+  onReplaceVideo: () => void;
 }
 
-export const ProcessingPanel: React.FC<Props> = ({ job, companionOnline, hasVideo, onChanged }) => {
+export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnline, canTranscribe, onChanged, onReplaceVideo }) => {
   const [busy, setBusy] = useState(false);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -30,7 +32,10 @@ export const ProcessingPanel: React.FC<Props> = ({ job, companionOnline, hasVide
         <div className="mb-2 text-3xl">⚠️</div>
         <h2 className="text-lg font-semibold">Something went wrong</h2>
         <p className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{job.error_message ?? "The job failed."}</p>
-        <Button tone="primary" className="mt-5" disabled={busy} onClick={() => act(() => studioService.retryJob(job.id))}>Try again</Button>
+        <div className="mt-5 flex justify-center gap-2">
+          <Button tone="primary" disabled={busy} onClick={() => act(() => studioService.retryJob(job.id))}>Try again</Button>
+          <Button onClick={onReplaceVideo}>Upload a different video</Button>
+        </div>
       </Center>
     );
   }
@@ -78,9 +83,23 @@ export const ProcessingPanel: React.FC<Props> = ({ job, companionOnline, hasVide
     );
   }
 
+  if (canTranscribe) {
+    return (
+      <Center>
+        <div className="mb-2 text-3xl">🎙️</div>
+        <h2 className="text-lg font-semibold">Your video is ready for captions</h2>
+        <p className="mt-2 text-sm text-white/60">This project doesn't have captions yet. Generate them on your computer, privately.</p>
+        <div className="mt-5 flex justify-center gap-2">
+          <Button tone="primary" disabled={busy} onClick={() => act(() => studioService.transcribe(projectId))}>Generate captions</Button>
+          <Button onClick={onReplaceVideo}>Upload a different video</Button>
+        </div>
+      </Center>
+    );
+  }
+
   return (
     <Center>
-      <h2 className="text-lg font-semibold">{hasVideo ? "Your video is uploaded" : "Preparing…"}</h2>
+      <h2 className="text-lg font-semibold">Your video is uploaded</h2>
       <p className="mt-2 text-sm text-white/50">Captions will appear here as soon as they are ready.</p>
     </Center>
   );
