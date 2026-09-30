@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "studio": "remotion studio src/entry.ts",
-    "still": "tsx scripts/stills.ts"
+    "still": "tsx scripts/stills.ts",
+    "previews": "tsx scripts/look-previews.ts"
   },
   "dependencies": {
     "@capseasy/shared": "workspace:*",

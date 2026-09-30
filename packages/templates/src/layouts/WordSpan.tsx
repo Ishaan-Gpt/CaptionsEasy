@@ -51,12 +51,18 @@ export const WordSpan: React.FC<WordSpanProps> = ({
   let behind: React.ReactNode = null;
   let bar: React.ReactNode = null;
   const eff = effect === undefined ? style.active.effect : effect;
-  if (trailingSpace) css.marginRight = wordGapCss(style, sc, eff);
+  let growRight = 0;
   if (isActive && eff) {
     const res = activeEffect({ ...style, active: { ...style.active, effect: eff } }, word, timeMs, canvas.fps, sc, intensity, settled);
     const { transform: activeTransform, ...rest } = res.css;
     Object.assign(css, rest);
     if (activeTransform) css.transform = `${css.transform} ${activeTransform}`;
+    if (res.grow && res.grow > 1) {
+      // a scaled word grows from its centre: give it matching side room so neighbours slide apart, not get covered
+      const side = ((res.grow - 1) / 2) * Math.max(1, [...display].length) * 0.6;
+      css.marginLeft = `${side.toFixed(3)}em`;
+      growRight = side;
+    }
     if (res.behind) behind = <span style={{ position: "absolute", pointerEvents: "none", ...res.behind.css }} />;
     if (res.bar) bar = <span style={{ position: "absolute", pointerEvents: "none", ...res.bar.css }} />;
   }
@@ -66,6 +72,7 @@ export const WordSpan: React.FC<WordSpanProps> = ({
   const emojiBefore = word.emoji?.position === "before" ? emo : null;
   const emojiAfter = word.emoji?.position === "after" ? emo : null;
 
+  if (trailingSpace || growRight) css.marginRight = trailingSpace ? `calc(${wordGapCss(style, sc, eff)} + ${growRight.toFixed(3)}em)` : `${growRight.toFixed(3)}em`;
   const local = timeMs - (stagger?.pageStartMs ?? 0);
   const text = stagger?.unit === "char" && !settled
     ? [...display].map((ch, ci) => (

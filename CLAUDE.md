@@ -1489,8 +1489,9 @@ instantly, MP4 + ProRes/WebM alpha rendered by the Companion.
 - **Word spacing:** words are separate boxes with an explicit gap (`wordGapCss`: ~0.3em + outline + box/marker/pop allowance + the new Word spacing slider) instead of a space glyph; fitting and line breaking measure the same gaps.
 - New controls from remotion.md/remotion2.md: gradient text fill, shadow colour/softness/distance, glow colour/size, background padding/radius/frosted blur, not-yet-spoken dimming, entrance speed/easing, word/letter stagger, glitch + wave entrances, exit speed, pacing presets.
 - **Timeline:** one Captions track shown as WORD or LINE (drag/stretch either; `retimeRun` in caption-engine), add word at playhead (double-click to type), split/join, snapping, linked (ripple) moves, zoom/fit.
+- **Looks gallery previews** are rendered by the real composition: `pnpm --filter @capseasy/compositions previews` writes a still (.webp) + 3 s loop (.mp4) per look to `apps/frontend/public/looks/` (~700 KB total). Re-run it whenever templates or looks change. Cards show the still and play the loop on hover (the selected look always loops).
 - **Portrait videos** get the short-form layout: captions + timeline stacked left, full-height preview centre, properties right.
-- Companion 0.1.5 carries these template changes (exports match the preview). Set `COMPANION_MIN_VERSION=0.1.5` on Vercel to make older companions update.
+- Companion 0.1.6 carries these template changes (exports match the preview). Set `COMPANION_MIN_VERSION=0.1.6` on Vercel to make older companions update.
 
 **What's left (as of MVP2, 2026-09-30):**
 1. **Owner actions** (only you can do these): rotate both Groq keys (old installer leaked them; the local copy in `apps/backend/.env` was deleted with the legacy backend), set Vercel env (`SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`, `GROQ_API_KEY`, `GROQ_API_KEY_BACKUP`, `NEXT_PUBLIC_API_URL=/api/v1`), enable Supabase leaked-password protection, then smoke-test the install command on the live URL.

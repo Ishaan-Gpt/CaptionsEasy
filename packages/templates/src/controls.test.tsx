@@ -51,3 +51,11 @@ describe("every visible Style control changes the render", () => {
     }
   }
 });
+
+describe("layout regressions", () => {
+  it("subtitle bar stays centred while a sliding entrance plays", () => {
+    const style = resolveStyle({ templateId: "subtitle_bar", entrance: { type: "slide-left", durationMs: 300 } } as Partial<CaptionStyleV2>);
+    const html = renderToStaticMarkup(<PageView page={page} timeMs={60} style={style} canvas={canvas} measure={measure} />);
+    expect(html).toMatch(/^<div style="[^"]*transform:translate\(-50%, -50%\)/);
+  });
+});

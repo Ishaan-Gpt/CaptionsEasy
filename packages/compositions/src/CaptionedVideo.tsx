@@ -44,7 +44,7 @@ const PageSequence: React.FC<{ page: Page; fromFrame: number; canvas: Canvas; st
  * Remotion does NOT run inputProps through the zod schema at render time, and the Player passes props
  * verbatim, so every surface must normalize here. Partial settings/styles are completed with defaults.
  */
-export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc: docIn, style: styleIn, settings: settingsIn, mode = "burn" }) => {
+export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc: docIn, style: styleIn, settings: settingsIn, mode = "burn", backdrop = null }) => {
   const doc = useMemo(() => CaptionDocSchema.parse(docIn ?? { version: 2, words: [] }), [docIn]);
   const settings = useMemo(() => ProjectSettingsSchema.parse(settingsIn ?? {}), [settingsIn]);
   const style = styleIn ?? {};
@@ -63,6 +63,8 @@ export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc:
         <AbsoluteFill style={{ backgroundColor: "black" }}>
           <OffthreadVideo src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         </AbsoluteFill>
+      ) : mode === "burn" && backdrop ? (
+        <AbsoluteFill style={{ background: backdrop }} />
       ) : null}
       {pages.map((page) => {
         const from = Math.floor((page.startMs / 1000) * fps);

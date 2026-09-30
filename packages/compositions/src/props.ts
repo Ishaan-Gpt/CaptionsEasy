@@ -19,6 +19,8 @@ export const CaptionedVideoProps = z.object({
   settings: ProjectSettingsSchema.default({}),
   /** "burn" composites over the video; "overlay" is transparent captions only */
   mode: z.enum(["burn", "overlay"]).default("burn"),
+  /** CSS background painted when there is no video in burn mode (look previews, demos) */
+  backdrop: z.string().nullable().default(null),
 });
 export type CaptionedVideoProps = z.infer<typeof CaptionedVideoProps>;
 export type CaptionedVideoInput = z.input<typeof CaptionedVideoProps>;

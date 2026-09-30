@@ -108,13 +108,13 @@ export function containerCss(box: { width: number; cx: number; cy: number }, rot
  * Space between two words, as a CSS length. A literal space glyph is too narrow in condensed display fonts
  * (Anton, Bebas, Bangers) and is swallowed by thick outlines, boxes and pop scaling, which made words touch.
  * So words are separate boxes with an explicit gap: a base of ~0.3em, plus whatever the look draws beyond the
- * glyphs (outline, the active-word box/marker, pop growth), plus the user's Word spacing.
+ * glyphs (outline, the active-word box/marker), plus the user's Word spacing.
  */
 export function wordGapEm(style: CaptionStyleV2, effect: CaptionStyleV2["active"]["effect"] | null = style.active.effect): number {
   let em = 0.3;
   if (effect === "box") em += 0.34;
   else if (effect === "marker") em += 0.12;
-  if (effect === "pop" || effect === "scale-up" || effect === "box") em += Math.max(0, style.active.scale - 1) * 1.6;
+  // (words enlarged by pop/scale/box push their neighbours apart while active: see WordSpan's growth margin)
   return em;
 }
 export function wordGapPx(style: CaptionStyleV2, sc: number): number {

@@ -117,6 +117,8 @@ export interface ActiveResult {
   behind?: { css: React.CSSProperties };
   /** thin bar under the word (underline/marker) */
   bar?: { css: React.CSSProperties };
+  /** how much the effect enlarges the word (1 = not at all); layouts push neighbours apart by this */
+  grow?: number;
 }
 
 /** The word currently being spoken. Pure function of time. */
@@ -131,8 +133,14 @@ export function activeEffect(
   switch (a.effect) {
     case "none": return { css: {} };
     case "color": return { css: { color, WebkitTextFillColor: color, backgroundImage: "none" } };
-    case "pop": return { css: { color, WebkitTextFillColor: color, backgroundImage: "none", transform: `scale(${1 + (a.scale - 1) * sp * intensity})` } };
-    case "scale-up": return { css: { transform: `scale(${1 + (a.scale - 1) * sp * intensity})` } };
+    case "pop": {
+      const k = 1 + (a.scale - 1) * sp * intensity;
+      return { css: { color, WebkitTextFillColor: color, backgroundImage: "none", transform: `scale(${k})` }, grow: k };
+    }
+    case "scale-up": {
+      const k = 1 + (a.scale - 1) * sp * intensity;
+      return { css: { transform: `scale(${k})` }, grow: k };
+    }
     case "bounce": return { css: { color, WebkitTextFillColor: color, transform: `translateY(${-Math.sin(Math.PI * Math.min(1, ((timeMs - word.startMs) / 260))) * 14 * sc * intensity}px)` } };
     case "shake": {
       const k = settled ? 0 : Math.sin(((timeMs - word.startMs) / 1000) * 60) * 3 * sc * intensity;
@@ -147,7 +155,7 @@ export function activeEffect(
       const w = settled ? 100 : progress(timeMs - word.startMs, 200) * 100;
       return { css: {}, behind: { css: { left: "-0.12em", top: "12%", height: "78%", width: `calc(${w}% + 0.24em)`, backgroundColor: withAlpha(color, 0.85), borderRadius: "0.12em", zIndex: -1 } } };
     }
-    case "box": return { css: { transform: `scale(${1 + (a.scale - 1) * sp})` }, behind: { css: { left: "-0.22em", right: "-0.22em", top: "6%", bottom: "2%", backgroundColor: a.boxColor ?? color, borderRadius: a.boxRadius * sc, zIndex: -1 } } };
+    case "box": return { grow: 1 + (a.scale - 1) * sp, css: { transform: `scale(${1 + (a.scale - 1) * sp})` }, behind: { css: { left: "-0.22em", right: "-0.22em", top: "6%", bottom: "2%", backgroundColor: a.boxColor ?? color, borderRadius: a.boxRadius * sc, zIndex: -1 } } };
     case "fill-sweep": {
       const p = settled ? 100 : t * 100;
       return { css: { backgroundImage: `linear-gradient(90deg, ${color} ${p}%, currentColor ${p}%)`, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" } };

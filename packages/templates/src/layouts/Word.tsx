@@ -23,7 +23,8 @@ export const WordLayout: React.FC<PageRenderProps> = ({ page, timeMs, style, can
   const casing = style.casing === "none" ? "upper" : style.casing;
   const display = displayText(word, style, casing);
   const scale = typeof style.templateOptions.sizeScale === "number" ? style.templateOptions.sizeScale : 1.35;
-  const size = fitSize(display, style.fontSize * scale * sc, box.width, {
+  // leave room for the spoken-word growth and any 3D extrusion/shadow so the word never touches the edges
+  const size = fitSize(display, style.fontSize * scale * sc, box.width / (1 + Math.max(0, style.active.scale - 1) * Math.min(2, effectiveIntensity(style, page.emotion))) * 0.94, {
     fontFamily: famCss(style.fontId), fontWeight: style.fontWeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing * sc,
   }, measure);
 

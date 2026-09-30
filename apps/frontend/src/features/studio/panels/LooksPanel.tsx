@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
 import { LOOKS, loadFontFamily, lookCategories, resolveStyle, type LookDefinition } from "@capseasy/templates";
@@ -27,7 +27,35 @@ function swatchStyle(look: LookDefinition): React.CSSProperties {
   } as React.CSSProperties;
 }
 
-export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose, currentStyle, currentSettings }) => {
+/** Built-in looks have previews rendered by the real composition (packages/compositions/scripts/look-previews.ts). */
+const BUILT_IN = new Set(LOOKS.map((l) => l.id));
+
+/** Still of the look; its actual animation loops on hover (and always for the selected look, e.g. on phones). */
+const LookPreview: React.FC<{ id: string; name: string; playing: boolean }> = ({ id, name, playing }) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [hover, setHover] = useState(false);
+  const active = hover || playing;
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (active) {
+      v.currentTime = 0;
+      void v.play().catch(() => undefined);
+    } else v.pause();
+  }, [active]);
+  return (
+    <div className="relative aspect-square overflow-hidden bg-[#17201c]" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`/looks/${id}.webp`} alt={`${name} caption style`} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+      {active ? (
+        <video ref={ref} src={`/looks/${id}.mp4`} muted loop playsInline preload="auto" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
+      <span className={`pointer-events-none absolute bottom-1.5 right-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] text-white/85 transition ${active ? "opacity-0" : "opacity-100 group-hover:opacity-0"}`} aria-hidden>▶</span>
+    </div>
+  );
+};
+
+export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentStyle, currentSettings }) => {
   const qc = useQueryClient();
   const mine = useQuery({ queryKey: ["my-looks"], queryFn: () => studioService.listLooks() });
   const myLooks = useMemo<LookDefinition[]>(
@@ -80,11 +108,15 @@ export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose, currentSt
             onClick={() => onChoose(look)}
             className={`group flex shrink-0 flex-col overflow-hidden rounded-xl border text-left transition ${look.id === currentLookId ? "border-st-lav ring-1 ring-st-lav" : "border-st-line hover:border-white/30"}`}
           >
-            <div className="flex h-20 items-center justify-center bg-gradient-to-br from-[#2C2C27] to-[#151513] px-2 text-center text-[19px] leading-tight">
-              <span style={swatchStyle(look)}>
-                {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
-              </span>
-            </div>
+            {BUILT_IN.has(look.id) ? (
+              <LookPreview id={look.id} name={look.name} playing={look.id === currentLookId} />
+            ) : (
+              <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-[#2C2C27] to-[#151513] px-2 text-center text-[19px] leading-tight">
+                <span style={swatchStyle(look)}>
+                  {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
+                </span>
+              </div>
+            )}
             <div className="relative px-2.5 py-2">
               {look.category === "My looks" ? (
                 <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="absolute right-2 top-2 text-xs text-st-faint hover:text-red-300">✕</span>

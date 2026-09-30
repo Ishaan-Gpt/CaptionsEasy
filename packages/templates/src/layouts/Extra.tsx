@@ -91,9 +91,12 @@ export const BarLayout: React.FC<PageRenderProps> = (p) => {
   const baseCss = baseTextCss(style, sc, size);
   const stagger = staggerPlan(style, page, texts);
   return (
-    <div style={{ position: "absolute", left: pos.x * canvas.width, top: pos.y * canvas.height, width: canvas.width, transform: `translate(-50%, -50%)${style.rotation ? ` rotate(${style.rotation}deg)` : ""}`, display: "flex", justifyContent: "center", ...(stagger ? {} : entranceStyle(style, timeMs - page.startMs, canvas.fps, intensity, settled)), ...exitStyle(style, page.endMs - timeMs, settled) }}>
+    <div style={{ position: "absolute", left: pos.x * canvas.width, top: pos.y * canvas.height, width: canvas.width, transform: `translate(-50%, -50%)${style.rotation ? ` rotate(${style.rotation}deg)` : ""}`, display: "flex", justifyContent: "center" }}>
       <div
         style={{
+          // entrance/exit animate the bar itself; the outer box keeps the centring transform
+          ...(stagger ? {} : entranceStyle(style, timeMs - page.startMs, canvas.fps, intensity, settled)),
+          ...exitStyle(style, page.endMs - timeMs, settled),
           width: `${style.maxWidth * 100}%`,
           boxSizing: "border-box",
           backgroundColor: withAlpha(b.color, b.opacity),
