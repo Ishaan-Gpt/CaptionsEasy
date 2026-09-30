@@ -3,9 +3,12 @@ import { z } from "zod";
 export const PlatformSchema = z.enum(["tiktok", "reels", "shorts", "youtube", "linkedin", "podcast", "custom"]);
 export type Platform = z.infer<typeof PlatformSchema>;
 
+/** Words per caption card for every new project and every look (one-word looks use 1). */
+export const DEFAULT_WORDS_PER_CARD = 3;
+
 export const ProjectSettingsSchema = z.object({
   platform: PlatformSchema.default("custom"),
-  maxWordsPerCard: z.number().int().min(1).max(12).default(4),
+  maxWordsPerCard: z.number().int().min(1).max(12).default(DEFAULT_WORDS_PER_CARD),
   maxLines: z.number().int().min(1).max(3).default(2),
   maxCharsPerLine: z.number().int().min(8).max(60).default(24),
   pauseMs: z.number().min(150).max(1500).default(400),

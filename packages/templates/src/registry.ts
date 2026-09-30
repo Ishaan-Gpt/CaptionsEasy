@@ -1,4 +1,4 @@
-import { CaptionStyleSchema, type CaptionStyleV2, type ProjectSettings } from "@capseasy/shared";
+import { CaptionStyleSchema, DEFAULT_WORDS_PER_CARD, type CaptionStyleV2, type ProjectSettings } from "@capseasy/shared";
 import legacyLooks from "./looks/legacy.generated.json";
 import { NEW_LOOKS } from "./looks/new";
 import { TEMPLATES } from "./templates";
@@ -124,7 +124,15 @@ const looksById = new Map(LOOKS.map((l) => [l.id, l]));
 export const getLook = (id: string | null | undefined): LookDefinition | undefined => (id ? looksById.get(id) : undefined);
 export const lookCategories = (): string[] => [...new Set(LOOKS.map((l) => l.category))];
 
-/** Switch look: keeps content, replaces styling wholesale (the look is a complete style). */
-export function applyLook(look: LookDefinition): { style: CaptionStyleV2; settings: Partial<ProjectSettings> } {
-  return { style: resolveStyle(look.style), settings: look.settings };
+/**
+ * Switch look: keeps content, replaces styling wholesale (the look is a complete style). Words per card is the
+ * creator's choice, not the look's: every look uses DEFAULT_WORDS_PER_CARD except one-word looks, which need 1.
+ * (Pass the current value to keep a creator's own setting when switching between multi-word looks.)
+ */
+export function applyLook(look: LookDefinition, currentWordsPerCard?: number): { style: CaptionStyleV2; settings: Partial<ProjectSettings> } {
+  const style = resolveStyle(look.style);
+  const oneWord = getTemplate(style.templateId).layout === "word";
+  const { maxWordsPerCard: _ignored, ...rest } = look.settings;
+  const keep = currentWordsPerCard !== undefined && currentWordsPerCard > 1 ? currentWordsPerCard : DEFAULT_WORDS_PER_CARD;
+  return { style, settings: { ...rest, maxWordsPerCard: oneWord ? 1 : keep } };
 }

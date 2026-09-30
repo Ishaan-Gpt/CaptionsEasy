@@ -4,7 +4,7 @@ import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { studioService } from "@/services/studio";
 import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
-import { BACKGROUND_TYPES, EXIT_TYPES, KNOWN_FONTS, TEMPLATES, controlVisible, effectsFor, entrancesFor, getTemplate, type ControlId } from "@capseasy/templates";
+import { BACKGROUND_TYPES, EXIT_TYPES, KNOWN_FONTS, controlVisible, effectsFor, entrancesFor, getTemplate, type ControlId } from "@capseasy/templates";
 import { ColorField, Section, Segmented, Select, Slider, Toggle } from "../controls";
 
 const opts = (xs: readonly string[]) => xs.map((x) => ({ value: x, label: x.replace(/-/g, " ") }));
@@ -13,13 +13,16 @@ const solid = (s: CaptionStyleV2) => (s.fill.type === "solid" ? s.fill.color : s
 interface StyleProps {
   style: CaptionStyleV2;
   patch: (fn: (s: CaptionStyleV2) => CaptionStyleV2) => void;
+  /** name of the look this style started from (null for a custom / legacy style) */
+  lookName: string | null;
+  onOpenLooks: () => void;
 }
 
 /**
  * Every control here is shown only when the current template honours it (`controlVisible`, shared with
  * packages/templates/src/controls.test.tsx, which proves each visible control changes the rendered video).
  */
-export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
+export const StylePanel: React.FC<StyleProps> = ({ style, patch, lookName, onOpenLooks }) => {
   const tpl = getTemplate(style.templateId);
   const show = (id: ControlId) => controlVisible(id, tpl, style);
   const effects = effectsFor(tpl);
@@ -53,9 +56,14 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
         </div>
       </Section>
 
-      <Section title="Layout">
-        <Select label="Template" value={style.templateId} options={TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => patch((s) => ({ ...s, templateId: v }))} />
-        <p className="text-xs text-st-faint">{tpl.description}</p>
+      <Section title="Look">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-st-text">{lookName ?? "Custom style"}</div>
+            <p className="text-xs text-st-faint">{tpl.description}</p>
+          </div>
+          <button type="button" onClick={onOpenLooks} className="shrink-0 rounded-lg border border-st-line bg-st-panel px-3 py-2 text-xs font-medium hover:bg-st-hover lg:py-1.5">Change look</button>
+        </div>
         {show("reveal") ? (
           <div className="flex items-center justify-between text-sm text-st-text/90">
             <span>Words appear</span>

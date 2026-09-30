@@ -49,6 +49,16 @@ describe("template registry", () => {
     expect(settings.maxWordsPerCard).toBe(1);
   });
 
+  it("words per card defaults to 3 for every multi-word look and survives look switches", () => {
+    for (const look of LOOKS) {
+      const oneWord = getTemplate(look.templateId).layout === "word";
+      expect(applyLook(look).settings.maxWordsPerCard, look.id).toBe(oneWord ? 1 : 3);
+    }
+    // a creator's own choice is kept when switching between multi-word looks, reset after a one-word look
+    expect(applyLook(getLook("karaoke_fill")!, 6).settings.maxWordsPerCard).toBe(6);
+    expect(applyLook(getLook("karaoke_fill")!, 1).settings.maxWordsPerCard).toBe(3);
+  });
+
   it("system fonts were swapped for deterministic Google fonts", () => {
     const fonts = new Set(LOOKS.map((l) => l.style.fontId));
     for (const bad of ["Georgia", "Impact", "Consolas", "Comic Sans MS"]) expect(fonts.has(bad)).toBe(false);

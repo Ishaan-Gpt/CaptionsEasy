@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PlayerRef } from "@remotion/player";
 import { computePages } from "@capseasy/compositions";
-import { getTemplate, loadFontFamily } from "@capseasy/templates";
+import { getLook, getTemplate, loadFontFamily } from "@capseasy/templates";
 import { insertWordAfter, mergeWithPrevious, retimeRun, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { EyeOff, Redo2, Star, Undo2 } from "lucide-react";
 import { authService } from "@/services/auth";
@@ -212,7 +212,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
 
   const sidePanel = (t: SideTab) =>
     style ? (
-      t === "style" ? <StylePanel style={style} patch={s.patchStyle} />
+      t === "style" ? <StylePanel style={style} patch={s.patchStyle} lookName={s.lookId?.startsWith("user:") ? "My saved look" : getLook(s.lookId)?.name ?? null} onOpenLooks={() => { if (desktop) setSideTab("looks"); else setMobileTab("looks"); }} />
       : t === "looks" ? <LooksPanel currentLookId={s.lookId} onChoose={s.chooseLook} currentStyle={style} currentSettings={settings} />
       : <SettingsPanel settings={settings} patch={s.patchSettings} layout={getTemplate(style.templateId).layout} />
     ) : null;

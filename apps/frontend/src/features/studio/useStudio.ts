@@ -244,7 +244,7 @@ export function useStudio(projectId: string) {
 
   const chooseLook = useCallback(
     (look: LookDefinition) => {
-      const applied = applyLook(look);
+      const applied = applyLook(look, settingsRef.current?.maxWordsPerCard);
       const sett = ProjectSettingsSchema.parse({ ...settingsRef.current, ...applied.settings });
       styleRef.current = applied.style;
       settingsRef.current = sett;
