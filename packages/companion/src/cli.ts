@@ -5,7 +5,7 @@ import { ensureBrowser } from "@remotion/renderer";
 import { WHISPER_MODELS } from "@capseasy/shared";
 import { CompanionApi } from "./api";
 import { dirs, ensureDirs, loadConfig, saveConfig } from "./config";
-import { login } from "./login";
+import { login, loginWithPairCode } from "./login";
 import { autostartEnabled, autostartPath, disableAutostart, enableAutostart } from "./autostart";
 import { runCompanion } from "./loop";
 import { buildCapabilities, diskFreeGb, VERSION } from "./system";
@@ -20,9 +20,11 @@ program
   .option("--api <url>", "CapsEasy web app URL")
   .option("--name <name>", "Name shown in the web app")
   .option("--no-open", "Do not open the browser automatically")
-  .action(async (o: { api?: string; name?: string; open: boolean }) => {
+  .option("--pair-code <code>", "Pre-approved code from a one-click setup file (no browser step)")
+  .action(async (o: { api?: string; name?: string; open: boolean; pairCode?: string }) => {
     ensureDirs();
-    await login(loadConfig(), { apiBase: o.api, name: o.name, open: o.open });
+    if (o.pairCode) await loginWithPairCode(loadConfig(), { apiBase: o.api, name: o.name, pairCode: o.pairCode });
+    else await login(loadConfig(), { apiBase: o.api, name: o.name, open: o.open });
   });
 
 program

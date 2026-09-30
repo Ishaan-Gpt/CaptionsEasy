@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import type { CaptionedVideoInput } from "@capseasy/compositions";
+import { canExportInBrowser, exportMp4InBrowser, saveBlob } from "./browserExport";
+import { ConnectComputer } from "@/features/companion/ConnectComputer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { studioService, type ExportKind, type ExportRow } from "@/services/studio";
 import { ApiError } from "@/services/api-client";
@@ -8,7 +11,7 @@ import { Button, fmtBytes, fmtTime, triggerDownload } from "./controls";
 
 interface Option { kind: ExportKind; title: string; desc: string; needsComputer: boolean }
 const OPTIONS: Option[] = [
-  { kind: "mp4", title: "Video with captions (MP4)", desc: "Captions burned into your video. Ready to post.", needsComputer: true },
+  { kind: "mp4", title: "Video with captions (MP4)", desc: "Captions burned into your video. Renders right here in your browser.", needsComputer: true },
   { kind: "mov_alpha", title: "Transparent overlay (ProRes .mov)", desc: "Captions only, with transparency, for Premiere, Final Cut and DaVinci.", needsComputer: true },
   { kind: "webm_alpha", title: "Transparent overlay (WebM)", desc: "Captions only with transparency, smaller files for web editors.", needsComputer: true },
   { kind: "srt", title: "Subtitles (.srt)", desc: "Works on YouTube, Facebook, LinkedIn and every editor.", needsComputer: false },
@@ -17,18 +20,24 @@ const OPTIONS: Option[] = [
   { kind: "txt", title: "Plain transcript (.txt)", desc: "Just the words, one caption per line.", needsComputer: false },
 ];
 
+/** wall-clock for "made in …" (kept out of render: only called from event handlers) */
+const clock = () => performance.now();
+
 const KIND_LABEL: Record<string, string> = { mp4: "MP4", mov_alpha: "ProRes overlay", webm_alpha: "WebM overlay", srt: "SRT", vtt: "VTT", ass: "ASS", txt: "TXT", json: "JSON" };
 
 interface Props {
   projectId: string;
-  video: { width: number; height: number; durationMs: number };
+  title?: string;
+  video: { width: number; height: number; durationMs: number; fps: number };
+  /** exactly what the preview Player renders; the in-browser export renders the same thing */
+  renderInput: CaptionedVideoInput | null;
   companionOnline: boolean;
   saving: boolean;
   onClose: () => void;
   flushSave: () => Promise<void>;
 }
 
-export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline, saving, onClose, flushSave }) => {
+export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderInput, companionOnline, saving, onClose, flushSave }) => {
   const qc = useQueryClient();
   const [busyKind, setBusyKind] = useState<ExportKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +57,55 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
   };
   const trimValid = !trim || (endS - startS >= 0.5 && startS >= 0 && endS <= totalS + 0.05);
 
+  // MP4 in this tab: no Companion needed
+  const [web, setWeb] = useState<{ ok: boolean; reason?: string } | null>(null);
+  const [webProgress, setWebProgress] = useState<number | null>(null);
+  const [webDone, setWebDone] = useState<string | null>(null);
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void canExportInBrowser(video.width, video.height).then((r) => alive && setWeb(r));
+    return () => {
+      alive = false;
+      abort.current?.abort();
+    };
+  }, [video.width, video.height]);
+  const webReady = !!web?.ok && !!renderInput?.src;
+
+  const exportHere = async () => {
+    if (!renderInput) return;
+    setError(null);
+    setWebDone(null);
+    setWebProgress(0);
+    const ctrl = new AbortController();
+    abort.current = ctrl;
+    try {
+      await flushSave();
+      const d = dims();
+      const started = clock();
+      const blob = await exportMp4InBrowser({
+        input: renderInput,
+        width: video.width,
+        height: video.height,
+        fps: video.fps,
+        durationMs: video.durationMs,
+        scale: d ? d.width / video.width : 1,
+        range: trim ? { startMs: Math.round(startS * 1000), endMs: Math.round(endS * 1000) } : undefined,
+        quality,
+        signal: ctrl.signal,
+        onProgress: (f) => setWebProgress(f),
+      });
+      const name = `${(title || "captionseasy").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "captionseasy"}.mp4`;
+      saveBlob(blob, name);
+      setWebDone(`${fmtBytes(blob.size)} · made in ${fmtTime(clock() - started)}`);
+    } catch (e) {
+      if (!ctrl.signal.aborted) setError(e instanceof Error ? `Couldn't render in the browser: ${e.message}` : "Couldn't render in the browser.");
+    } finally {
+      setWebProgress(null);
+      abort.current = null;
+    }
+  };
+
   const exportsQ = useQuery({
     queryKey: ["exports", projectId],
     queryFn: () => studioService.listExports(projectId),
@@ -63,6 +121,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
   };
 
   const start = async (o: Option) => {
+    if (o.kind === "mp4" && webReady) return exportHere();
     setError(null);
     setBusyKind(o.kind);
     try {
@@ -96,9 +155,12 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           {saving ? <p className="mb-3 rounded-lg bg-st-raised/70 px-3 py-2 text-xs text-st-muted">Saving your latest edits first…</p> : null}
           {!companionOnline ? (
-            <p className="mb-4 rounded-lg bg-st-or/15 px-3 py-2 text-sm text-st-text">
-              Your computer isn't connected. Video exports will wait in the queue and start automatically when you run <code className="rounded bg-st-raised px-1">capseasy start</code>. Subtitle files download right away.
-            </p>
+            <div className="mb-4 rounded-xl bg-st-raised/60 px-3 py-3 text-sm text-st-text">
+              <p>
+                {webReady ? "MP4 and subtitles export right here in your browser." : "Subtitles download right away."} Transparent overlays{webReady ? "" : " and MP4"} are made on your computer with the free CaptionsEasy app.
+              </p>
+              <div className="mt-2.5"><ConnectComputer compact /></div>
+            </div>
           ) : null}
 
           <div className="mb-3 flex flex-col gap-1.5 text-sm text-st-text/80 sm:flex-row sm:items-center sm:justify-between">
@@ -139,7 +201,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
             {OPTIONS.map((o) => (
               <button
                 key={o.kind}
-                disabled={busyKind !== null || (o.needsComputer && !trimValid)}
+                disabled={busyKind !== null || webProgress !== null || (o.needsComputer && !trimValid)}
                 onClick={() => void start(o)}
                 className="rounded-xl border border-st-line bg-st-raised/50 p-3 text-left transition hover:border-st-ink/30 hover:bg-st-lav/30 disabled:opacity-50"
               >
@@ -148,6 +210,21 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
               </button>
             ))}
           </div>
+          {webProgress !== null ? (
+            <div className="mt-3 rounded-xl border border-st-line bg-st-raised/60 p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-st-text">Rendering your MP4 in this tab… {Math.round(webProgress * 100)}%</span>
+                <Button className="!px-2 !py-1 text-xs" onClick={() => abort.current?.abort()}>Cancel</Button>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-st-line">
+                <div className="h-full rounded-full bg-st-em transition-[width] duration-300" style={{ width: `${Math.max(2, webProgress * 100)}%` }} />
+              </div>
+              <p className="mt-1.5 text-xs text-st-muted">Keep this tab open. Nothing is uploaded: the video is made on this device.</p>
+            </div>
+          ) : webDone ? (
+            <p className="mt-3 rounded-lg bg-st-em/15 px-3 py-2 text-sm text-st-text">✓ Your MP4 is downloading ({webDone}).</p>
+          ) : null}
+          {web && !web.ok ? <p className="mt-3 text-xs text-st-muted">{web.reason} MP4 exports will use your computer instead.</p> : null}
           {error ? <p role="alert" className="mt-3 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
 
           {rows.length > 0 ? (

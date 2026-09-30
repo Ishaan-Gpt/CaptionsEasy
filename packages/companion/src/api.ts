@@ -49,8 +49,8 @@ export class CompanionApi {
   deviceStart(body: { workerName: string; platform: string; version: string }) {
     return this.req<{ userCode: string; deviceCode: string; verificationUrl: string; intervalSeconds: number; expiresInSeconds: number }>("POST", "/device/start", body);
   }
-  deviceToken(deviceCode: string) {
-    return this.req<{ status: "pending" | "approved" | "denied" | "expired"; workerId?: string; token?: string }>("POST", "/device/token", { deviceCode });
+  deviceToken(deviceCode: string, me?: { workerName: string; platform: string }) {
+    return this.req<{ status: "pending" | "approved" | "denied" | "expired"; workerId?: string; token?: string }>("POST", "/device/token", { deviceCode, ...me });
   }
 
   // ---- worker

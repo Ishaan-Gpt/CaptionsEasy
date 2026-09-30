@@ -21,6 +21,7 @@
     "@remotion/captions": "4.0.484",
     "@remotion/cli": "4.0.484",
     "@remotion/layout-utils": "4.0.484",
+    "@remotion/media": "4.0.484",
     "@remotion/renderer": "4.0.484",
     "react": "19.2.4",
     "react-dom": "19.2.4",

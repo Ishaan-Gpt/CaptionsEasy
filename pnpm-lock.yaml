@@ -44,6 +44,9 @@ importers:
       '@remotion/layout-utils':
         specifier: 4.0.484
         version: 4.0.484
+      '@remotion/media':
+        specifier: 4.0.484
+        version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/media-utils':
         specifier: 4.0.484
         version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -51,6 +54,9 @@ importers:
         specifier: 4.0.484
         version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/transitions':
+        specifier: 4.0.484
+        version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@remotion/web-renderer':
         specifier: 4.0.484
         version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@supabase/supabase-js':
@@ -248,6 +254,9 @@ importers:
       '@remotion/layout-utils':
         specifier: 4.0.484
         version: 4.0.484
+      '@remotion/media':
+        specifier: 4.0.484
+        version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@remotion/renderer':
         specifier: 4.0.484
         version: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1123,6 +1132,12 @@ packages:
 
   '@remotion/media-utils@4.0.484':
     resolution: {integrity: sha512-VpqF5CpLPfekJmkAyH7+SMdhfReND5WdtUjbbgzxdpT1G26LfQw3Qxj6Jo38vv/Sahn+VxNb9knElOptu9fcng==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@remotion/media@4.0.484':
+    resolution: {integrity: sha512-isoB+Kj31FRMWHChDRwfLzeATsgZrD0SLETt46ty0hV7d4imfUjtqcWikrq0XJ614BwO2k0e9nkR1gCnMcHgfw==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -4885,6 +4900,14 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
       remotion: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+
+  '@remotion/media@4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      mediabunny: 1.47.0
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      remotion: 4.0.484(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      zod: 4.3.6
 
   '@remotion/paths@4.0.484': {}
 

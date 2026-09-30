@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import { Video as MediaVideo } from "@remotion/media";
 import { CaptionDocSchema, type CaptionStyleV2, ProjectSettingsSchema, type CaptionDoc, type Page, type ProjectSettings } from "@capseasy/shared";
 import { applyFillerFilter, applyProfanity, derivePages } from "@motion-ai/caption-engine/core";
 import { EMOJI_FONT, PageView, famCss, getTemplate, layoutBox, measure, resolveStyle, scaleOf, useFontsReady, wordGapEm, wordGapPx, type Canvas } from "@capseasy/templates";
@@ -44,7 +45,7 @@ const PageSequence: React.FC<{ page: Page; fromFrame: number; canvas: Canvas; st
  * Remotion does NOT run inputProps through the zod schema at render time, and the Player passes props
  * verbatim, so every surface must normalize here. Partial settings/styles are completed with defaults.
  */
-export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc: docIn, style: styleIn, settings: settingsIn, mode = "burn", backdrop = null }) => {
+export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc: docIn, style: styleIn, settings: settingsIn, mode = "burn", backdrop = null, videoEngine = "offthread" }) => {
   const doc = useMemo(() => CaptionDocSchema.parse(docIn ?? { version: 2, words: [] }), [docIn]);
   const settings = useMemo(() => ProjectSettingsSchema.parse(settingsIn ?? {}), [settingsIn]);
   const style = styleIn ?? {};
@@ -61,7 +62,11 @@ export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc:
     <AbsoluteFill>
       {mode === "burn" && src ? (
         <AbsoluteFill style={{ backgroundColor: "black" }}>
-          <OffthreadVideo src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          {videoEngine === "media" ? (
+            <MediaVideo src={src} objectFit="contain" style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <OffthreadVideo src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          )}
         </AbsoluteFill>
       ) : mode === "burn" && backdrop ? (
         <AbsoluteFill style={{ background: backdrop }} />

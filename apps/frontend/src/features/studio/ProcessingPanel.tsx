@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { ConnectComputer } from "@/features/companion/ConnectComputer";
 import Link from "next/link";
 import { studioService, type StudioJob } from "@/services/studio";
 import { Button } from "./controls";
@@ -72,27 +73,21 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
           <>
             <h2 className="text-lg font-semibold">Connect a computer to continue</h2>
             <p className="mt-2 text-sm text-st-muted">
-              Captions are made on your own computer. Your video is uploaded and safe. On a Windows, Mac or Linux computer, open CapsEasy Settings, run the one-line install command, then come back here.
+              Captions are made on your own computer. Your video is uploaded and safe. Open CaptionsEasy on your Windows, Mac or Linux computer and click <b>Connect this computer</b>: this page continues by itself.
             </p>
           </>
         ) : (
           <>
             <h2 className="text-lg font-semibold">Waiting for your computer</h2>
             <p className="mt-2 text-sm text-st-muted">
-              Captions are made privately on your own computer, so nothing heavy runs in the cloud. Your video is uploaded and safe. Start the CapsEasy Companion and it will pick this up automatically.
+              Captions are made privately on your own computer with the free CaptionsEasy app. Your video is uploaded and safe, and this continues by itself once the computer is connected.
             </p>
-            <div className="mt-4 space-y-2 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
-              <p className="font-medium text-st-text">First time?</p>
-              <ol className="list-decimal space-y-1 pl-5 text-st-text/80">
-                <li>Copy the one-line install command from Settings.</li>
-                <li>Paste it into a terminal and approve the computer in the browser.</li>
-                <li>That&apos;s it: it starts by itself from now on.</li>
-              </ol>
+            <div className="mt-4 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
+              <ConnectComputer />
             </div>
           </>
         )}
         <div className="mt-5 flex justify-center gap-2">
-          {!returning && !isPhone ? <Link href="/settings" className="rounded-lg bg-st-ink px-4 py-2 text-sm font-semibold text-st-panel hover:bg-st-ink/85">Set up Companion</Link> : null}
           <Button disabled={busy} onClick={() => act(() => studioService.cancelJob(job.id))}>Cancel</Button>
         </div>
         {cloudAvailable && !isPhone ? (

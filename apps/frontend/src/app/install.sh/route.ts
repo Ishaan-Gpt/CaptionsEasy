@@ -43,7 +43,11 @@ else
   npm install -g --no-fund --no-audit "$APP/companion/capseasy-companion-latest.tgz"
 fi
 
-if NAME="$(capseasy check-pairing --api "$APP" 2>/dev/null)" && [ -n "$NAME" ]; then
+if [ -n "\${CAPSEASY_PAIR:-}" ]; then
+  # one-click setup: the code was approved on the website already, no browser step
+  echo "> Connecting this computer to your account..."
+  capseasy login --api "$APP" --pair-code "$CAPSEASY_PAIR"
+elif NAME="$(capseasy check-pairing --api "$APP" 2>/dev/null)" && [ -n "$NAME" ]; then
   echo ""
   echo "  Welcome back! '$NAME' is already connected to your account."
 else

@@ -90,15 +90,19 @@ export function useFontsReady(families: string[]): boolean {
     let alive = true;
     Promise.all(key.split("|").filter(Boolean).map(loadFontFamily))
       .then(() => {
-        if (!alive) return;
-        setReady(true);
-        continueRender(handle);
+        if (alive) setReady(true);
       })
       .catch((e) => cancelRender(e));
     return () => {
       alive = false;
     };
-  }, [key, handle]);
+  }, [key]);
+
+  // release the frame only AFTER React has committed the caption pages that depend on `ready`. Continuing in the
+  // same tick as setReady let renderers (notably the in-browser one) capture early frames with no captions.
+  useEffect(() => {
+    if (ready) continueRender(handle);
+  }, [ready, handle]);
 
   return ready;
 }

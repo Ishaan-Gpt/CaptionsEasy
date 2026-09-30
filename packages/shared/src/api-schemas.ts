@@ -47,7 +47,12 @@ export const DeviceStartBody = z.object({
   platform: z.string().max(40).optional(),
   version: z.string().max(40).optional(),
 });
-export const DeviceTokenBody = z.object({ deviceCode: z.string().min(16).max(200) });
+export const DeviceTokenBody = z.object({
+  deviceCode: z.string().min(16).max(200),
+  /** one-click setup codes are created before the computer is known: it names itself when it claims the code */
+  workerName: z.string().trim().min(1).max(80).optional(),
+  platform: z.string().max(40).optional(),
+});
 export const DeviceApproveBody = z.object({ userCode: z.string().min(4).max(20), approve: z.boolean().default(true) });
 
 export const HeartbeatBody = z.object({

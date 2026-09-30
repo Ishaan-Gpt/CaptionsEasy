@@ -289,7 +289,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
 
   const overlays = (
     <>
-      {showExport ? <ExportModal projectId={projectId} video={{ width, height, durationMs }} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
+      {showExport ? <ExportModal projectId={projectId} title={data.project.title} video={{ width, height, durationMs, fps }} renderInput={input} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
       {s.conflict ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">
           <div role="alertdialog" aria-label="Editing conflict" className="st-rise w-full max-w-md rounded-2xl border border-st-line bg-st-panel p-6">

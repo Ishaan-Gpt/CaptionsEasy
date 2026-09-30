@@ -9,7 +9,7 @@ import { getAdmin } from "@/lib/supabase/admin";
  * The token is shown exactly once and stored only as a SHA-256 hash.
  */
 export const POST = route(async (req: Request) => {
-  const { deviceCode } = await parseBody(req, DeviceTokenBody);
+  const { deviceCode, workerName, platform } = await parseBody(req, DeviceTokenBody);
   const admin = getAdmin();
   const hash = sha256(deviceCode);
 
@@ -27,8 +27,8 @@ export const POST = route(async (req: Request) => {
   const token = `cpe_${randomBytes(32).toString("base64url")}`;
   const { data: worker, error } = await admin.from("workers").insert({
     owner_id: row.owner_id,
-    name: row.worker_name ?? "My Computer",
-    platform: row.platform,
+    name: row.worker_name ?? workerName ?? "My Computer",
+    platform: row.platform ?? platform ?? null,
     status: "online",
     last_seen_at: new Date().toISOString(),
     token_hash: sha256(token),

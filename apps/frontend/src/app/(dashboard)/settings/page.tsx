@@ -7,6 +7,7 @@ import { authService } from "@/services/auth";
 import { workersService } from "@/services/workers";
 import StudioShell from "@/components/studio/StudioShell";
 import { macInstall, windowsInstall } from "@/lib/install";
+import { ConnectComputer } from "@/features/companion/ConnectComputer";
 
 const origin = () => (typeof window === "undefined" ? "https://captionseasy.vercel.app" : window.location.origin);
 const installCommand = (which: "mac" | "windows") => (which === "mac" ? macInstall(origin()) : windowsInstall(origin()));
@@ -44,13 +45,18 @@ function ConnectedComputerSection() {
 
       <div className="mt-4 rounded-xl border border-sand-200 bg-white p-6">
         <p className="text-[14px] leading-relaxed text-sand-800 max-w-[60ch]">
-          CapsEasy makes captions <strong className="text-ink">privately on your own computer</strong>:
-          your video is transcribed and rendered locally, for free. Install the Companion once,
-          keep <code className="rounded bg-sand-100 px-1">capseasy start</code> running, and every
-          upload and export is picked up automatically.
+          CaptionsEasy makes captions <strong className="text-ink">privately on your own computer</strong>:
+          your video is transcribed and rendered locally, for free. Connect a computer once; after that it
+          starts by itself and every upload and export is picked up automatically.
         </p>
 
-        <div className="mt-5 space-y-2">
+        <div className="mt-5">
+          <ConnectComputer onConnected={() => void queryClient.invalidateQueries({ queryKey: ["workers"] })} />
+        </div>
+
+        <details className="mt-5 group">
+          <summary className="cursor-pointer text-[12px] font-semibold text-sand-700 hover:text-ink">Prefer the terminal? Use a one-line install command</summary>
+        <div className="mt-3 space-y-2">
           <div className="flex items-center gap-2 rounded-lg border border-sand-200 bg-sand-50 px-4 py-3">
             <code className="flex-1 overflow-x-auto whitespace-nowrap font-mono text-[12px] text-ink">
               {installCommand("mac")}
@@ -74,11 +80,11 @@ function ConnectedComputerSection() {
             </button>
           </div>
           <p className="text-[12px] text-sand-600">
-            Paste it into a terminal (PowerShell on Windows). It installs Node if needed, opens a
-            page to approve this computer, then starts processing. Later, just run
-            <code className="mx-1 rounded bg-sand-100 px-1">capseasy start</code>.
+            Paste it into a terminal (on Windows: PowerShell, Command Prompt or Win+R). It installs everything,
+            opens a page to approve this computer, then starts processing.
           </p>
         </div>
+        </details>
 
         <div className="mt-6 border-t border-sand-200 pt-5">
           {isLoading ? (

@@ -16,6 +16,30 @@ function openBrowser(url: string) {
   }
 }
 
+/**
+ * One-click setup: the web app already created AND approved this code for the signed-in user (it is baked into the
+ * downloaded setup file), so there is nothing to confirm in a browser. Single use, short-lived.
+ */
+export async function loginWithPairCode(cfg: Config, opts: { apiBase?: string; name?: string; pairCode: string }): Promise<Config> {
+  ensureDirs();
+  const apiBase = (opts.apiBase ?? cfg.apiBase).replace(/\/$/, "");
+  const name = opts.name ?? cfg.workerName ?? hostname();
+  const api = new CompanionApi(apiBase);
+  for (let i = 0; i < 5; i++) {
+    const r = await api.deviceToken(opts.pairCode, { workerName: name, platform: process.platform });
+    if (r?.status === "approved" && r.token && r.workerId) {
+      const next: Config = { ...cfg, apiBase, workerId: r.workerId, token: r.token, workerName: name };
+      saveConfig(next);
+      log.info(`paired as "${name}" (one-click setup)`);
+      console.log(`\n  Connected! "${name}" is now linked to your CaptionsEasy account.\n`);
+      return next;
+    }
+    if (r?.status === "expired" || r?.status === "denied") break;
+    await sleep(1500);
+  }
+  throw new Error("This setup link has expired or was already used. Download a fresh one from the CaptionsEasy website.");
+}
+
 /** Device-code pairing (RFC 8628 style): no inbound port, no tunnel, works behind any NAT. */
 export async function login(cfg: Config, opts: { apiBase?: string; name?: string; open?: boolean } = {}): Promise<Config> {
   ensureDirs();

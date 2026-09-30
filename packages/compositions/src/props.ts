@@ -21,6 +21,11 @@ export const CaptionedVideoProps = z.object({
   mode: z.enum(["burn", "overlay"]).default("burn"),
   /** CSS background painted when there is no video in burn mode (look previews, demos) */
   backdrop: z.string().nullable().default(null),
+  /**
+   * How the source video is decoded. "offthread" (default): the Companion's renderMedia and the Player.
+   * "media": @remotion/media's <Video>, required by the in-browser renderer (@remotion/web-renderer).
+   */
+  videoEngine: z.enum(["offthread", "media"]).default("offthread"),
 });
 export type CaptionedVideoProps = z.infer<typeof CaptionedVideoProps>;
 export type CaptionedVideoInput = z.input<typeof CaptionedVideoProps>;

@@ -72,6 +72,8 @@ $env:Path = "$(Split-Path $Node);$env:Path"
 Add-UserPath $Prefix
 $Cap = Join-Path $Prefix "capseasy.cmd"
 
+$OneClick = [bool]$env:CAPSEASY_PAIR
+
 # 2. The Companion (skip when already up to date)
 $Latest = ""
 try { $Latest = (Invoke-RestMethod -UseBasicParsing "$App/companion/latest.json").version } catch {}
@@ -81,6 +83,8 @@ if ($Have -and $Have -eq $Latest) {
   Write-Host "> Companion $Have is already installed and up to date."
 } else {
   if ($Have) { Write-Host "> Updating the Companion ($Have -> $Latest)..." } else { Write-Host "> Installing the Companion..." }
+  # a running Companion locks its files and would block the update
+  Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match "capseasy" } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
   & $Npm install -g --prefix "$Prefix" --cache "$(Join-Path $Home2 'npm-cache')" --no-fund --no-audit --loglevel=error "$App/companion/capseasy-companion-latest.tgz"
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path $Cap)) { Fail "Installing the Companion failed (npm exit $LASTEXITCODE)." }
 }
@@ -88,10 +92,18 @@ if ($Have -and $Have -eq $Latest) {
 Remove-Item (Join-Path $Prefix "capseasy.ps1") -Force -ErrorAction SilentlyContinue
 try { $Old = (& $Npm prefix -g 2>$null | Out-String).Trim(); if ($Old) { Remove-Item (Join-Path $Old "capseasy.ps1") -Force -ErrorAction SilentlyContinue } } catch {}
 
-# 3. Pair with the account (skipped when this PC is already connected)
+# 3. Pair with the account
 $Name = ""
-try { $Name = ((& $Cap check-pairing --api $App 2>$null) | Out-String).Trim() } catch {}
-if ($LASTEXITCODE -eq 0 -and $Name) {
+if ($OneClick) {
+  # one-click setup file: the website already approved this code for the signed-in account, no browser step
+  Write-Host "> Connecting this computer to your account..."
+  & $Cap login --api $App --pair-code $env:CAPSEASY_PAIR
+  if ($LASTEXITCODE -ne 0) { Fail "This setup file has expired or was already used. Download a fresh one from the CaptionsEasy website." }
+} else {
+  try { $Name = ((& $Cap check-pairing --api $App 2>$null) | Out-String).Trim() } catch {}
+}
+if ($OneClick) {
+} elseif ($LASTEXITCODE -eq 0 -and $Name) {
   Write-Host ""
   Write-Host "  Welcome back! '$Name' is already connected to your account." -ForegroundColor Green
 } else {
@@ -107,7 +119,16 @@ Write-Host ""
 Write-Host "  All set. The Companion now starts automatically when you log in." -ForegroundColor Green
 Write-Host "  (The first job downloads the speech model and renderer once, a few hundred MB.)" -ForegroundColor DarkGray
 Write-Host ""
-& $Cap start
+if ($OneClick) {
+  # run it in the background (no window) and get out of the way: the website shows "Connected" by itself
+  Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match "capseasy" -and $_.CommandLine -match " start" } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
+  $Vbs = Join-Path $env:APPDATA "Microsoft/Windows/Start Menu/Programs/Startup/CapsEasy Companion.vbs"  # same path the Companion writes
+  if (Test-Path $Vbs) { Start-Process wscript.exe -ArgumentList "\`"$Vbs\`"" } else { Start-Process -WindowStyle Hidden -FilePath $Cap -ArgumentList "start" }
+  Write-Host "  You can close this window and go back to CaptionsEasy." -ForegroundColor Green
+  Start-Sleep -Seconds 4
+} else {
+  & $Cap start
+}
 `;
   return new Response(script, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
 }
