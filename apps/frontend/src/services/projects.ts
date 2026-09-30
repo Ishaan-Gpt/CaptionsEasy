@@ -2,7 +2,7 @@
  * Real projects service. Source: contracts/api.md > Projects. Sprint 1.6
  * replaces the previous localStorage-backed mock (list/rename/status/
  * delete) with the backend endpoints added this sprint
- * (apps/backend/app/api/v1/projects.py).
+ * (Next.js route handlers under app/api/v1/projects, RLS-scoped).
  */
 
 import { Project, ProjectStatus } from "./types";
@@ -93,11 +93,6 @@ export const projectsService = {
     return toProject(project);
   },
 
-  async updateProjectStatus(id: string, status: ProjectStatus): Promise<Project> {
-    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { status } });
-    return toProject(project);
-  },
-
   async deleteProject(id: string): Promise<void> {
     await apiClient.delete(`/projects/${id}`);
   },
@@ -117,95 +112,8 @@ export const projectsService = {
     return toProject(project);
   },
 
-  async updateProjectStyle(id: string, style: string): Promise<Project> {
-    const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { style } });
-    return toProject(project);
-  },
-
-  /** language="" explicitly resets to auto-detect. */
   async updateProjectLanguage(id: string, language: string): Promise<Project> {
     const project = await apiClient.patch<BackendProject>(`/projects/${id}`, { json: { language } });
     return toProject(project);
   },
-
-  /** Source: contracts/api.md > POST /projects/{id}/process. Queues the AI
-   * pipeline job for the project's latest uploaded video. */
-  async startProcessing(id: string): Promise<{ jobId: string }> {
-    return apiClient.post<{ jobId: string }>(`/projects/${id}/process`);
-  },
-
-  async startExport(
-    id: string,
-    resolution: string = "1080p",
-    quality: string = "high",
-    aspectRatio?: string
-  ): Promise<{ jobId: string }> {
-    return apiClient.post<{ jobId: string }>(`/projects/${id}/export`, {
-      json: { resolution, quality, aspect_ratio: aspectRatio ?? "original" }
-    });
-  },
-
-  async getExports(id: string): Promise<any[]> {
-    return apiClient.get<any[]>(`/projects/${id}/exports`);
-  },
-
-  async generateMotionScript(id: string): Promise<any> {
-    return apiClient.post<any>(`/projects/${id}/motion-script`);
-  },
-
-  async getMotionScript(id: string): Promise<any> {
-    return apiClient.get<any>(`/projects/${id}/motion-script`);
-  },
-
-  async getProjectVideo(id: string): Promise<{ download_url: string }> {
-    return apiClient.get<{ download_url: string }>(`/projects/[id]/video`.replace("[id]", id));
-  },
-
-  async saveCustomStyle(
-    id: string,
-    styleData: {
-      font: string;
-      size: number;
-      weight: string;
-      color: string;
-      alignment: string;
-      shadow: number;
-      outline: number;
-      highlight_color: string;
-      background_style: string;
-      y_position_percent: number;
-      caption_template: string;
-      staggered_layout?: string;
-      accent_period_enabled?: boolean;
-      word_limit?: number;
-      caption_spacing_ms?: number;
-      word_pacing?: string;
-      pause_handling?: string;
-      text_transform?: string;
-      underline?: boolean;
-      letter_spacing?: number;
-      word_spacing?: number;
-      line_spacing?: number;
-      color_mode?: string;
-      color2?: string | null;
-      x_position_percent?: number | null;
-      box_top?: number | null;
-      box_bottom?: number | null;
-      box_left?: number | null;
-      box_right?: number | null;
-      keyword_font?: string | null;
-      keyword_weight?: string | null;
-      keyword_size_scale?: number | null;
-    }
-  ): Promise<{ style: string }> {
-    return apiClient.post<{ style: string }>(`/projects/${id}/custom-style`, {
-      json: styleData
-    });
-  },
-
-  async getCustomStyle(id: string): Promise<any> {
-    return apiClient.get<any>(`/projects/${id}/custom-style`);
-  },
-
-
 };

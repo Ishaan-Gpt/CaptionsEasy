@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/api/rateLimit";
 import { CreateVideoBody, VIDEO_MIME_TYPES, newId, planFor } from "@capseasy/shared";
 import { requireUser } from "@/lib/api/auth";
 import { ApiFailure, notFound, ok, parseBody, route, type Ctx } from "@/lib/api/http";
@@ -7,6 +8,7 @@ import { extFromMime, signedPut } from "@/lib/api/storage";
 export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
   const user = await requireUser(req);
   const { id: projectId } = await params;
+  await rateLimit(user.id, "upload", 60, 3600);
   const body = await parseBody(req, CreateVideoBody);
 
   const { data: project } = await user.db.from("projects").select("id").eq("id", projectId).is("deleted_at", null).maybeSingle();

@@ -1,26 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { requireUser } from "@/lib/api/auth";
+import { notFound, ok, route, type Ctx } from "@/lib/api/http";
+import { PROJECT_COLUMNS, toApiProject } from "@/lib/api/projects";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid token" } }, { status: 401 });
-  }
-
+export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  const user = await requireUser(req);
   const { id } = await params;
-  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
-
-  const { data, error } = await supabaseAdmin
-    .from("projects")
-    .update({ archived_at: null })
-    .eq("id", id)
-    .in("owner_id", ownerIds)
-    .select()
-    .single();
-
-  if (error || !data) {
-    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true, data });
-}
+  const { data } = await user.db.from("projects").update({ archived_at: null, updated_at: new Date().toISOString() }).eq("id", id).is("deleted_at", null).select(PROJECT_COLUMNS).maybeSingle();
+  if (!data) throw notFound("Project");
+  return ok(toApiProject(data));
+});

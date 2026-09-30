@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/utils/supabaseAdmin";
+import { getAdmin } from "@/lib/supabase/admin";
 
+/** Readiness: the database answers. */
 export async function GET() {
-  const checks = { database: false, redis: true };
-
+  let database = false;
   try {
-    const { error } = await supabaseAdmin.from("projects").select("id").limit(1);
-    if (!error) {
-      checks.database = true;
-    }
+    const { error } = await getAdmin().from("projects").select("id", { head: true, count: "exact" }).limit(1);
+    database = !error;
   } catch {
-    checks.database = false;
+    database = false;
   }
-
-  const ready = checks.database;
-  return NextResponse.json(
-    { status: ready ? "ready" : "not_ready", checks },
-    { status: ready ? 200 : 503 }
-  );
+  return NextResponse.json({ status: database ? "ready" : "not_ready", checks: { database } }, { status: database ? 200 : 503 });
 }

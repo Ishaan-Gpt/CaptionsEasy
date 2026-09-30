@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/api/rateLimit";
 import { ProjectSettingsSchema, type TranscribeJob } from "@capseasy/shared";
 import { requireUser } from "@/lib/api/auth";
 import { ApiFailure, notFound, ok, route, type Ctx } from "@/lib/api/http";
@@ -7,6 +8,7 @@ import { getAdmin } from "@/lib/supabase/admin";
 /** (Re)generate captions for the project's latest video. Reuses a transcribe job that is already queued/running. */
 export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
   const user = await requireUser(req);
+  await rateLimit(user.id, "transcribe", 60, 3600);
   const { id } = await params;
 
   const { data: project } = await user.db.from("projects").select("id, language, settings_json").eq("id", id).is("deleted_at", null).maybeSingle();

@@ -1,68 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { planFor } from "@capseasy/shared";
+import { requireUser } from "@/lib/api/auth";
+import { ApiFailure, ok, parseBody, route } from "@/lib/api/http";
+import { PROJECT_COLUMNS, toApiProject } from "@/lib/api/projects";
+import { rateLimit } from "@/lib/api/rateLimit";
 
-export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid or missing token" } }, { status: 401 });
-  }
-
+export const GET = route(async (req: Request) => {
+  const user = await requireUser(req);
   const url = new URL(req.url);
-  const limit = parseInt(url.searchParams.get("limit") || "20", 10);
-  const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 50) || 50));
+  const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
   const includeArchived = url.searchParams.get("include_archived") === "true";
 
-  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
+  let q = user.db.from("projects").select(PROJECT_COLUMNS, { count: "exact" }).is("deleted_at", null).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+  if (!includeArchived) q = q.is("archived_at", null);
+  const { data, count, error } = await q;
+  if (error) throw new ApiFailure("INTERNAL", "Could not load projects", error.message);
+  return NextResponse.json({ success: true, data: (data ?? []).map(toApiProject), meta: { total: count ?? 0, limit, offset } });
+});
 
-  let query = supabaseAdmin
-    .from("projects")
-    .select("*", { count: "exact" })
-    .in("owner_id", ownerIds)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+export const POST = route(async (req: Request) => {
+  const user = await requireUser(req);
+  await rateLimit(user.id, "project_create", 30, 3600);
+  const { title } = await parseBody(req, z.object({ title: z.string().trim().min(1).max(120) }));
 
-  if (!includeArchived) {
-    query = query.is("archived_at", null);
+  const [{ data: profile }, { count }] = await Promise.all([
+    user.db.from("profiles").select("plan").eq("id", user.id).maybeSingle(),
+    user.db.from("projects").select("id", { count: "exact", head: true }).is("deleted_at", null),
+  ]);
+  const limits = planFor(profile?.plan);
+  if ((count ?? 0) >= limits.maxProjects) {
+    throw new ApiFailure("LIMIT_EXCEEDED", `Your plan allows ${limits.maxProjects} projects. Delete an old one to create a new one.`);
   }
 
-  const { data, count, error } = await query;
-
-
-  if (error) {
-    return NextResponse.json({ success: false, error: { code: "DB_ERROR", message: error.message } }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: data,
-    meta: { total: count || 0, limit, offset }
-  });
-}
-
-export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid or missing token" } }, { status: 401 });
-  }
-
-  const body = await req.json();
-  if (!body.title) {
-    return NextResponse.json({ success: false, error: { code: "BAD_REQUEST", message: "Title is required" } }, { status: 400 });
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("projects")
-    .insert({ owner_id: user.id, title: body.title, status: "draft" })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ success: false, error: { code: "DB_ERROR", message: error.message } }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: data
-  });
-}
+  const { data, error } = await user.db.from("projects").insert({ owner_id: user.id, title, status: "CREATED" }).select(PROJECT_COLUMNS).single();
+  if (error || !data) throw new ApiFailure("INTERNAL", "Could not create the project", error?.message);
+  return ok(toApiProject(data), 201);
+});

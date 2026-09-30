@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/api/rateLimit";
 import { randomBytes } from "node:crypto";
 import { DeviceStartBody } from "@capseasy/shared";
 import { sha256 } from "@/lib/api/auth";
@@ -15,6 +16,8 @@ const CODE_TTL_MS = 10 * 60_000;
 
 /** Companion step 1 (unauthenticated): request a pairing code. The user approves it in the browser. */
 export const POST = route(async (req: Request) => {
+  const ip = (req.headers.get("x-forwarded-for") ?? "local").split(",")[0]!.trim();
+  await rateLimit(ip, "device_start", 20, 3600);
   const body = await parseBody(req, DeviceStartBody);
   const admin = getAdmin();
 

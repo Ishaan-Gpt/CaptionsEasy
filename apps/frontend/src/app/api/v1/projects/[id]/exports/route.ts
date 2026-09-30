@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/api/rateLimit";
 import {
   CaptionDocSchema, CaptionStyleSchema, CreateExportBody, ProjectSettingsSchema, TEXT_EXPORT_KINDS, planFor, type RenderJob,
 } from "@capseasy/shared";
@@ -25,6 +26,7 @@ export const GET = route(async (req: Request, { params }: Ctx<{ id: string }>) =
 export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
   const user = await requireUser(req);
   const { id: projectId } = await params;
+  await rateLimit(user.id, "export", 120, 3600);
   const body = await parseBody(req, CreateExportBody);
   if (body.kind === "png") throw new ApiFailure("VALIDATION", "PNG stills are not available yet.");
 

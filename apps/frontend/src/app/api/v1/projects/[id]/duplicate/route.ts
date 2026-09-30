@@ -1,47 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { requireUser } from "@/lib/api/auth";
+import { ApiFailure, notFound, ok, route, type Ctx } from "@/lib/api/http";
+import { PROJECT_COLUMNS, toApiProject } from "@/lib/api/projects";
+import { rateLimit } from "@/lib/api/rateLimit";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid token" } }, { status: 401 });
-  }
-
+/** Copies the project, its style and its captions. The new project reuses the same source video file (read-only). */
+export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  const user = await requireUser(req);
+  await rateLimit(user.id, "project_create", 30, 3600);
   const { id } = await params;
-  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
-
-  // Get original
-  const { data: original } = await supabaseAdmin
+  const { data: src } = await user.db
     .from("projects")
-    .select("*")
-    .eq("id", id)
-    .in("owner_id", ownerIds)
-    .single();
+    .select("title, description, language, aspect_ratio, platform, look_id, template_id, style_json, settings_json, status")
+    .eq("id", id).is("deleted_at", null).maybeSingle();
+  if (!src) throw notFound("Project");
 
-  if (!original) {
-    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
-  }
-
-  // Insert duplicate
-  const { data, error } = await supabaseAdmin
+  const { data: copy, error } = await user.db
     .from("projects")
-    .insert({
-      owner_id: user.id,
-      title: `${original.title} (Copy)`,
-      description: original.description,
-      status: "draft",
-      style: original.style,
-      caption_template: original.caption_template,
-      language: original.language,
-      aspect_ratio: original.aspect_ratio,
-      custom_style_json: original.custom_style_json
-    })
-    .select()
-    .single();
+    .insert({ ...src, owner_id: user.id, title: `${src.title} (copy)`.slice(0, 120) })
+    .select(PROJECT_COLUMNS).single();
+  if (error || !copy) throw new ApiFailure("INTERNAL", "Could not duplicate", error?.message);
 
-  if (error || !data) {
-    return NextResponse.json({ success: false, error: { code: "DB_ERROR", message: "Failed to duplicate" } }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, data }, { status: 201 });
-}
+  const [{ data: video }, { data: doc }] = await Promise.all([
+    user.db.from("videos").select("storage_path, preview_path, status, width, height, fps, duration_ms, has_audio, original_filename, mime_type, file_size, rotation").eq("project_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    user.db.from("caption_documents").select("doc").eq("project_id", id).maybeSingle(),
+  ]);
+  if (video) await user.db.from("videos").insert({ ...video, project_id: copy.id, owner_id: user.id });
+  if (doc) await user.db.from("caption_documents").insert({ project_id: copy.id, owner_id: user.id, doc: doc.doc });
+  return ok(toApiProject(copy), 201);
+});
