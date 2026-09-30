@@ -1,0 +1,123 @@
+"use client";
+
+import React from "react";
+
+/** Small dark-theme form primitives shared by the studio panels. */
+
+export const Section: React.FC<{ title: string; children: React.ReactNode; hint?: string }> = ({ title, children, hint }) => (
+  <section className="border-b border-white/10 px-4 py-4">
+    <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-white/50">{title}</h3>
+    {hint ? <p className="mb-3 text-xs text-white/40">{hint}</p> : null}
+    <div className="space-y-3">{children}</div>
+  </section>
+);
+
+const row = "flex items-center justify-between gap-3 text-sm text-white/80";
+
+export const Slider: React.FC<{ label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void; format?: (v: number) => string }> = ({
+  label, value, min, max, step = 1, unit = "", onChange, format,
+}) => (
+  <label className="block text-sm text-white/80">
+    <span className="mb-1 flex justify-between">
+      <span>{label}</span>
+      <span className="tabular-nums text-white/50">{format ? format(value) : `${Math.round(value * 100) / 100}${unit}`}</span>
+    </span>
+    <input type="range" className="w-full accent-emerald-500" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+  </label>
+);
+
+export const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }> = ({ label, checked, onChange, hint }) => (
+  <label className={`${row} cursor-pointer`}>
+    <span>
+      {label}
+      {hint ? <span className="block text-xs text-white/40">{hint}</span> : null}
+    </span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-emerald-500" : "bg-white/20"}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
+    </button>
+  </label>
+);
+
+export const Select: React.FC<{ label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }> = ({ label, value, options, onChange }) => (
+  <label className={row}>
+    <span>{label}</span>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="max-w-[55%] rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1 text-sm text-white outline-none focus:border-emerald-500"
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
+export const ColorField: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => {
+  const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : "#ffffff";
+  return (
+    <label className={row}>
+      <span>{label}</span>
+      <span className="flex items-center gap-2">
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          className="w-24 rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1 font-mono text-xs text-white outline-none focus:border-emerald-500"
+        />
+        <input type="color" value={hex} onChange={(e) => onChange(e.target.value.toUpperCase())} className="h-7 w-7 cursor-pointer rounded border border-white/10 bg-transparent p-0" />
+      </span>
+    </label>
+  );
+};
+
+export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "primary" | "ghost" | "danger" }> = ({ tone = "ghost", className = "", ...p }) => (
+  <button
+    {...p}
+    className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+      tone === "primary" ? "bg-emerald-500 text-black hover:bg-emerald-400" : tone === "danger" ? "bg-red-500/15 text-red-300 hover:bg-red-500/25" : "bg-white/10 text-white hover:bg-white/20"
+    } ${className}`}
+  />
+);
+
+export const Segmented: React.FC<{ value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }> = ({ value, options, onChange }) => (
+  <div className="inline-flex rounded-lg bg-white/10 p-0.5">
+    {options.map((o) => (
+      <button
+        key={o.value}
+        type="button"
+        onClick={() => onChange(o.value)}
+        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${value === o.value ? "bg-emerald-500 text-black" : "text-white/70 hover:text-white"}`}
+      >
+        {o.label}
+      </button>
+    ))}
+  </div>
+);
+
+export const fmtTime = (ms: number) => {
+  const t = Math.max(0, Math.round(ms / 100) / 10);
+  const m = Math.floor(t / 60);
+  return `${m}:${(t - m * 60).toFixed(1).padStart(4, "0")}`;
+};
+
+export const fmtBytes = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
+
+/** Starts a file download without navigating away from the editor. */
+export function triggerDownload(url: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.rel = "noopener";
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}

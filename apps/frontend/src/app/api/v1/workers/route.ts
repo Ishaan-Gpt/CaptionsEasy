@@ -1,22 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { requireUser } from "@/lib/api/auth";
+import { ApiFailure, ok, route } from "@/lib/api/http";
 
-export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid token" } }, { status: 401 });
-  }
-
-  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
-  const { data, error } = await supabaseAdmin
+/** The caller's paired computers. "online" is derived from a recent heartbeat, not a stale status flag. */
+export const GET = route(async (req: Request) => {
+  const user = await requireUser(req);
+  const { data, error } = await user.db
     .from("workers")
-    .select("id, name, status, last_seen_at, last_error")
-    .in("owner_id", ownerIds)
-    .order("last_seen_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ success: false, error: { code: "DB_ERROR", message: "Failed to fetch workers" } }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, data: data });
-}
+    .select("id, name, status, last_seen_at, last_error, platform, version, capabilities, current_job_id, revoked_at")
+    .is("revoked_at", null)
+    .order("last_seen_at", { ascending: false, nullsFirst: false });
+  if (error) throw new ApiFailure("INTERNAL", "Failed to fetch computers", error.message);
+  const fresh = Date.now() - 45_000;
+  return ok(
+    (data ?? []).map((w) => ({
+      id: w.id,
+      name: w.name,
+      status: w.last_seen_at && new Date(w.last_seen_at).getTime() > fresh ? "online" : "offline",
+      lastSeenAt: w.last_seen_at,
+      lastError: w.last_error,
+      platform: w.platform,
+      version: w.version,
+      capabilities: w.capabilities,
+      busy: Boolean(w.current_job_id),
+    })),
+  );
+});

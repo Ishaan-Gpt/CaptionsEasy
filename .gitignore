@@ -17,3 +17,4 @@ venv/
 
 # local test output
 packages/companion/.e2e-out/
+apps/frontend/.e2e-ui/

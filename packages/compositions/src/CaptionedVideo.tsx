@@ -13,6 +13,20 @@ export function prepareDoc(doc: CaptionDoc, settings: ProjectSettings): CaptionD
   return d;
 }
 
+/**
+ * doc + settings + style -> pages, using real font metrics. The render, the Player AND the editor's caption
+ * list all call this, so what is listed is exactly what is shown. Call only after fonts have loaded.
+ */
+export function computePages(doc: CaptionDoc, settings: ProjectSettings, style: CaptionStyleV2, canvas: Canvas): Page[] {
+  const sc = scaleOf(canvas);
+  const box = layoutBox(style, canvas);
+  const spec = { fontFamily: famCss(style.fontId), fontWeight: style.fontWeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing * sc };
+  return derivePages(prepareDoc(doc, settings), settings, {
+    measure: (text) => measure(text, { ...spec, fontSize: style.fontSize * sc }),
+    maxLineWidth: box.width,
+  });
+}
+
 const PageSequence: React.FC<{ page: Page; fromFrame: number; canvas: Canvas; style: CaptionStyleV2 }> = ({ page, fromFrame, canvas, style }) => {
   const frame = useCurrentFrame();
   // absolute media time, derived from frames only (never a wall clock)
@@ -36,16 +50,7 @@ export const CaptionedVideo: React.FC<CaptionedVideoInput> = ({ src = null, doc:
   const fontFamilies = useMemo(() => [resolved.fontId, resolved.hero.fontId ?? "", ...getTemplate(resolved.templateId).fonts], [resolved]);
   const fontsReady = useFontsReady(fontFamilies);
 
-  const pages = useMemo(() => {
-    if (!fontsReady) return [];
-    const sc = scaleOf(canvas);
-    const box = layoutBox(resolved, canvas);
-    const spec = { fontFamily: famCss(resolved.fontId), fontWeight: resolved.fontWeight, fontStyle: resolved.fontStyle, letterSpacing: resolved.letterSpacing * sc };
-    return derivePages(prepareDoc(doc, settings), settings, {
-      measure: (text) => measure(text, { ...spec, fontSize: resolved.fontSize * sc }),
-      maxLineWidth: box.width,
-    });
-  }, [fontsReady, doc, settings, resolved, canvas]);
+  const pages = useMemo(() => (fontsReady ? computePages(doc, settings, resolved, canvas) : []), [fontsReady, doc, settings, resolved, canvas]);
 
   return (
     <AbsoluteFill>

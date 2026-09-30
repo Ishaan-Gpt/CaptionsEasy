@@ -1,24 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin, getUserFromRequest } from "@/utils/supabaseAdmin";
+import { z } from "zod";
+import { requireUser } from "@/lib/api/auth";
+import { ApiFailure, notFound, ok, parseBody, route, type Ctx } from "@/lib/api/http";
+import { getAdmin } from "@/lib/supabase/admin";
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid token" } }, { status: 401 });
-  }
-
+/** Removing a computer revokes its token immediately (the companion's next call gets 401). */
+export const DELETE = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  const user = await requireUser(req);
   const { id } = await params;
-  const ownerIds = [user.id, user.auth_user_id].filter(Boolean);
+  const { data: w } = await user.db.from("workers").select("id").eq("id", id).maybeSingle();
+  if (!w) throw notFound("Computer");
+  const admin = getAdmin();
+  const { error } = await admin.from("workers").update({ revoked_at: new Date().toISOString(), status: "offline", current_job_id: null }).eq("id", id);
+  if (error) throw new ApiFailure("INTERNAL", "Could not remove this computer", error.message);
+  // give any job it was holding back to the queue
+  await admin.from("jobs").update({ status: "queued", worker_id: null, lease_expires_at: null }).eq("worker_id", id).eq("status", "processing");
+  return ok({ revoked: true });
+});
 
-  const { error } = await supabaseAdmin
-    .from("workers")
-    .delete()
-    .eq("id", id)
-    .in("owner_id", ownerIds);
-
-  if (error) {
-    return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "Worker not found" } }, { status: 404 });
-  }
-
-  return new NextResponse(null, { status: 204 });
-}
+export const PATCH = route(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  const user = await requireUser(req);
+  const { id } = await params;
+  const { name } = await parseBody(req, z.object({ name: z.string().trim().min(1).max(80) }));
+  const { data, error } = await user.db.from("workers").update({ name }).eq("id", id).select("id, name").maybeSingle();
+  if (error || !data) throw notFound("Computer");
+  return ok(data);
+});

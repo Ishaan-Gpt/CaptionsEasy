@@ -36,8 +36,8 @@ function toWorker(w: BackendWorker): Worker {
 export interface PairingDetails {
   code: string;
   workerName: string;
-  status: "pending" | "confirmed" | "denied" | "expired";
-  expiresAt: string;
+  platform: string | null;
+  status: "pending" | "approved" | "denied" | "consumed" | "expired";
 }
 
 export const workersService = {
@@ -50,20 +50,24 @@ export const workersService = {
     await apiClient.delete(`/workers/${id}`);
   },
 
+  /** Device-code flow: the companion printed this code in the user's terminal. */
   async getPairingDetails(code: string): Promise<PairingDetails | null> {
     try {
-      return await apiClient.get<PairingDetails>(`/pairing/${code}`);
+      const d = await apiClient.get<{ userCode: string; workerName: string | null; platform: string | null; status: PairingDetails["status"] }>(
+        `/device/approve?code=${encodeURIComponent(code)}`,
+      );
+      return { code: d.userCode, workerName: d.workerName ?? "A computer", platform: d.platform, status: d.status };
     } catch (err) {
       if (err instanceof ApiError && err.code === "NOT_FOUND") return null;
       throw err;
     }
   },
 
-  async confirmPairing(code: string): Promise<{ workerId: string; name: string }> {
-    return apiClient.post(`/pairing/${code}/confirm`);
+  async confirmPairing(code: string): Promise<void> {
+    await apiClient.post("/device/approve", { json: { userCode: code, approve: true } });
   },
 
   async denyPairing(code: string): Promise<void> {
-    await apiClient.post(`/pairing/${code}/deny`);
+    await apiClient.post("/device/approve", { json: { userCode: code, approve: false } });
   },
 };
