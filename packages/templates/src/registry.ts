@@ -43,10 +43,25 @@ export function resolveStyle(style: Partial<CaptionStyleV2> & { templateId?: str
   return CaptionStyleSchema.parse({ ...merged, templateId: tpl.id });
 }
 
+/**
+ * Curated gallery: ONE look per distinct visual identity (layout + motion + typographic character).
+ * Colour-only variants were removed; users recolour any look in the Style panel or save their own.
+ * Projects that used a removed look keep rendering (their full style is stored on the project).
+ */
+const CURATED_NEW = new Set([
+  "hormozi_box", "beast_bounce", "karaoke_fill", "pop_clean", "gradient_pop", "emoji_react", "outline_fill", "bold_pill",
+  "comic_burst", "wave_bounce", "storytime", "chat_bubble", "scribble",
+  "minimal_pro", "netflix_sub", "lower_third", "read_along",
+  "luxe_serif", "motivational", "film_noir", "kinetic_mix",
+  "retro_vhs", "retro_3d", "neon_sign", "terminal", "gaming_hud",
+  "highlighter_card", "explainer", "desi_clean",
+]);
+// the five three-line stack skins are genuinely different designs; the other legacy looks were colour variants
+const CURATED_LEGACY = new Set(["staggered_splash", "glow_stack_classic", "cartoon_stack_classic", "serif_pop_classic", "vintage_cinematic"]);
+
 export const LOOKS: LookDefinition[] = [
-  // new looks first: they showcase the full range; the legacy looks follow with legacy: true
-  ...NEW_LOOKS.map((l) => ({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
-  ...(legacyLooks as unknown as LookDefinition[]).map((l) => ({ ...l, style: CaptionStyleSchema.parse(l.style) })),
+  ...NEW_LOOKS.filter((l) => CURATED_NEW.has(l.id)).map((l) => ({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
+  ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => ({ ...l, category: "Classic", style: CaptionStyleSchema.parse(l.style) })),
 ];
 
 const looksById = new Map(LOOKS.map((l) => [l.id, l]));

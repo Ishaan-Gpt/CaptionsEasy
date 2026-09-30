@@ -178,7 +178,7 @@ export default function SettingsPage() {
 
   return (
     <StudioShell>
-      <div className="px-6 sm:px-10 py-10 max-w-3xl mx-auto">
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-3xl mx-auto">
         <div className="pb-8 border-b border-sand-200">
           <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-[-0.015em] text-ink">
             Account <em className="italic text-sand-600">settings</em>

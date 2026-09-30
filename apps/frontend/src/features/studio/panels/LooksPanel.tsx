@@ -65,12 +65,12 @@ export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose, currentSt
   const shown = cat === "All" ? all : all.filter((l) => l.category === cat);
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap gap-1.5 border-b border-white/10 p-3">
-        <button onClick={() => void saveCurrent()} disabled={saving} className="w-full rounded-lg border border-dashed border-emerald-500/60 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50">
+      <div className="flex flex-wrap gap-1.5 border-b border-st-line p-3">
+        <button onClick={() => void saveCurrent()} disabled={saving} className="w-full rounded-lg border border-dashed border-st-lav/50 px-2.5 py-1.5 text-xs font-medium text-st-lav hover:bg-st-lav/10 disabled:opacity-50">
           {saving ? "Saving…" : "＋ Save current style as a look"}
         </button>
         {cats.map((c) => (
-          <button key={c} onClick={() => setCat(c)} className={`rounded-full px-2.5 py-1 text-xs transition ${cat === c ? "bg-emerald-500 text-black" : "bg-white/10 text-white/70 hover:bg-white/20"}`}>{c}</button>
+          <button key={c} onClick={() => setCat(c)} className={`rounded-full px-2.5 py-1 text-xs transition ${cat === c ? "bg-st-lav text-obsidian" : "bg-st-raised text-st-text/80 hover:bg-st-hover"}`}>{c}</button>
         ))}
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-2 auto-rows-max content-start gap-2 overflow-y-auto p-3">
@@ -78,19 +78,19 @@ export const LooksPanel: React.FC<Props> = ({ currentLookId, onChoose, currentSt
           <button
             key={look.id}
             onClick={() => onChoose(look)}
-            className={`group flex shrink-0 flex-col overflow-hidden rounded-xl border text-left transition ${look.id === currentLookId ? "border-emerald-500 ring-1 ring-emerald-500" : "border-white/10 hover:border-white/30"}`}
+            className={`group flex shrink-0 flex-col overflow-hidden rounded-xl border text-left transition ${look.id === currentLookId ? "border-st-lav ring-1 ring-st-lav" : "border-st-line hover:border-white/30"}`}
           >
-            <div className="flex h-20 items-center justify-center bg-gradient-to-br from-[#2b2b3a] to-[#1a1a24] px-2 text-center text-[19px] leading-tight">
+            <div className="flex h-20 items-center justify-center bg-gradient-to-br from-[#2C2C27] to-[#151513] px-2 text-center text-[19px] leading-tight">
               <span style={swatchStyle(look)}>
                 {look.templateId === "word_by_word" ? "WATCH" : "Watch this"} <span style={{ color: look.style.active.color }}>now</span>
               </span>
             </div>
             <div className="relative px-2.5 py-2">
               {look.category === "My looks" ? (
-                <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="absolute right-2 top-2 text-xs text-white/30 hover:text-red-300">✕</span>
+                <span role="button" aria-label={`Delete ${look.name}`} onClick={(e) => { e.stopPropagation(); removeLook(look); }} className="absolute right-2 top-2 text-xs text-st-faint hover:text-red-300">✕</span>
               ) : null}
-              <div className="truncate pr-4 text-sm font-medium text-white">{look.name}</div>
-              <div className="truncate text-[11px] text-white/40">{look.category}</div>
+              <div className="truncate pr-4 text-sm font-medium text-st-text">{look.name}</div>
+              <div className="truncate text-[11px] text-st-faint">{look.category}</div>
             </div>
           </button>
         ))}

@@ -62,7 +62,7 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
   const style = useMemo<React.CSSProperties>(() => ({ width: "100%", height: "100%" }), []);
   return (
     <div className="flex h-full w-full items-center justify-center p-3">
-      <div ref={boxRef} className="relative overflow-hidden rounded-xl bg-black shadow-2xl" style={{ aspectRatio: `${width} / ${height}`, height: "100%", maxWidth: "100%" }}>
+      <div ref={boxRef} className="group relative overflow-hidden rounded-xl bg-black shadow-2xl ring-1 ring-st-line" style={{ aspectRatio: `${width} / ${height}`, height: "100%", maxWidth: "100%" }}>
         <Player
           ref={setRef}
           component={CaptionedVideo as unknown as React.ComponentType<Record<string, unknown>>}
@@ -77,14 +77,14 @@ export const StudioPlayer = forwardRef<PlayerRef, Props>(function StudioPlayer({
           acknowledgeRemotionLicense
           numberOfSharedAudioTags={0}
         />
-        {dragging ? <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-emerald-400/50" /> : null}
+        {dragging ? <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-st-em/50" /> : null}
         <div
           role="slider"
           aria-label="Caption position (drag)"
           aria-valuenow={Math.round(position.y * 100)}
           tabIndex={0}
           title="Drag to move captions"
-          className={`absolute z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-emerald-400 bg-emerald-400/30 backdrop-blur ${dragging ? "cursor-grabbing scale-125" : "opacity-70 hover:opacity-100"} transition-transform`}
+          className={`absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-st-lav bg-st-lav/25 shadow-[0_0_0_4px_rgba(0,0,0,0.25)] backdrop-blur transition ${dragging ? "scale-125 cursor-grabbing opacity-100" : "opacity-0 group-hover:opacity-90 focus:opacity-100 [@media(hover:none)]:opacity-60"}`}
           style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
           onPointerDown={(e) => { (e.target as HTMLElement).setPointerCapture(e.pointerId); setDragging(true); }}
           onPointerMove={(e) => dragging && move(e)}

@@ -102,7 +102,7 @@ try {
 
   const text = await page.evaluate(() => document.body.innerText);
   check("caption words are listed", /scrolling/i.test(text) && /incredible/i.test(text), text.slice(0, 300));
-  check("default look applied and saved", (await admin.from("projects").select("look_id, style_json").eq("id", pid).single()).data.look_id === "hormozi_viral");
+  check("default look applied and saved", (await admin.from("projects").select("look_id, style_json").eq("id", pid).single()).data.look_id === "hormozi_box");
   const hasVideo = await page.evaluate(() => { const v = document.querySelector("video"); return v ? { rs: v.readyState, w: v.videoWidth, src: !!v.currentSrc } : null; });
   check("Player has a video element with a signed source", !!hasVideo?.src, JSON.stringify(hasVideo));
 
@@ -114,10 +114,10 @@ try {
   // ---------- 5. Looks tab
   await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((b) => /Looks/.test(b.textContent))?.click());
   await sleep(800);
-  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /MrBeast Punch/.test(b.textContent))?.click());
+  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Beast Bounce/.test(b.textContent))?.click());
   await sleep(1500);
   const { data: afterLook } = await admin.from("projects").select("look_id, template_id, style_json").eq("id", pid).single();
-  check("choosing a look persists (look, template, style)", afterLook.look_id === "mrbeast_punch" && afterLook.template_id === "word_by_word" && afterLook.style_json.fontId === "Lilita One", JSON.stringify(afterLook).slice(0, 200));
+  check("choosing a look persists (look, template, style)", afterLook.look_id === "beast_bounce" && afterLook.template_id === "word_by_word" && afterLook.style_json.fontId === "Luckiest Guy", JSON.stringify(afterLook).slice(0, 200));
   await page.screenshot({ path: join(SHOTS, "6-looks.png") });
 
   // ---------- 6. Style tab: change size, position

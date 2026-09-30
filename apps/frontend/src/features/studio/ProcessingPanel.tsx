@@ -46,19 +46,19 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
       <Center>
         <div className="mb-2 text-3xl">💻</div>
         <h2 className="text-lg font-semibold">Waiting for your computer</h2>
-        <p className="mt-2 text-sm text-white/60">
+        <p className="mt-2 text-sm text-st-muted">
           Captions are made privately on your own computer, so nothing heavy runs in the cloud. Your video is uploaded and safe. Start the CapsEasy Companion and it will pick this up automatically.
         </p>
-        <div className="mt-4 space-y-2 rounded-xl bg-white/5 p-4 text-left text-sm">
-          <p className="font-medium text-white">First time?</p>
-          <ol className="list-decimal space-y-1 pl-5 text-white/70">
+        <div className="mt-4 space-y-2 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
+          <p className="font-medium text-st-text">First time?</p>
+          <ol className="list-decimal space-y-1 pl-5 text-st-text/80">
             <li>Install the Companion (one command, see Settings).</li>
-            <li>Run <code className="rounded bg-black/40 px-1.5 py-0.5 text-emerald-300">capseasy login</code> and approve it in the browser.</li>
-            <li>Run <code className="rounded bg-black/40 px-1.5 py-0.5 text-emerald-300">capseasy start</code> and leave it running.</li>
+            <li>Run <code className="rounded bg-black/40 px-1.5 py-0.5 text-st-lav">capseasy login</code> and approve it in the browser.</li>
+            <li>Run <code className="rounded bg-black/40 px-1.5 py-0.5 text-st-lav">capseasy start</code> and leave it running.</li>
           </ol>
         </div>
         <div className="mt-5 flex gap-2">
-          <Link href="/settings" className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-black hover:bg-emerald-400">Set up Companion</Link>
+          <Link href="/settings" className="rounded-lg bg-st-lav px-4 py-2 text-sm font-semibold text-obsidian hover:bg-st-lav-strong">Set up Companion</Link>
           <Button disabled={busy} onClick={() => act(() => studioService.cancelJob(job.id))}>Cancel</Button>
         </div>
         {cloudAvailable ? (
@@ -67,7 +67,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
             <Button className="mt-2" disabled={busy} onClick={() => act(() => studioService.transcribe(projectId, "cloud"))}>☁ Use the cloud instead</Button>
           </div>
         ) : null}
-        <p className="mt-4 text-xs text-white/40">This page updates by itself the moment your computer connects.</p>
+        <p className="mt-4 text-xs text-st-faint">This page updates by itself the moment your computer connects.</p>
       </Center>
     );
   }
@@ -76,15 +76,15 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     const pct = Math.max(2, Math.min(100, job.progress ?? 0));
     return (
       <Center>
-        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-emerald-400" />
+        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-lav" />
         <h2 className="text-lg font-semibold">{job.status === "queued" ? "Starting…" : job.stage ?? "Working…"}</h2>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-st-muted">
           {job.kind === "transcribe" ? "Listening to your video and writing the captions." : "This can take a moment."}
         </p>
-        <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+        <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-raised">
+          <div className="h-full rounded-full bg-st-em transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
-        <p className="mt-2 text-xs tabular-nums text-white/40">{Math.round(job.progress ?? 0)}%</p>
+        <p className="mt-2 text-xs tabular-nums text-st-faint">{Math.round(job.progress ?? 0)}%</p>
         <Button className="mt-4" disabled={busy} onClick={() => act(() => studioService.cancelJob(job.id))}>Cancel</Button>
       </Center>
     );
@@ -95,7 +95,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
       <Center>
         <div className="mb-2 text-3xl">🎙️</div>
         <h2 className="text-lg font-semibold">Your video is ready for captions</h2>
-        <p className="mt-2 text-sm text-white/60">This project doesn't have captions yet. Generate them on your computer, privately.</p>
+        <p className="mt-2 text-sm text-st-muted">This project doesn't have captions yet. Generate them on your computer, privately.</p>
         <div className="mt-5 flex justify-center gap-2">
           <Button tone="primary" disabled={busy} onClick={() => act(() => studioService.transcribe(projectId))}>Generate captions</Button>
           <Button onClick={onReplaceVideo}>Upload a different video</Button>
@@ -107,7 +107,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
   return (
     <Center>
       <h2 className="text-lg font-semibold">Your video is uploaded</h2>
-      <p className="mt-2 text-sm text-white/50">Captions will appear here as soon as they are ready.</p>
+      <p className="mt-2 text-sm text-st-muted">Captions will appear here as soon as they are ready.</p>
     </Center>
   );
 };

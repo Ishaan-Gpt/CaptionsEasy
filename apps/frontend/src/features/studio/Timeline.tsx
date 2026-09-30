@@ -17,6 +17,10 @@ interface Props {
   onSelect: (wordId: string | null) => void;
   /** commit a word's new timing (called once, on pointer up) */
   onRetime: (wordId: string, startMs: number, endMs: number) => void;
+  /** editing actions shown at the left of the timeline header */
+  toolbar?: React.ReactNode;
+  /** true on phones: the timeline is the whole panel */
+  fill?: boolean;
 }
 
 const LABEL_W = 88;
@@ -24,7 +28,7 @@ const MIN_WORD_MS = 40;
 type Drag = { id: string; mode: "move" | "start" | "end"; x0: number; s0: number; e0: number; min: number; max: number; s: number; e: number };
 
 /** Multi-track editor: ruler, caption cards, per-word blocks (drag edges or body to retime), video bar, audio waveform. */
-export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, selectedId, peaks, waveState, onSeek, onSelect, onRetime }) => {
+export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, selectedId, peaks, waveState, onSeek, onSelect, onRetime, toolbar }) => {
   const total = Math.max(1000, durationMs);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -96,41 +100,41 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
     onSeek(Math.max(0, Math.min(total, (e.clientX - r.left) / pxPerMs)));
   };
 
-  const trackRow = "relative h-full border-b border-white/5";
+  const trackRow = "relative h-full border-b border-st-line/60";
   return (
-    <div role="region" aria-label="Timeline" className="flex h-56 shrink-0 flex-col border-t border-white/10 bg-[#141414] select-none">
-      <div className="flex items-center gap-3 border-b border-white/10 px-3 py-1.5 text-xs text-white/60">
-        <span className="tabular-nums text-white">{fmtTime(timeMs)}</span>
-        <span className="tabular-nums">/ {fmtTime(total)}</span>
-        <span className="ml-auto">Zoom</span>
-        <button onClick={() => setZoom((z) => Math.max(1, z / 1.6))} className="rounded px-1.5 hover:bg-white/10" aria-label="Zoom out">−</button>
-        <input type="range" min={0} max={100} value={Math.round((Math.log(zoom) / Math.log(40)) * 100)} onChange={(e) => setZoom(Math.pow(40, Number(e.target.value) / 100))} className="w-32 accent-emerald-500" aria-label="Timeline zoom" />
-        <button onClick={() => setZoom((z) => Math.min(40, z * 1.6))} className="rounded px-1.5 hover:bg-white/10" aria-label="Zoom in">+</button>
-        <button onClick={() => setZoom(1)} className="rounded px-2 py-0.5 hover:bg-white/10">Fit</button>
+    <div role="region" aria-label="Timeline" className="flex h-full min-h-0 flex-col bg-st-bg select-none">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-st-line bg-st-panel px-3 py-1.5 text-xs text-st-muted">
+        {toolbar}
+        <span className="ml-auto rounded-md bg-st-raised px-2 py-1 font-mono tabular-nums text-st-text">{fmtTime(timeMs)} <span className="text-st-faint">/ {fmtTime(total)}</span></span>
+        <span className="hidden sm:inline">Zoom</span>
+        <button onClick={() => setZoom((z) => Math.max(1, z / 1.6))} className="rounded px-1.5 hover:bg-st-hover" aria-label="Zoom out">−</button>
+        <input type="range" min={0} max={100} value={Math.round((Math.log(zoom) / Math.log(40)) * 100)} onChange={(e) => setZoom(Math.pow(40, Number(e.target.value) / 100))} className="w-32 accent-[#34D399]" aria-label="Timeline zoom" />
+        <button onClick={() => setZoom((z) => Math.min(40, z * 1.6))} className="rounded px-1.5 hover:bg-st-hover" aria-label="Zoom in">+</button>
+        <button onClick={() => setZoom(1)} className="rounded px-2 py-0.5 hover:bg-st-hover">Fit</button>
       </div>
 
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden" onPointerMove={onMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
-        <div className="grid h-full" style={{ gridTemplateColumns: `${LABEL_W}px ${width}px`, gridTemplateRows: "22px 1fr 1.3fr 26px 1fr" }}>
+        <div className="grid h-full" style={{ gridTemplateColumns: `${LABEL_W}px ${width}px`, gridTemplateRows: "24px minmax(34px,0.9fr) minmax(40px,1.2fr) minmax(24px,0.6fr) minmax(40px,1.1fr)" }}>
           {/* labels (sticky) */}
-          <div className="sticky left-0 z-20 row-span-5 grid bg-[#141414] text-[11px] text-white/50" style={{ gridTemplateRows: "22px 1fr 1.3fr 26px 1fr" }}>
+          <div className="sticky left-0 z-20 row-span-5 grid border-r border-st-line bg-st-panel text-[11px] text-st-muted" style={{ gridTemplateRows: "24px minmax(34px,0.9fr) minmax(40px,1.2fr) minmax(24px,0.6fr) minmax(40px,1.1fr)" }}>
             <div />
-            <div className="flex items-center gap-1.5 border-b border-white/5 px-2">▭ Cards</div>
-            <div className="flex items-center gap-1.5 border-b border-white/5 px-2 text-amber-300/80">𝐈 Words</div>
-            <div className="flex items-center gap-1.5 border-b border-white/5 px-2 text-sky-300/80">▶ Video</div>
-            <div className="flex items-center gap-1.5 px-2 text-emerald-300/80">♫ Audio</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line/60 px-2">▭ Cards</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line/60 px-2 text-st-or">𝐈 Words</div>
+            <div className="flex items-center gap-1.5 border-b border-st-line/60 px-2 text-st-text/80">▶ Video</div>
+            <div className="flex items-center gap-1.5 px-2 text-st-lav/80">♫ Audio</div>
           </div>
 
           {/* ruler */}
-          <div className="relative cursor-pointer border-b border-white/10" onClick={seekFromEvent}>
+          <div className="relative cursor-pointer border-b border-st-line" onClick={seekFromEvent}>
             {ticks.map((t) => (
-              <div key={t} className="absolute top-0 h-full border-l border-white/15 pl-1 text-[10px] tabular-nums text-white/40" style={{ left: x(t) }}>{fmtTime(t)}</div>
+              <div key={t} className="absolute top-0 h-full border-l border-st-line pl-1 text-[10px] tabular-nums text-st-faint" style={{ left: x(t) }}>{fmtTime(t)}</div>
             ))}
           </div>
 
           {/* cards */}
           <div className={trackRow} onClick={seekFromEvent}>
             {pages.map((p) => (
-              <div key={p.id} className={`absolute top-1.5 bottom-1.5 overflow-hidden rounded px-1 text-[10px] leading-5 ${timeMs >= p.startMs && timeMs < p.endMs ? "bg-emerald-500/80 text-black" : "bg-white/10 text-white/60"}`} style={{ left: x(p.startMs), width: Math.max(2, x(p.endMs) - x(p.startMs) - 1) }} title={p.words.map((w) => w.text).join(" ")}>
+              <div key={p.id} className={`absolute top-1.5 bottom-1.5 overflow-hidden rounded px-1 text-[10px] leading-5 ${timeMs >= p.startMs && timeMs < p.endMs ? "bg-st-em/85 text-obsidian" : "bg-st-raised text-st-muted"}`} style={{ left: x(p.startMs), width: Math.max(2, x(p.endMs) - x(p.startMs) - 1) }} title={p.words.map((w) => w.text).join(" ")}>
                 <span className="whitespace-nowrap">{p.words.map((w) => w.text).join(" ")}</span>
               </div>
             ))}
@@ -148,7 +152,7 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
                   onPointerDown={(e) => beginDrag(e, w, "move")}
                   onClick={(e) => { e.stopPropagation(); onSelect(w.id); onSeek(w.startMs + 1); }}
                   title={`${w.text}  ${fmtTime(live.s)} – ${fmtTime(live.e)}`}
-                  className={`absolute top-2 bottom-2 cursor-grab overflow-hidden rounded text-[11px] leading-7 ${sel ? "bg-amber-300 text-black ring-2 ring-amber-100" : "bg-amber-400/70 text-black/80 hover:bg-amber-300"}`}
+                  className={`absolute top-2 bottom-2 cursor-grab overflow-hidden rounded text-[11px] leading-7 ${sel ? "bg-st-lav text-obsidian ring-2 ring-st-lav/40" : "bg-st-or/85 text-obsidian hover:bg-st-or"}`}
                   style={{ left: x(live.s), width: wpx }}
                 >
                   {wpx > 18 ? <span className="px-1.5 whitespace-nowrap">{w.text}</span> : null}
@@ -165,18 +169,18 @@ export const Timeline: React.FC<Props> = ({ pages, words, durationMs, timeMs, se
 
           {/* video */}
           <div className={trackRow} onClick={seekFromEvent}>
-            <div className="absolute inset-y-1 left-0 rounded bg-sky-700/70 px-2 text-[10px] leading-5 text-white" style={{ width: x(total) }}>Video</div>
+            <div className="absolute inset-y-1 left-0 rounded-md bg-[#0F3D2E] px-2 text-[10px] leading-5 text-st-text/90" style={{ width: x(total) }}>Video</div>
           </div>
 
           {/* audio waveform */}
           <div className="relative" onClick={seekFromEvent}>
             <Waveform peaks={peaks} width={width} />
-            {waveState !== "ready" ? <span className="absolute left-2 top-1 text-[10px] text-white/30">{waveState === "loading" ? "Loading audio…" : waveState === "unavailable" ? "Waveform unavailable for this file" : ""}</span> : null}
+            {waveState !== "ready" ? <span className="absolute left-2 top-1 text-[10px] text-st-faint">{waveState === "loading" ? "Loading audio…" : waveState === "unavailable" ? "Waveform unavailable for this file" : ""}</span> : null}
           </div>
 
           {/* playhead across all tracks */}
-          <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-emerald-400" style={{ left: LABEL_W + x(timeMs) }}>
-            <div className="absolute -left-1.5 -top-0.5 h-3 w-3 rotate-45 bg-emerald-400" />
+          <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-st-lav" style={{ left: LABEL_W + x(timeMs) }}>
+            <div className="absolute -left-1.5 -top-0.5 h-3 w-3 rotate-45 bg-st-lav" />
           </div>
         </div>
       </div>
@@ -195,7 +199,7 @@ const Waveform: React.FC<{ peaks: Float32Array | null; width: number }> = ({ pea
     c.height = h;
     const g = c.getContext("2d")!;
     g.clearRect(0, 0, w, h);
-    g.fillStyle = "rgba(52,211,153,0.75)";
+    g.fillStyle = "rgba(52,211,153,0.7)";
     const per = peaks.length / w;
     for (let px = 0; px < w; px++) {
       let m = 0;

@@ -87,49 +87,49 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
   const rows = exportsQ.data ?? [];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div role="dialog" aria-label="Export" onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#161616] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+      <div role="dialog" aria-label="Export" onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-st-line bg-st-panel shadow-2xl">
+        <div className="flex items-center justify-between border-b border-st-line px-5 py-4">
           <h2 className="text-lg font-semibold">Export</h2>
-          <button onClick={onClose} aria-label="Close" className="text-white/50 hover:text-white">✕</button>
+          <button onClick={onClose} aria-label="Close" className="text-st-muted hover:text-st-text">✕</button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          {saving ? <p className="mb-3 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/60">Saving your latest edits first…</p> : null}
+          {saving ? <p className="mb-3 rounded-lg bg-st-raised/70 px-3 py-2 text-xs text-st-muted">Saving your latest edits first…</p> : null}
           {!companionOnline ? (
             <p className="mb-4 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
               Your computer isn't connected. Video exports will wait in the queue and start automatically when you run <code className="rounded bg-black/40 px-1">capseasy start</code>. Subtitle files download right away.
             </p>
           ) : null}
 
-          <div className="mb-3 flex items-center justify-between text-sm text-white/70">
+          <div className="mb-3 flex items-center justify-between text-sm text-st-text/80">
             <span>Video quality</span>
-            <div className="inline-flex rounded-lg bg-white/10 p-0.5">
+            <div className="inline-flex rounded-lg bg-st-raised p-0.5">
               {(["high", "balanced", "small"] as const).map((q) => (
-                <button key={q} onClick={() => setQuality(q)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${quality === q ? "bg-emerald-500 text-black" : "text-white/70"}`}>{q}</button>
+                <button key={q} onClick={() => setQuality(q)} className={`rounded-md px-2.5 py-1 text-xs capitalize ${quality === q ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{q}</button>
               ))}
             </div>
           </div>
 
-          <div className="mb-3 flex items-center justify-between text-sm text-white/70">
+          <div className="mb-3 flex items-center justify-between text-sm text-st-text/80">
             <span>Resolution</span>
-            <div className="inline-flex rounded-lg bg-white/10 p-0.5">
+            <div className="inline-flex rounded-lg bg-st-raised p-0.5">
               {([["source", `Original (${short}p)`], ["1080", "1080p"], ["720", "720p"]] as const).map(([v, label]) => (
-                <button key={v} disabled={v !== "source" && short <= Number(v)} onClick={() => setRes(v)} className={`rounded-md px-2.5 py-1 text-xs disabled:opacity-30 ${res === v ? "bg-emerald-500 text-black" : "text-white/70"}`}>{label}</button>
+                <button key={v} disabled={v !== "source" && short <= Number(v)} onClick={() => setRes(v)} className={`rounded-md px-2.5 py-1 text-xs disabled:opacity-30 ${res === v ? "bg-st-lav text-obsidian" : "text-st-text/80"}`}>{label}</button>
               ))}
             </div>
           </div>
-          <div className="mb-4 rounded-xl bg-white/[0.03] p-3 text-sm text-white/70">
+          <div className="mb-4 rounded-xl bg-st-raised/50 p-3 text-sm text-st-text/80">
             <label className="flex cursor-pointer items-center gap-2">
-              <input type="checkbox" checked={trim} onChange={(e) => setTrim(e.target.checked)} className="accent-emerald-500" />
+              <input type="checkbox" checked={trim} onChange={(e) => setTrim(e.target.checked)} className="accent-[#34D399]" />
               Only export part of the video
             </label>
             {trim ? (
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span>From</span>
-                <input type="number" min={0} max={totalS} step={0.1} value={startS} onChange={(e) => setStartS(Number(e.target.value))} className="w-20 rounded border border-white/10 bg-[#1f1f1f] px-2 py-1" aria-label="Trim start (seconds)" />
+                <input type="number" min={0} max={totalS} step={0.1} value={startS} onChange={(e) => setStartS(Number(e.target.value))} className="w-20 rounded border border-st-line bg-st-raised px-2 py-1" aria-label="Trim start (seconds)" />
                 <span>to</span>
-                <input type="number" min={0} max={totalS} step={0.1} value={endS} onChange={(e) => setEndS(Number(e.target.value))} className="w-20 rounded border border-white/10 bg-[#1f1f1f] px-2 py-1" aria-label="Trim end (seconds)" />
-                <span className="text-white/40">seconds of {totalS}s</span>
+                <input type="number" min={0} max={totalS} step={0.1} value={endS} onChange={(e) => setEndS(Number(e.target.value))} className="w-20 rounded border border-st-line bg-st-raised px-2 py-1" aria-label="Trim end (seconds)" />
+                <span className="text-st-faint">seconds of {totalS}s</span>
                 {!trimValid ? <span className="text-red-300">Pick a range of at least 0.5 s</span> : null}
               </div>
             ) : null}
@@ -141,10 +141,10 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
                 key={o.kind}
                 disabled={busyKind !== null || (o.needsComputer && !trimValid)}
                 onClick={() => void start(o)}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-emerald-500/60 hover:bg-emerald-500/5 disabled:opacity-50"
+                className="rounded-xl border border-st-line bg-st-raised/50 p-3 text-left transition hover:border-st-lav/50 hover:bg-st-em/5 disabled:opacity-50"
               >
-                <div className="text-sm font-medium text-white">{busyKind === o.kind ? "Working…" : o.title}</div>
-                <div className="mt-0.5 text-xs text-white/50">{o.desc}</div>
+                <div className="text-sm font-medium text-st-text">{busyKind === o.kind ? "Working…" : o.title}</div>
+                <div className="mt-0.5 text-xs text-st-muted">{o.desc}</div>
               </button>
             ))}
           </div>
@@ -152,13 +152,13 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
 
           {rows.length > 0 ? (
             <div className="mt-6">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/50">Your exports</h3>
-              <ul className="divide-y divide-white/5 rounded-xl border border-white/10">
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-st-muted">Your exports</h3>
+              <ul className="divide-y divide-white/5 rounded-xl border border-st-line">
                 {rows.map((r) => (
                   <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
                     <div className="min-w-0">
-                      <div className="truncate text-white">{KIND_LABEL[r.kind ?? ""] ?? r.kind}{r.resolution ? <span className="text-white/40"> · {r.resolution}</span> : null}</div>
-                      <div className="text-xs text-white/40">{new Date(r.created_at).toLocaleString()}{r.file_size ? ` · ${fmtBytes(r.file_size)}` : ""}{r.render_duration_ms ? ` · rendered in ${fmtTime(r.render_duration_ms)}` : ""}</div>
+                      <div className="truncate text-st-text">{KIND_LABEL[r.kind ?? ""] ?? r.kind}{r.resolution ? <span className="text-st-faint"> · {r.resolution}</span> : null}</div>
+                      <div className="text-xs text-st-faint">{new Date(r.created_at).toLocaleString()}{r.file_size ? ` · ${fmtBytes(r.file_size)}` : ""}{r.render_duration_ms ? ` · rendered in ${fmtTime(r.render_duration_ms)}` : ""}</div>
                     </div>
                     {r.status_v2 === "ready" ? (
                       <Button tone="primary" onClick={() => void download(r.id)}>Download</Button>
@@ -173,7 +173,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, video, companionOnline
                         {r.job_id ? <Button className="!px-2 !py-1 text-xs" onClick={() => void studioService.retryJob(r.job_id!).then(() => exportsQ.refetch())}>Retry</Button> : null}
                       </div>
                     ) : (
-                      <span className="text-xs text-white/40">Expired</span>
+                      <span className="text-xs text-st-faint">Expired</span>
                     )}
                   </li>
                 ))}

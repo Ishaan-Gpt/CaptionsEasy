@@ -5,24 +5,24 @@ import React from "react";
 /** Small dark-theme form primitives shared by the studio panels. */
 
 export const Section: React.FC<{ title: string; children: React.ReactNode; hint?: string }> = ({ title, children, hint }) => (
-  <section className="border-b border-white/10 px-4 py-4">
-    <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-white/50">{title}</h3>
-    {hint ? <p className="mb-3 text-xs text-white/40">{hint}</p> : null}
+  <section className="border-b border-st-line px-4 py-4">
+    <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-st-muted">{title}</h3>
+    {hint ? <p className="mb-3 text-xs text-st-faint">{hint}</p> : null}
     <div className="space-y-3">{children}</div>
   </section>
 );
 
-const row = "flex items-center justify-between gap-3 text-sm text-white/80";
+const row = "flex items-center justify-between gap-3 text-sm text-st-text/90";
 
 export const Slider: React.FC<{ label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (v: number) => void; format?: (v: number) => string }> = ({
   label, value, min, max, step = 1, unit = "", onChange, format,
 }) => (
-  <label className="block text-sm text-white/80">
+  <label className="block text-sm text-st-text/90">
     <span className="mb-1 flex justify-between">
       <span>{label}</span>
-      <span className="tabular-nums text-white/50">{format ? format(value) : `${Math.round(value * 100) / 100}${unit}`}</span>
+      <span className="tabular-nums text-st-muted">{format ? format(value) : `${Math.round(value * 100) / 100}${unit}`}</span>
     </span>
-    <input type="range" className="w-full accent-emerald-500" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    <input type="range" className="w-full accent-[#34D399]" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
   </label>
 );
 
@@ -30,14 +30,14 @@ export const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: b
   <label className={`${row} cursor-pointer`}>
     <span>
       {label}
-      {hint ? <span className="block text-xs text-white/40">{hint}</span> : null}
+      {hint ? <span className="block text-xs text-st-faint">{hint}</span> : null}
     </span>
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-emerald-500" : "bg-white/20"}`}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-st-em" : "bg-st-hover"}`}
     >
       <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
     </button>
@@ -50,7 +50,7 @@ export const Select: React.FC<{ label: string; value: string; options: { value: 
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="max-w-[55%] rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1 text-sm text-white outline-none focus:border-emerald-500"
+      className="max-w-[55%] rounded-md border border-st-line bg-st-raised px-2 py-1 text-sm text-st-text outline-none focus:border-st-lav"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -71,9 +71,9 @@ export const ColorField: React.FC<{ label: string; value: string; onChange: (v: 
           value={value}
           onChange={(e) => onChange(e.target.value)}
           spellCheck={false}
-          className="w-24 rounded-md border border-white/10 bg-[#1f1f1f] px-2 py-1 font-mono text-xs text-white outline-none focus:border-emerald-500"
+          className="w-24 rounded-md border border-st-line bg-st-raised px-2 py-1 font-mono text-xs text-st-text outline-none focus:border-st-lav"
         />
-        <input type="color" value={hex} onChange={(e) => onChange(e.target.value.toUpperCase())} className="h-7 w-7 cursor-pointer rounded border border-white/10 bg-transparent p-0" />
+        <input type="color" value={hex} onChange={(e) => onChange(e.target.value.toUpperCase())} className="h-7 w-7 cursor-pointer rounded border border-st-line bg-transparent p-0" />
       </span>
     </label>
   );
@@ -83,19 +83,19 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   <button
     {...p}
     className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-      tone === "primary" ? "bg-emerald-500 text-black hover:bg-emerald-400" : tone === "danger" ? "bg-red-500/15 text-red-300 hover:bg-red-500/25" : "bg-white/10 text-white hover:bg-white/20"
+      tone === "primary" ? "bg-st-lav text-obsidian hover:bg-st-lav-strong" : tone === "danger" ? "bg-red-500/15 text-red-300 hover:bg-red-500/25" : "bg-st-raised text-st-text hover:bg-st-hover"
     } ${className}`}
   />
 );
 
 export const Segmented: React.FC<{ value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }> = ({ value, options, onChange }) => (
-  <div className="inline-flex rounded-lg bg-white/10 p-0.5">
+  <div className="inline-flex rounded-lg bg-st-raised p-0.5">
     {options.map((o) => (
       <button
         key={o.value}
         type="button"
         onClick={() => onChange(o.value)}
-        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${value === o.value ? "bg-emerald-500 text-black" : "text-white/70 hover:text-white"}`}
+        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${value === o.value ? "bg-st-lav text-obsidian" : "text-st-text/80 hover:text-st-text"}`}
       >
         {o.label}
       </button>

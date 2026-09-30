@@ -93,11 +93,11 @@ export default function DashboardPage() {
 
   return (
     <StudioShell>
-      <div className="px-6 sm:px-10 py-10 max-w-5xl mx-auto">
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4 pb-8 border-b border-sand-200">
-          <div>
-            <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-[-0.015em] text-ink">
+          <div className="min-w-0">
+            <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-[-0.015em] text-ink break-words">
               {firstName ? (
                 <>
                   Welcome back, <em className="italic text-sand-600">{firstName}.</em>

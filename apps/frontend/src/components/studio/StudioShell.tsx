@@ -7,13 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { authService } from "@/services/auth";
 import { User } from "@/services/types";
 
-type HealthChecks = { database: boolean; redis: boolean };
+type HealthChecks = { database: boolean; queue: boolean };
 
-// /health/ready is mounted at the API root, not under /api/v1 — strip the
-// versioned prefix from the configured API base URL to reach it.
-const HEALTH_URL =
-  (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1").replace(/\/api\/v1\/?$/, "") +
-  "/health/ready";
+// same-origin readiness probe (database + Postgres job queue)
+const HEALTH_URL = "/health/ready";
 
 const NAV = [
   {
@@ -89,10 +86,30 @@ export default function StudioShell({ children }: { children: React.ReactNode })
     }
   };
 
+  const healthy = health ? health.database && health.queue : undefined;
   return (
-    <div className="min-h-screen bg-dune-white flex">
+    <div className="min-h-screen bg-dune-white md:flex">
+      {/* Mobile top bar (sidebar is hidden below md) */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-sand-200 bg-sand-50/90 px-4 py-3 backdrop-blur md:hidden">
+        <Link href="/dashboard" className="font-serif text-lg font-semibold tracking-tight text-ink">
+          Captions<em className="italic font-medium text-sand-600">Easy</em>
+        </Link>
+        <nav className="flex items-center gap-1">
+          {NAV.map((item) => (
+            <Link key={item.href} href={item.href} aria-label={item.label} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 font-sora text-[12px] font-semibold ${pathname === item.href ? "bg-sand-200 text-ink" : "text-sand-700"}`}>
+              {item.icon}
+              <span className="hidden min-[400px]:inline">{item.label}</span>
+            </Link>
+          ))}
+          <span title={healthy === undefined ? "Checking service" : healthy ? "All systems running" : "Service problem"} className={`ml-1 h-2 w-2 rounded-full ${healthy === undefined ? "bg-sand-300" : healthy ? "bg-emerald-500" : "bg-red-500"}`} />
+          <button onClick={handleSignOut} aria-label="Sign out" className="ml-1 rounded-lg p-2 text-sand-600 hover:bg-sand-100 hover:text-ink">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H9m4 7H7a2 2 0 01-2-2V5a2 2 0 012-2h6" /></svg>
+          </button>
+        </nav>
+      </header>
+
       {/* Sidebar */}
-      <aside className="w-60 shrink-0 border-r border-sand-200 bg-sand-50 flex flex-col">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sand-200 bg-sand-50 md:flex">
         <div className="px-5 py-6">
           <Link href="/dashboard" className="font-serif text-lg font-semibold tracking-tight text-ink">
             Captions<em className="italic font-medium text-sand-600">Easy</em>
@@ -122,9 +139,9 @@ export default function StudioShell({ children }: { children: React.ReactNode })
         <div className="mt-auto">
           {/* Render service health */}
           <div className="mx-5 mb-4 rounded-lg border border-sand-200 bg-white px-4 py-3 space-y-2">
-            <p className="font-sora text-[11px] font-semibold text-sand-700">Render service</p>
+            <p className="font-sora text-[11px] font-semibold text-sand-700">Service status</p>
             <HealthRow label="database" ok={health?.database} pending={health === undefined} />
-            <HealthRow label="job queue" ok={health?.redis} pending={health === undefined} />
+            <HealthRow label="job queue" ok={health?.queue} pending={health === undefined} />
             {health === null && (
               <p className="pt-1 text-[11px] leading-snug text-sand-600">
                 Backend unreachable — uploads and renders are paused.
@@ -164,7 +181,7 @@ export default function StudioShell({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Content */}
-      <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }

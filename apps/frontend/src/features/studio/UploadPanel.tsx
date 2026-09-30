@@ -50,20 +50,20 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note }) =>
           const f = e.dataTransfer.files?.[0];
           if (f && !busy) void start(f);
         }}
-        className={`w-full max-w-xl rounded-2xl border-2 border-dashed p-10 text-center transition ${over ? "border-emerald-400 bg-emerald-500/10" : "border-white/15 bg-white/[0.03]"}`}
+        className={`w-full max-w-xl rounded-2xl border-2 border-dashed p-10 text-center transition ${over ? "border-st-lav bg-st-lav/10" : "border-st-line bg-st-raised/50"}`}
       >
         <div className="mb-3 text-4xl">🎬</div>
         <h2 className="text-lg font-semibold">{busy ? "Uploading your video…" : "Drop your video here"}</h2>
-        <p className="mt-1 text-sm text-white/50">{note ?? "MP4, MOV, WebM or MKV. Captions are created automatically on your computer."}</p>
+        <p className="mt-1 text-sm text-st-muted">{note ?? "MP4, MOV, WebM or MKV. Captions are created automatically on your computer."}</p>
 
         {busy ? (
           <div className="mx-auto mt-6 max-w-sm">
-            <div className="mb-1 flex justify-between text-xs text-white/50">
+            <div className="mb-1 flex justify-between text-xs text-st-muted">
               <span className="truncate pr-3">{fileName}</span>
               <span className="tabular-nums">{progress}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-2 overflow-hidden rounded-full bg-st-raised">
+              <div className="h-full rounded-full bg-st-em transition-all" style={{ width: `${progress}%` }} />
             </div>
             <Button className="mt-4" onClick={() => abortRef.current?.()}>Cancel upload</Button>
           </div>

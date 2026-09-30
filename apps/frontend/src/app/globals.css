@@ -19,9 +19,44 @@
   --color-dune-white: #FFFFEB;
   --color-ink: #1A1A1A;
 
+  /* Warm neutral scale (used by dashboard, settings, auth, pair pages) */
+  --color-sand-50: #FAFAE6;
+  --color-sand-100: #F2F2DC;
+  --color-sand-200: #E4E4D0;
+  --color-sand-300: #CFCFB8;
+  --color-sand-400: #AFAF98;
+  --color-sand-500: #8C8C77;
+  --color-sand-600: #6B6B5A;
+  --color-sand-700: #4E4E42;
+  --color-sand-800: #33332C;
+  --color-sand-900: #1F1F1A;
+
+  /* Studio (editor) palette: the landing page's obsidian sections, cream type, lavender + emerald accents */
+  --color-st-bg: #11110F;
+  --color-st-panel: #181816;
+  --color-st-raised: #21211E;
+  --color-st-hover: #2A2A26;
+  --color-st-line: #2F2F2A;
+  --color-st-text: #FFFFEB;
+  --color-st-muted: #A9A993;
+  --color-st-faint: #6F6F60;
+  --color-st-lav: #F0D7FF;
+  --color-st-lav-strong: #E2BBFF;
+  --color-st-em: #34D399;
+  --color-st-or: #FFA946;
+
+  /* Elevation + motion tokens used across dashboard/auth/landing */
+  --shadow-sand-soft: 0 1px 2px rgba(31, 31, 26, 0.04), 0 8px 24px -12px rgba(31, 31, 26, 0.18);
+  --shadow-sand-deep: 0 2px 4px rgba(31, 31, 26, 0.06), 0 24px 64px -24px rgba(31, 31, 26, 0.35);
+  --animate-fade-in-up: fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-subtle-float: subtle-float 6s ease-in-out infinite;
+  --animate-caption-pop: caption-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
   /* Dual Typography System */
   --font-sans: var(--font-normal-sys), sans-serif;
   --font-styled: var(--font-styled-sys), display, sans-serif;
+  --font-sora: var(--font-styled-sys), sans-serif;
+  --font-serif: var(--font-styled-sys), sans-serif;
 }
 
 :root {
@@ -154,4 +189,29 @@ html.lenis, html.lenis body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #FFA946;
+}
+
+@keyframes fade-in-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes subtle-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes caption-pop { 0% { opacity: 0; transform: scale(0.85); } 100% { opacity: 1; transform: scale(1); } }
+
+/* ---------- Studio (dark editor) ---------- */
+.studio {
+  background: var(--color-st-bg);
+  color: var(--color-st-text);
+  font-family: var(--font-normal-sys), sans-serif;
+}
+.studio ::-webkit-scrollbar { width: 8px; height: 8px; }
+.studio ::-webkit-scrollbar-track { background: transparent; }
+.studio ::-webkit-scrollbar-thumb { background: #34342E; border: 2px solid var(--color-st-bg); border-radius: 8px; }
+.studio ::-webkit-scrollbar-thumb:hover { background: #4A4A42; }
+.studio input[type="range"] { accent-color: var(--color-st-em); }
+.studio .font-display { font-family: var(--font-styled-sys), sans-serif; letter-spacing: -0.01em; }
+
+/* soft entrance for panels (UI chrome only; never used inside rendered captions) */
+@keyframes st-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.st-rise { animation: st-rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-rise, .animate-fade-in-up, .animate-subtle-float, .animate-caption-pop, .animate-marquee-slow, .animate-marquee-fast, .gradient-text-sweep, .conic-glow-pill::before { animation: none !important; }
 }

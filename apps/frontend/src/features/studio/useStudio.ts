@@ -7,7 +7,7 @@ import { applyLook, getLook, resolveStyle, type LookDefinition } from "@capseasy
 import { RevisionConflict, studioService, type StudioData } from "@/services/studio";
 
 export type SaveState = "saved" | "dirty" | "saving" | "offline" | "conflict";
-export const DEFAULT_LOOK = "hormozi_viral";
+export const DEFAULT_LOOK = "hormozi_box";
 
 const SAVE_DEBOUNCE_MS = 800;
 const HISTORY_LIMIT = 200;

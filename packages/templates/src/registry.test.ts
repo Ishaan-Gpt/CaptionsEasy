@@ -22,21 +22,28 @@ describe("template registry", () => {
     warn.mockRestore();
   });
 
-  it("carries 25 legacy + 32 new looks, each pointing at a real template, all valid", () => {
-    expect(LOOKS.filter((l) => l.legacy)).toHaveLength(25);
-    expect(LOOKS.filter((l) => !l.legacy)).toHaveLength(32);
-    expect(new Set(LOOKS.map((l) => l.id)).size).toBe(57);
+  it("gallery is curated: every look is distinct (no two share template + font + effect + fill kind)", () => {
+    expect(LOOKS.length).toBe(34);
+    expect(new Set(LOOKS.map((l) => l.id)).size).toBe(LOOKS.length);
+    const sig = (l: (typeof LOOKS)[number]) => [l.templateId, l.style.fontId, l.style.active.effect, l.style.fill.type, l.style.background.type].join("|");
+    const seen = new Map<string, string>();
+    for (const l of LOOKS) {
+      const k = sig(l);
+      expect(seen.has(k), `${l.id} duplicates ${seen.get(k)}`).toBe(false);
+      seen.set(k, l.id);
+    }
     for (const l of LOOKS) expect(CaptionStyleSchema.safeParse(l.style).success).toBe(true);
     for (const l of LOOKS) expect(KNOWN_FONTS).toContain(l.style.fontId);
     for (const l of LOOKS) expect(TEMPLATE_IDS).toContain(l.templateId);
-    expect(lookCategories().length).toBeGreaterThan(4);
+    // every template is showcased by at least one look
+    for (const id of TEMPLATE_IDS) expect(LOOKS.some((l) => l.templateId === id), id).toBe(true);
   });
 
   it("applyLook returns the look's style and timing settings", () => {
-    const look = getLook("mrbeast_punch")!;
+    const look = getLook("beast_bounce")!;
     const { style, settings } = applyLook(look);
     expect(style.templateId).toBe("word_by_word");
-    expect(style.fontId).toBe("Lilita One");
+    expect(style.fontId).toBe("Luckiest Guy");
     expect(settings.maxWordsPerCard).toBe(1);
   });
 

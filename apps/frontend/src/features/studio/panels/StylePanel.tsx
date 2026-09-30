@@ -36,23 +36,23 @@ export const StylePanel: React.FC<StyleProps> = ({ style, patch }) => {
         {colors.length ? (
           <div className="flex flex-wrap gap-1.5">
             {colors.map((c) => (
-              <button key={c} title={c} aria-label={`Brand colour ${c}`} onClick={(e) => patch((s) => (e.shiftKey ? { ...s, fill: { type: "solid", color: c } } : { ...s, active: { ...s.active, color: c } }))} className="h-7 w-7 rounded-md border border-white/20" style={{ backgroundColor: c }} />
+              <button key={c} title={c} aria-label={`Brand colour ${c}`} onClick={(e) => patch((s) => (e.shiftKey ? { ...s, fill: { type: "solid", color: c } } : { ...s, active: { ...s.active, color: c } }))} className="h-7 w-7 rounded-md border border-st-line" style={{ backgroundColor: c }} />
             ))}
           </div>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void saveBrand()} className="rounded-md bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20">Save current colours &amp; font</button>
+          <button onClick={() => void saveBrand()} className="rounded-md bg-st-raised px-2.5 py-1 text-xs hover:bg-st-hover">Save current colours &amp; font</button>
           {brand.data?.fontId && brand.data.fontId !== style.fontId ? (
-            <button onClick={() => patch((s) => ({ ...s, fontId: brand.data!.fontId! }))} className="rounded-md bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20">Use brand font ({brand.data.fontId})</button>
+            <button onClick={() => patch((s) => ({ ...s, fontId: brand.data!.fontId! }))} className="rounded-md bg-st-raised px-2.5 py-1 text-xs hover:bg-st-hover">Use brand font ({brand.data.fontId})</button>
           ) : null}
         </div>
       </Section>
 
       <Section title="Layout">
         <Select label="Template" value={style.templateId} options={TEMPLATES.map((t) => ({ value: t.id, label: t.name }))} onChange={(v) => patch((s) => ({ ...s, templateId: v }))} />
-        <p className="text-xs text-white/40">{tpl.description}</p>
+        <p className="text-xs text-st-faint">{tpl.description}</p>
         {tpl.layout === "sentence" ? (
-          <div className="flex items-center justify-between text-sm text-white/80">
+          <div className="flex items-center justify-between text-sm text-st-text/90">
             <span>Words appear</span>
             <Segmented value={reveal} options={[{ value: "progressive", label: "As spoken" }, { value: "all", label: "All at once" }]} onChange={(v) => patch((s) => ({ ...s, templateOptions: { ...s.templateOptions, reveal: v } }))} />
           </div>
