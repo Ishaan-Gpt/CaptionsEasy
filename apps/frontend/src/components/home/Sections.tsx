@@ -30,19 +30,21 @@ export function Nav() {
   return (
     <div data-nav className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-4 sm:pt-4">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-2xl border border-[#1A1A1A]/10 bg-[#FFFFEB]/85 px-4 py-2.5 shadow-[0_8px_30px_-12px_rgba(26,26,26,0.25)] backdrop-blur-md">
-        <Link href="/" aria-label="CaptionsEasy home"><Logo /></Link>
+        <Link href="/" aria-label="CaptionsEasy home" className="transition-transform duration-200 hover:scale-105">
+          <Logo />
+        </Link>
         <nav className="hidden items-center gap-7 text-sm font-semibold text-[#1A1A1A]/80 md:flex">
           {NAV_LINKS.map(([label, href]) => (
-            <a key={href} href={href} className="group relative py-1 transition hover:text-[#1A1A1A]">
+            <a key={href} href={href} className="group relative py-1 transition-colors duration-200 hover:text-[#1A1A1A]">
               {label}
               <span className="absolute inset-x-0 -bottom-0.5 h-[2px] origin-left scale-x-0 rounded-full bg-[#FFA946] transition-transform duration-300 group-hover:scale-x-100" />
             </a>
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 hover:text-[#1A1A1A] sm:block">Sign in</Link>
-          <div className="conic-glow-pill rounded-xl p-0.5">
-            <Link href="/login" className="flex items-center gap-1.5 whitespace-nowrap rounded-[14px] border border-[#1A1A1A] bg-[#F0D7FF] px-3 py-2 text-sm font-bold text-[#1A1A1A] transition hover:scale-[1.03]">
+          <Link href="/login" className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
+          <div className="conic-glow-pill rounded-full p-[1px]">
+            <Link href="/login" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-xs sm:text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Start free <span aria-hidden className="hidden sm:inline">→</span>
             </Link>
           </div>
@@ -72,12 +74,12 @@ export function Hero() {
   const headline = ["Don't", "edit,"];
   return (
     <section className="relative overflow-hidden px-4 pb-20 pt-32 sm:pt-36 lg:pb-28">
-      <div data-parallax="0.25" aria-hidden className="pointer-events-none absolute -left-32 top-24 h-[420px] w-[420px] rounded-full bg-[#F0D7FF] opacity-70 blur-3xl" />
+      <div data-parallax="0.25" aria-hidden className="pointer-events-none absolute -left-32 top-24 h-[420px] w-[420px] rounded-full bg-[#F0D7FF] opacity-70 blur-3xl animate-pulse" />
       <div data-parallax="0.4" aria-hidden className="pointer-events-none absolute -right-24 top-64 h-[360px] w-[360px] rounded-full bg-[#FFA946]/35 blur-3xl" />
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
         <div className="text-center lg:text-left">
-          <p data-hero="eyebrow" className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#1A1A1A]/15 bg-white/60 px-3 py-1 text-xs font-semibold text-[#1A1A1A]/75">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" /> AI captions for Reels, Shorts, TikTok &amp; YouTube
+          <p data-hero="eyebrow" className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#1A1A1A]/15 bg-white/60 px-3 py-1 text-xs font-semibold text-[#1A1A1A]/75 shadow-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] animate-pulse" /> AI captions for Reels, Shorts, TikTok &amp; YouTube
           </p>
           <h1 className="font-styled text-[3.1rem] font-bold leading-[0.95] tracking-[-0.03em] text-[#1A1A1A] sm:text-7xl lg:text-[5.6rem]">
             <span className="block overflow-hidden pb-1">
@@ -93,12 +95,12 @@ export function Hero() {
             Drop in a talking-head video. CaptionsEasy writes word-perfect captions, animates every word to your voice, and exports a ready-to-post video. Edit anything in seconds.
           </p>
           <div data-hero="cta" className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
-            <div className="conic-glow-pill w-full rounded-2xl p-0.5 sm:w-auto">
-              <Link href="/login" className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-[#1A1A1A] bg-[#F0D7FF] px-6 py-3.5 text-base font-bold text-[#1A1A1A] transition hover:scale-[1.02] sm:w-auto">
+            <div className="conic-glow-pill w-full rounded-full p-[1px] sm:w-auto">
+              <Link href="/login" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-6 py-3.5 text-base font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
                 Caption your first video free <span aria-hidden>→</span>
               </Link>
             </div>
-            <a href="#looks" className="rounded-2xl px-5 py-3.5 text-base font-semibold text-[#1A1A1A]/75 underline-offset-4 hover:text-[#1A1A1A] hover:underline">See the looks</a>
+            <a href="#looks" className="rounded-2xl px-5 py-3.5 text-base font-semibold text-[#1A1A1A]/75 underline-offset-4 transition hover:text-[#1A1A1A] hover:underline">See the looks</a>
           </div>
           <p data-hero="sub" className="mt-5 text-xs text-[#1A1A1A]/50">No credit card. Works in your browser; captions are made privately on your own computer.</p>
         </div>
@@ -620,13 +622,13 @@ export function Faq() {
 export function ClosingCta() {
   return (
     <section className="px-4 pb-16">
-      <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-[#0F3D2E] px-6 py-20 text-center text-[#FFFFEB] sm:py-28">
+      <div data-reveal className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-[#0F3D2E] px-6 py-20 text-center text-[#FFFFEB] sm:py-28 shadow-2xl">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(52,211,153,0.35),transparent_60%)]" />
         <h2 className="relative font-styled text-5xl font-bold tracking-tight sm:text-7xl">Now, <em className="font-normal italic text-[#F0D7FF]">captivate.</em></h2>
-        <p className="relative mx-auto mt-5 max-w-lg text-[#FFFFEB]/70">Your next video deserves captions people actually watch. Start free, in under a minute.</p>
+        <p className="relative mx-auto mt-5 max-w-lg text-[#FFFFEB]/70 text-base sm:text-lg leading-relaxed">Your next video deserves captions people actually watch. Start free, in under a minute.</p>
         <div className="relative mt-9 inline-block">
-          <div className="conic-glow-pill rounded-2xl p-0.5">
-            <Link href="/login" className="flex items-center gap-2 rounded-[16px] border border-[#1A1A1A] bg-[#F0D7FF] px-7 py-4 text-lg font-bold text-[#1A1A1A] transition hover:scale-[1.03]">
+          <div className="conic-glow-pill rounded-full p-[1px]">
+            <Link href="/login" className="flex items-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base sm:text-lg font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Create free captions <span aria-hidden>→</span>
             </Link>
           </div>
@@ -636,24 +638,104 @@ export function ClosingCta() {
   );
 }
 
+const FOOTER_COLUMNS = [
+  {
+    title: "PRODUCT",
+    links: [
+      { label: "How it works", href: "/#how" },
+      { label: "Looks gallery", href: "/#looks" },
+      { label: "Feature studio", href: "/#features" },
+      { label: "Local Companion", href: "/settings" },
+      { label: "Precision controls", href: "/#control" },
+    ],
+  },
+  {
+    title: "CREATORS",
+    links: [
+      { label: "TikTok & Shorts", href: "/#looks" },
+      { label: "Instagram Reels", href: "/#looks" },
+      { label: "Podcast & Long-form", href: "/#features" },
+      { label: "Hinglish & Multi-lingual", href: "/#faq" },
+      { label: "Transparent Overlays", href: "/#faq" },
+    ],
+  },
+  {
+    title: "RESOURCES",
+    links: [
+      { label: "Pricing plans", href: "/#pricing" },
+      { label: "Frequently asked questions", href: "/#faq" },
+      { label: "Companion setup", href: "/settings" },
+      { label: "Project studio", href: "/dashboard" },
+      { label: "All looks archive", href: "/landing-classic" },
+    ],
+  },
+  {
+    title: "COMPANY",
+    links: [
+      { label: "Sign in to app", href: "/login" },
+      { label: "Terms of service", href: "/terms" },
+      { label: "Privacy policy", href: "/privacy" },
+      { label: "Cookie policy", href: "/cookies" },
+      { label: "Refund policy", href: "/refunds" },
+    ],
+  },
+];
+
 export function Footer() {
   return (
-    <footer className="px-4 pb-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 border-t border-[#1A1A1A]/10 pt-10 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <Logo />
-          <p className="mt-3 max-w-xs text-sm text-[#1A1A1A]/55">AI captions that move like you talk. Made for creators.</p>
+    <footer className="relative overflow-hidden border-t border-[#1A1A1A]/10 bg-[#FFFFEB] pt-20 pb-10 text-[#1A1A1A]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        
+        {/* 4 Column Footer Links Grid */}
+        <div className="grid grid-cols-2 gap-10 sm:grid-cols-2 md:grid-cols-4 lg:gap-16 pb-16">
+          {FOOTER_COLUMNS.map((col) => (
+            <div key={col.title} className="space-y-4">
+              <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-[#1A1A1A]/50">
+                {col.title}
+              </h4>
+              <ul className="space-y-2.5 text-xs sm:text-sm text-[#1A1A1A]/75">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="transition-colors hover:text-[#0F3D2E] hover:underline underline-offset-4"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-        <div className="grid grid-cols-2 gap-x-10 gap-y-8 text-sm sm:grid-cols-4">
-          <div className="space-y-2"><p className="font-semibold">Product</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#how">How it works</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#looks">Looks</a><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#pricing">Pricing</a></div>
-          <div className="space-y-2"><p className="font-semibold">Account</p><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/login">Sign in</Link><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/dashboard">Projects</Link><Link className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/settings">Companion setup</Link></div>
-          <div className="space-y-2"><p className="font-semibold">Help</p><a className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href="/#faq">FAQ</a></div>
-          <div className="space-y-2"><p className="font-semibold">Legal</p>{LEGAL_PAGES.map((p) => <Link key={p.href} className="block text-[#1A1A1A]/60 hover:text-[#1A1A1A]" href={p.href}>{p.title}</Link>)}</div>
+
+        {/* Giant CaptionsEasy Bottom Logo matching Image 1 */}
+        <div className="pt-10 sm:pt-14 border-t border-[#1A1A1A]/10 flex items-center justify-between overflow-hidden select-none">
+          <Link href="/" className="group flex items-center gap-3 sm:gap-5 w-full">
+            {/* Audio Wave Icon Bars with subtle rhythmic bounce */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 h-12 sm:h-20 md:h-28 lg:h-36 shrink-0">
+              <span className="w-1.5 sm:w-3 lg:w-4 bg-[#1A1A1A] h-1/2 rounded-full animate-wave-bar-1 transition-transform group-hover:scale-y-110" />
+              <span className="w-1.5 sm:w-3 lg:w-4 bg-[#FFA946] h-full rounded-full animate-wave-bar-2 transition-transform group-hover:scale-y-105" />
+              <span className="w-1.5 sm:w-3 lg:w-4 bg-[#34D399] h-4/5 rounded-full animate-wave-bar-3 transition-transform group-hover:scale-y-110" />
+            </div>
+
+            {/* Giant CaptionsEasy Typography */}
+            <span className="font-styled font-black text-4xl sm:text-7xl md:text-8xl lg:text-[130px] leading-none tracking-tighter text-[#1A1A1A] transition-transform duration-300 group-hover:translate-x-1">
+              Captions<span className="font-serif font-normal italic text-[#1A1A1A]">Easy</span>
+            </span>
+          </Link>
         </div>
+
+        {/* Bottom Legal Copyright */}
+        <div className="mt-8 pt-6 border-t border-[#1A1A1A]/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#1A1A1A]/60">
+          <span>© {new Date().getFullYear()} CaptionsEasy. All rights reserved.</span>
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#34D399] animate-pulse" />
+            Zero Server Cost · Local Hardware-Accelerated Rendering
+          </span>
+        </div>
+
       </div>
-      <p className="mx-auto mt-10 max-w-6xl text-xs text-[#1A1A1A]/40">© {new Date().getFullYear()} CaptionsEasy. All rights reserved.</p>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img aria-hidden alt="" src="/brand/captionseasy-wordmark.svg" className="mx-auto mt-8 block w-full max-w-6xl select-none opacity-[0.06]" draggable={false} />
     </footer>
   );
 }
