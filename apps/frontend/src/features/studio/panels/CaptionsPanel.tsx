@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { CaptionDoc, Emotion, Page } from "@capseasy/shared";
-import { findMatches, findReplace, importSubtitles, mergeWithPrevious, setCardEmotion, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
+import type { CaptionDoc, Page } from "@capseasy/shared";
+import { findMatches, findReplace, importSubtitles, mergeWithPrevious, setEmphasis, setHidden, setWordText, splitCardAt } from "@motion-ai/caption-engine/core";
 import { Button, fmtTime } from "../controls";
 
-const EMOTIONS: Emotion[] = ["neutral", "excited", "funny", "serious", "sad", "angry", "surprised", "question", "hype", "calm"];
 
 interface Props {
   doc: CaptionDoc;
@@ -82,14 +81,6 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, time
           <div key={page.id} data-page={page.id} className={`border-b border-l-4 border-b-st-line/60 px-3 py-2.5 transition-colors ${page.id === currentPageId ? "border-l-st-or bg-st-lav/35" : "border-l-transparent"}`}>
             <div className="mb-1.5 flex items-center justify-between">
               <button onClick={() => onSeek(page.startMs)} className="-my-1 py-1 pr-2 font-mono text-[11px] text-st-faint hover:text-st-text">{fmtTime(page.startMs)}</button>
-              <select
-                value={page.emotion}
-                title="Emotion (changes how strongly this card animates)"
-                onChange={(e) => edit((d) => setCardEmotion(d, page.id, e.target.value as Emotion))}
-                className="-my-1 rounded bg-transparent py-1.5 text-xs text-st-muted outline-none hover:text-st-text lg:py-0.5"
-              >
-                {EMOTIONS.map((e) => <option key={e} value={e}>{e}</option>)}
-              </select>
             </div>
             <div className="flex flex-wrap gap-1.5 lg:gap-1">
               {page.words.map((w, i) => (

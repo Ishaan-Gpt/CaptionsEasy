@@ -11,6 +11,8 @@ type HealthChecks = { database: boolean; queue: boolean };
 
 // same-origin readiness probe (database + Postgres job queue)
 const HEALTH_URL = "/health/ready";
+/** The service-status widget is a developer aid: shown on localhost (next dev), never on the live site. */
+const SHOW_HEALTH = process.env.NODE_ENV !== "production";
 
 const NAV = [
   {
@@ -65,6 +67,7 @@ export default function StudioShell({ children }: { children: React.ReactNode })
 
   const { data: health } = useQuery<HealthChecks | null>({
     queryKey: ["health"],
+    enabled: SHOW_HEALTH,
     queryFn: async () => {
       try {
         const res = await fetch(HEALTH_URL);
@@ -101,7 +104,7 @@ export default function StudioShell({ children }: { children: React.ReactNode })
               <span className="hidden min-[400px]:inline">{item.label}</span>
             </Link>
           ))}
-          <span title={healthy === undefined ? "Checking service" : healthy ? "All systems running" : "Service problem"} className={`ml-1 h-2 w-2 rounded-full ${healthy === undefined ? "bg-sand-300" : healthy ? "bg-emerald-accent" : "bg-orange-accent"}`} />
+          {SHOW_HEALTH ? <span title={healthy === undefined ? "Checking service" : healthy ? "All systems running" : "Service problem"} className={`ml-1 h-2 w-2 rounded-full ${healthy === undefined ? "bg-sand-300" : healthy ? "bg-emerald-accent" : "bg-orange-accent"}`} /> : null}
           <button onClick={handleSignOut} aria-label="Sign out" className="ml-1 rounded-lg p-2 text-sand-600 hover:bg-sand-100 hover:text-ink">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H9m4 7H7a2 2 0 01-2-2V5a2 2 0 012-2h6" /></svg>
           </button>
@@ -137,8 +140,8 @@ export default function StudioShell({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="mt-auto">
-          {/* Render service health */}
-          <div className="mx-5 mb-4 rounded-lg border border-sand-200 bg-white px-4 py-3 space-y-2">
+          {/* Render service health (local dev only) */}
+          {SHOW_HEALTH ? <div className="mx-5 mb-4 rounded-lg border border-sand-200 bg-white px-4 py-3 space-y-2">
             <p className="font-sora text-[11px] font-semibold text-sand-700">Service status</p>
             <HealthRow label="database" ok={health?.database} pending={health === undefined} />
             <HealthRow label="job queue" ok={health?.queue} pending={health === undefined} />
@@ -147,7 +150,7 @@ export default function StudioShell({ children }: { children: React.ReactNode })
                 Backend unreachable — uploads and renders are paused.
               </p>
             )}
-          </div>
+          </div> : null}
 
           {/* User + sign out */}
           <div className="border-t border-sand-200 px-5 py-4 flex items-center gap-3">

@@ -115,10 +115,19 @@ const DISPLAY: Record<string, { name: string; tags: string[] }> = {
 };
 const named = (l: LookDefinition): LookDefinition => ({ ...l, ...DISPLAY[l.id] });
 
-export const LOOKS: LookDefinition[] = [
+const ALL_LOOKS: LookDefinition[] = [
   ...NEW_LOOKS.filter((l) => CURATED_NEW.has(l.id)).map((l) => named({ ...l, style: resolveStyle({ ...l.style, templateId: l.templateId }) })),
   ...(legacyLooks as unknown as LookDefinition[]).filter((l) => CURATED_LEGACY.has(l.id)).map((l) => named({ ...l, category: "Classic", style: CaptionStyleSchema.parse(deepMerge(deepMerge(l.style, LEGACY_FIXES[l.id]), { emoji: { enabled: EMOJI_ENABLED } })) })),
 ];
+
+/** Gallery sections, in display order. "All" lists these first (in this order), then every other look. */
+export const LOOK_SECTIONS: { id: string; label: string; lookIds: string[] }[] = [
+  { id: "viral", label: "Viral", lookIds: ["staggered_splash", "glow_stack_classic", "vintage_cinematic", "serif_pop_classic", "kinetic_mix"] },
+  { id: "popular", label: "Popular", lookIds: ["hormozi_box", "beast_bounce", "comic_burst", "chat_bubble", "explainer", "highlighter_card"] },
+];
+const featured = LOOK_SECTIONS.flatMap((s) => s.lookIds);
+const rank = (id: string) => (featured.includes(id) ? featured.indexOf(id) : featured.length);
+export const LOOKS: LookDefinition[] = [...ALL_LOOKS].sort((a, b) => rank(a.id) - rank(b.id));
 
 const looksById = new Map(LOOKS.map((l) => [l.id, l]));
 export const getLook = (id: string | null | undefined): LookDefinition | undefined => (id ? looksById.get(id) : undefined);

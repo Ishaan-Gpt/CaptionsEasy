@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { CaptionStyleSchema } from "@capseasy/shared";
-import { KNOWN_FONTS, FALLBACK_TEMPLATE, LOOKS, TEMPLATE_IDS, applyLook, deepMerge, getLook, getTemplate, lookCategories, resolveStyle } from "./index";
+import { KNOWN_FONTS, FALLBACK_TEMPLATE, LOOKS, LOOK_SECTIONS, TEMPLATE_IDS, applyLook, deepMerge, getLook, getTemplate, lookCategories, resolveStyle } from "./index";
 
 describe("template registry", () => {
   it("ships the 8 legacy templates", () => {
@@ -47,6 +47,12 @@ describe("template registry", () => {
     expect(style.templateId).toBe("word_by_word");
     expect(style.fontId).toBe("Luckiest Guy");
     expect(settings.maxWordsPerCard).toBe(1);
+  });
+
+  it("gallery sections exist and lead the list in order", () => {
+    const ids = LOOK_SECTIONS.flatMap((s) => s.lookIds);
+    for (const id of ids) expect(getLook(id), id).toBeDefined();
+    expect(LOOKS.slice(0, ids.length).map((l) => l.id)).toEqual(ids);
   });
 
   it("words per card defaults to 3 for every multi-word look and survives look switches", () => {

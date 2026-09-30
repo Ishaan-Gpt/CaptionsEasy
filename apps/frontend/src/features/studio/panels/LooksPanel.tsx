@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save, Search } from "lucide-react";
 import type { CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
-import { LOOKS, loadFontFamily, lookCategories, resolveStyle, type LookDefinition } from "@capseasy/templates";
+import { LOOKS, LOOK_SECTIONS, loadFontFamily, resolveStyle, type LookDefinition } from "@capseasy/templates";
 import { studioService } from "@/services/studio";
 
 interface Props {
@@ -62,7 +62,7 @@ export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentSty
     () => (mine.data ?? []).map((l) => ({ id: `user:${l.id}`, name: l.name, description: "Saved look", category: "My looks", templateId: l.template_id, style: resolveStyle(l.style_json), settings: l.settings_json })),
     [mine.data],
   );
-  const cats = useMemo(() => ["All", ...(myLooks.length ? ["My looks"] : []), ...lookCategories()], [myLooks.length]);
+  const cats = useMemo(() => ["All", ...LOOK_SECTIONS.map((s) => s.label), ...(myLooks.length ? ["My looks"] : [])], [myLooks.length]);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
   const [saving, setSaving] = useState(false);
@@ -92,7 +92,9 @@ export const LooksPanel: React.FC<Props> =({ currentLookId, onChoose, currentSty
 
   const all = [...myLooks, ...LOOKS];
   const needle = q.trim().toLowerCase();
-  const shown = (cat === "All" ? all : all.filter((l) => l.category === cat)).filter(
+  const section = LOOK_SECTIONS.find((s) => s.label === cat);
+  const inCat = cat === "All" ? all : cat === "My looks" ? myLooks : section ? section.lookIds.map((id) => all.find((l) => l.id === id)!).filter(Boolean) : all;
+  const shown = inCat.filter(
     (l) => !needle || [l.name, l.category, l.description, ...(l.tags ?? [])].some((t) => t.toLowerCase().includes(needle)),
   );
   return (
