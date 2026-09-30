@@ -535,10 +535,10 @@ function AnimatedTerminal({ origin }: { origin: string }) {
          
          {step >= 2 && (
            <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
-             <p className="text-[#FFFFEB]/40"># Windows (PowerShell)</p>
+             <p className="text-[#FFFFEB]/40"># Windows (PowerShell, Command Prompt or Win+R)</p>
              <p className="flex">
                <span className="text-[#FFA946] mr-2">~</span>
-               <span><span className="text-[#34D399]">irm</span> {origin}/install.ps1 | iex</span>
+               <span className="break-all"><span className="text-[#34D399]">powershell</span> -ExecutionPolicy Bypass -c &quot;irm {origin}/install.ps1 | iex&quot;</span>
              </p>
            </div>
          )}

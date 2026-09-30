@@ -6,10 +6,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/services/auth";
 import { workersService } from "@/services/workers";
 import StudioShell from "@/components/studio/StudioShell";
+import { macInstall, windowsInstall } from "@/lib/install";
 
 const origin = () => (typeof window === "undefined" ? "https://captionseasy.vercel.app" : window.location.origin);
-const installCommand = (which: "mac" | "windows") =>
-  which === "mac" ? `curl -fsSL ${origin()}/install.sh | bash` : `irm ${origin()}/install.ps1 | iex`;
+const installCommand = (which: "mac" | "windows") => (which === "mac" ? macInstall(origin()) : windowsInstall(origin()));
 
 function ConnectedComputerSection() {
   const queryClient = useQueryClient();
