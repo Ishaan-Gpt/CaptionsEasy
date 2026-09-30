@@ -43,17 +43,33 @@ if ((Get-NodeMajor) -lt 20) {
 $NpmPrefix = (& npm prefix -g).Trim()
 if ($env:Path -notlike "*$NpmPrefix*") { $env:Path = "$NpmPrefix;$env:Path" }
 
-Write-Host "> Installing the Companion..."
-& npm install -g --no-fund --no-audit "$App/companion/capseasy-companion-latest.tgz"
-if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)" }
+$Latest = ""
+try { $Latest = (Invoke-RestMethod "$App/companion/latest.json").version } catch {}
+$Have = ""
+if (Get-Command capseasy -ErrorAction SilentlyContinue) { try { $Have = ((& capseasy --version) | Out-String).Trim() } catch {} }
+if ($Have -and $Have -eq $Latest) {
+  Write-Host "> Companion $Have is already installed and up to date."
+} else {
+  if ($Have) { Write-Host "> Updating the Companion ($Have -> $Latest)..." } else { Write-Host "> Installing the Companion..." }
+  & npm install -g --no-fund --no-audit "$App/companion/capseasy-companion-latest.tgz"
+  if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)" }
+}
 
-Write-Host "> Pairing with your account (a browser window will open)..."
-& capseasy login --api $App
-if ($LASTEXITCODE -ne 0) { throw "Pairing did not finish. Run: capseasy login --api $App" }
+$Name = ((& capseasy check-pairing --api $App) | Out-String).Trim()
+if ($LASTEXITCODE -eq 0 -and $Name) {
+  Write-Host ""
+  Write-Host "  Welcome back! '$Name' is already connected to your account." -ForegroundColor Green
+} else {
+  Write-Host "> Pairing with your account (a browser window will open)..."
+  & capseasy login --api $App
+  if ($LASTEXITCODE -ne 0) { throw "Pairing did not finish. Run: capseasy login --api $App" }
+}
+
+# start by itself whenever you sign in to this computer, so you never need a terminal again
+& capseasy autostart enable | Out-Null
 
 Write-Host ""
-Write-Host "  All set. Keep this running while you make captions:" -ForegroundColor Green
-Write-Host "    capseasy start" -ForegroundColor Cyan
+Write-Host "  All set. The Companion now starts automatically when you log in." -ForegroundColor Green
 Write-Host "  (The first job downloads the speech model and renderer once, a few hundred MB.)" -ForegroundColor DarkGray
 Write-Host ""
 & capseasy start

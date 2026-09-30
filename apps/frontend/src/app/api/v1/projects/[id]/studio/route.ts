@@ -1,6 +1,6 @@
 import { legacyTranscriptToDoc } from "@motion-ai/caption-engine/core";
 import { requireUser } from "@/lib/api/auth";
-import { hasOnlineCompanion } from "@/lib/api/jobs";
+import { hasOnlineCompanion, pairedComputerNames } from "@/lib/api/jobs";
 import { notFound, ok, route, type Ctx } from "@/lib/api/http";
 import { HOUR, signedGet } from "@/lib/api/storage";
 import { getAdmin } from "@/lib/supabase/admin";
@@ -72,6 +72,7 @@ export const GET = route(async (req: Request, { params }: Ctx<{ id: string }>) =
     // video uploaded but nothing is running and there are no captions: offer "Generate captions"
     canTranscribe: Boolean(video && video.status !== "uploading" && !doc && !active),
     companionOnline: await hasOnlineCompanion(user.id),
+    pairedComputers: await pairedComputerNames(user.id),
     cloudAvailable: video ? (await cloudEligibility(user.id, video)).ok : false,
   });
 });

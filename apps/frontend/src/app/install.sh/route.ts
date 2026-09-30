@@ -33,15 +33,29 @@ if ! command -v git >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "> Installing the Companion..."
-npm install -g --no-fund --no-audit "$APP/companion/capseasy-companion-latest.tgz"
+LATEST="$(curl -fsSL "$APP/companion/latest.json" 2>/dev/null | sed -nE 's/.*"version": *"([^"]+)".*/\\1/p' || true)"
+HAVE=""
+if command -v capseasy >/dev/null 2>&1; then HAVE="$(capseasy --version 2>/dev/null || true)"; fi
+if [ -n "$HAVE" ] && [ "$HAVE" = "$LATEST" ]; then
+  echo "> Companion $HAVE is already installed and up to date."
+else
+  if [ -n "$HAVE" ]; then echo "> Updating the Companion ($HAVE -> $LATEST)..."; else echo "> Installing the Companion..."; fi
+  npm install -g --no-fund --no-audit "$APP/companion/capseasy-companion-latest.tgz"
+fi
 
-echo "> Pairing with your account..."
-capseasy login --api "$APP"
+if NAME="$(capseasy check-pairing --api "$APP" 2>/dev/null)" && [ -n "$NAME" ]; then
+  echo ""
+  echo "  Welcome back! '$NAME' is already connected to your account."
+else
+  echo "> Pairing with your account..."
+  capseasy login --api "$APP"
+fi
+
+# start by itself whenever you log in, so you never need a terminal again
+capseasy autostart enable >/dev/null 2>&1 || true
 
 echo ""
-echo "  All set. Keep this running while you make captions:"
-echo "    capseasy start"
+echo "  All set. The Companion now starts automatically when you log in."
 echo "  (The first job downloads the speech model and renderer once, a few hundred MB.)"
 echo ""
 exec capseasy start </dev/tty

@@ -54,6 +54,14 @@ export async function hasOnlineCompanion(ownerId: string): Promise<boolean> {
   return (count ?? 0) > 0;
 }
 
+/** Names of the user's paired (not revoked) computers, most recently seen first. */
+export async function pairedComputerNames(ownerId: string): Promise<string[]> {
+  const { data } = await getAdmin()
+    .from("workers").select("name").eq("owner_id", ownerId).is("revoked_at", null)
+    .order("last_seen_at", { ascending: false, nullsFirst: false }).limit(5);
+  return (data ?? []).map((w) => (w.name as string | null) ?? "your computer");
+}
+
 /**
  * Loads a job that the calling worker currently holds. A stale companion (lease expired and the job was
  * re-claimed, cancelled, or finished) gets LEASE_LOST and must drop its work. `allowDone` lets a retried

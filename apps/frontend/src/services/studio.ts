@@ -48,6 +48,8 @@ export interface StudioData {
   canTranscribe: boolean;
   cloudAvailable: boolean;
   companionOnline: boolean;
+  /** paired computers (names), most recently seen first; empty = never paired */
+  pairedComputers: string[];
 }
 
 export interface ExportRow {

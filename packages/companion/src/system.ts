@@ -5,7 +5,7 @@ import { dirs } from "./config";
 import { ffmpegPath, run } from "./ffmpeg";
 import { installedModels, whisperInstalled } from "./whisper";
 
-export const VERSION = "0.1.3";
+export const VERSION = "0.1.4";
 
 export function diskFreeGb(path = dirs.cache): number | undefined {
   try {

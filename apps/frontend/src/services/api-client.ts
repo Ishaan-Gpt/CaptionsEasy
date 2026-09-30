@@ -10,7 +10,8 @@
 
 import { authService } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// The API is served by this same Next app (route handlers), so it is always same-origin.
+const API_BASE_URL = "/api/v1";
 
 /** Idempotent GETs only get one extra attempt — a network blip, not a
  * fixed contract response, is the only thing worth retrying automatically.

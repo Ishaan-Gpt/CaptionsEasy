@@ -40,6 +40,23 @@ program
   });
 
 program
+  .command("check-pairing")
+  .description("Exit 0 (and print the computer name) if this computer is still paired with --api; used by the installers")
+  .option("--api <url>", "CapsEasy URL")
+  .action(async (o: { api?: string }) => {
+    const cfg = loadConfig();
+    const same = !o.api || o.api.replace(/\/$/, "") === cfg.apiBase.replace(/\/$/, "");
+    if (!cfg.token || !same) return void (process.exitCode = 1);
+    try {
+      const hb = await new CompanionApi(cfg.apiBase, cfg.token).heartbeat({ version: VERSION, platform: process.platform, capabilities: await buildCapabilities(), currentJobId: null });
+      if (!hb) return void (process.exitCode = 1);
+      console.log(cfg.workerName ?? "this computer");
+    } catch {
+      process.exitCode = 1; // revoked token (401) or unreachable: the installer re-pairs
+    }
+  });
+
+program
   .command("status")
   .description("Show pairing and machine status")
   .action(async () => {
