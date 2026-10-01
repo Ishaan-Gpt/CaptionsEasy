@@ -119,12 +119,12 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     const pct = Math.max(2, Math.min(100, job.progress ?? 0));
     return (
       <Center>
-        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
+        <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
         <h2 className="text-lg font-semibold">{job.status === "queued" ? "Starting…" : job.stage ?? "Working…"}</h2>
         <p className="mt-1 text-sm text-st-muted">
           {job.kind === "transcribe" ? "Listening to your video and writing the captions." : "This can take a moment."}
         </p>
-        <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-raised">
+        <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-line">
           <div className="h-full rounded-full bg-st-em transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
         <p className="mt-2 text-xs tabular-nums text-st-faint">{Math.round(job.progress ?? 0)}%</p>
@@ -219,10 +219,10 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; language: str
   const pct = status ? Math.max(2, Math.round(overall(status))) : 2;
   return (
     <Center>
-      <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
+      <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
       <h2 className="text-lg font-semibold">{status ? STAGE_TEXT[status.stage] : "Starting…"}</h2>
       <p className="mt-1 text-sm text-st-muted">Made right here in your browser: free, private, nothing to install.</p>
-      <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-raised">
+      <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-line">
         <div className="h-full rounded-full bg-st-em transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-2 text-xs tabular-nums text-st-faint">

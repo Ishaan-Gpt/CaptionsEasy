@@ -26,10 +26,10 @@ const post = (m: Out) => (self as unknown as DedicatedWorkerGlobalScope).postMes
 let asr: AutomaticSpeechRecognitionPipeline | null = null;
 let device = "wasm";
 
-async function load() {
+async function load(forceWasm = false) {
   if (asr) return asr;
   let gpuF16 = false;
-  try {
+  if (!forceWasm) try {
     const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<{ features: Set<string> } | null> } }).gpu;
     const adapter = gpu ? await gpu.requestAdapter() : null;
     gpuF16 = !!adapter?.features.has("shader-f16");
@@ -94,7 +94,7 @@ function windows(audio: Float32Array): [number, number][] {
 self.onmessage = async (e: MessageEvent<In>) => {
   if (e.data.type !== "run") return;
   try {
-    const model = await load();
+    let model = await load();
     const { audio, language } = e.data;
     const wins = windows(audio);
     const words: { text: string; startMs: number; endMs: number }[] = [];
@@ -102,11 +102,18 @@ self.onmessage = async (e: MessageEvent<In>) => {
       const [s, t] = wins[w]!;
       post({ type: "status", stage: "transcribe", progress: w / wins.length, device });
       if (rms(audio, s, t) < 0.004) continue; // near-silence: nothing to say, and Whisper would invent text
-      const out = (await model(audio.subarray(s, t), {
-        return_timestamps: "word",
-        task: "transcribe",
-        ...(language ? { language } : {}),
-      })) as { chunks?: { text: string; timestamp: [number, number | null] }[] };
+      const opts = { return_timestamps: "word" as const, task: "transcribe", ...(language ? { language } : {}) };
+      let out: { chunks?: { text: string; timestamp: [number, number | null] }[] };
+      try {
+        out = (await model(audio.subarray(s, t), opts)) as typeof out;
+      } catch (gpuErr) {
+        // the graphics card ran out of memory (or lost its device): carry on with the processor instead
+        if (device !== "webgpu") throw gpuErr;
+        try { await asr?.dispose(); } catch { /* the GPU may already be gone */ }
+        asr = null;
+        model = await load(true);
+        out = (await model(audio.subarray(s, t), opts)) as typeof out;
+      }
       const offset = (s / SR) * 1000;
       for (const c of out.chunks ?? []) {
         const [a, b] = c.timestamp;
