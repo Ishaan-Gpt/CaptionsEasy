@@ -9,7 +9,6 @@ import { User } from "../types";
 export interface AuthProvider {
   login(email: string, password: string): Promise<{ user: User; token: string }>;
   loginWithGoogle(): Promise<void>;
-  loginWithGithub(): Promise<void>;
   register(name: string, email: string, password: string): Promise<{ user: User; token: string }>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<User | null>;

@@ -35,16 +35,6 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const GitHubIcon = () => (
-  <svg className="w-4 h-4 flex-shrink-0 text-neutral-900" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-    />
-  </svg>
-);
-
 type Mode = "signin" | "signup" | "verify-sent";
 
 export default function LoginPage() {
@@ -111,17 +101,6 @@ export default function LoginPage() {
       await authService.loginWithGoogle();
     } catch (err) {
       setError(friendlyAuthError((err instanceof Error ? err.message : "") || "Google sign-in failed."));
-      setLoading(false);
-    }
-  };
-
-  const handleGithub = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await authService.loginWithGithub();
-    } catch (err) {
-      setError(friendlyAuthError((err instanceof Error ? err.message : "") || "GitHub sign-in failed."));
       setLoading(false);
     }
   };
@@ -273,7 +252,7 @@ export default function LoginPage() {
         </div>
 
         {/* Social Buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3">
           <button
             type="button"
             onClick={handleGoogle}
@@ -282,16 +261,6 @@ export default function LoginPage() {
           >
             <GoogleIcon />
             <span className="truncate">Continue with Google</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGithub}
-            disabled={loading}
-            className="w-full rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50/90 py-2.5 px-3 font-medium text-[13px] text-neutral-700 hover:border-neutral-300 transition duration-150 cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-          >
-            <GitHubIcon />
-            <span className="truncate">Continue with GitHub</span>
           </button>
         </div>
       </div>
