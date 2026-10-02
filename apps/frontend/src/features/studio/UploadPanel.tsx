@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import React, { useCallback, useRef, useState } from "react";
 import { studioService } from "@/services/studio";
 import { ApiError } from "@/services/api-client";
@@ -44,6 +45,8 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note, limi
         setPrep(null);
         setProgress(null);
         if (e instanceof DOMException && e.name === "AbortError") return;
+        // a refused file (too long, unreadable) is the user's file, not our bug: only report the unexpected
+        if (!(e instanceof PrepareError) || e.code === "CANT_CONVERT") Sentry.captureException(e, { tags: { area: "upload" } });
         setError(e instanceof PrepareError || e instanceof ApiError || e instanceof Error ? e.message : "Upload failed. Please try again.");
       }
     },

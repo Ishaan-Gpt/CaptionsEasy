@@ -1,5 +1,6 @@
 import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 /** This machine's LAN addresses: lets a phone on the same Wi-Fi open the dev server (Next blocks unknown dev origins). */
 const lanHosts = Object.values(networkInterfaces())
@@ -32,4 +33,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// readable stack traces in Sentry: source maps are uploaded at build time (org/project/token come from the Vercel integration)
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  // sent through our own domain so ad blockers don't drop error reports
+  tunnelRoute: "/monitoring",
+});

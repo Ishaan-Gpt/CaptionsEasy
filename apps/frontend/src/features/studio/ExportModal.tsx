@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import React, { useEffect, useRef, useState } from "react";
 import type { CaptionedVideoInput } from "@capseasy/compositions";
 import { canExportInBrowser, exportMp4InBrowser, saveBlob } from "./browserExport";
@@ -94,6 +95,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
       saveBlob(blob, name);
       setWebDone(`${fmtBytes(blob.size)} · made in ${fmtTime(clock() - started)}`);
     } catch (e) {
+      if (!ctrl.signal.aborted) Sentry.captureException(e, { tags: { area: "browser-export" } });
       if (!ctrl.signal.aborted) setError(e instanceof Error ? `Couldn't render in the browser: ${e.message}` : "Couldn't render in the browser.");
     } finally {
       setWebProgress(null);

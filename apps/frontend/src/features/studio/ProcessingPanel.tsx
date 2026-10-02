@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { canTranscribeInBrowser, runBrowserTranscription, type BrowserStatus } from "@/features/transcribe/browserWhisper";
 import { ConnectComputer } from "@/features/companion/ConnectComputer";
@@ -197,6 +198,7 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Bl
       setStatus(null);
       if (!ctrl.signal.aborted) {
         console.warn("[captions] in-browser transcription failed:", e);
+        Sentry.captureException(e, { tags: { area: "browser-transcription" } });
         const m = e instanceof Error ? e.message.toLowerCase() : "";
         setError(
           /memory|allocat|oom|array buffer/.test(m)

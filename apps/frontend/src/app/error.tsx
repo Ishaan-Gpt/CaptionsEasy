@@ -1,12 +1,13 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 
 /** Any page that crashes shows this instead of a blank screen or a raw stack trace. */
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error(error);
+    Sentry.captureException(error);
   }, [error]);
   return (
     <main className="grid min-h-[100svh] place-items-center bg-[#FFFFEB] px-6 text-center text-[#1A1A1A]">
