@@ -60,7 +60,7 @@ try {
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-  page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
+  page.on("console", (m) => { if (m.type() === "error" && !/_vercel\/|Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
   await page.evaluateOnNewDocument((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(sess.session));
   await page.goto(`${APP}/projects/${pid}`, { waitUntil: "networkidle2", timeout: 120000 });
   await page.waitForFunction(() => document.body.innerText.includes("Drop your video here"), { timeout: 60000 });

@@ -42,7 +42,9 @@ export async function startTranscription(opts: { ownerId: string; projectId: str
     romanize: settings.romanize,
     prompt: settings.customVocabulary.length ? settings.customVocabulary.join(", ") : undefined,
   };
-  const job = await enqueueJob({ ownerId: opts.ownerId, projectId: opts.projectId, kind: "transcribe", payload, engine, idempotencyKey: `${opts.idempotencyKey}:${engine}` });
+  // a video that only exists on the user's device can only be transcribed in their browser
+  const rowEngine = video?.storage_path.startsWith("local:") ? "browser" : engine;
+  const job = await enqueueJob({ ownerId: opts.ownerId, projectId: opts.projectId, kind: "transcribe", payload, engine: rowEngine, idempotencyKey: `${opts.idempotencyKey}:${engine}` });
   await setProjectStatus(opts.projectId, "processing");
   if (engine === "cloud" && job.status === "queued") {
     await markCloudRunning(job.id);

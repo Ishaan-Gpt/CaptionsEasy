@@ -57,7 +57,9 @@ export const GET = route(async (req: Request, { params }: Ctx<{ id: string }>) =
     videoOut = {
       id: video.id,
       status: video.status,
-      url: await signedGet(playPath, 2 * HOUR).catch(() => null),
+      // on-device videos: the browser plays its own copy (IndexedDB); old uploads may already be cleaned up
+      local: video.storage_path.startsWith("local:"),
+      url: playPath.startsWith("local:") ? null : await signedGet(playPath, 2 * HOUR).catch(() => null),
       width: video.width, height: video.height, fps: video.fps, durationMs: video.duration_ms,
       hasAudio: video.has_audio, filename: video.original_filename, size: video.file_size,
     };

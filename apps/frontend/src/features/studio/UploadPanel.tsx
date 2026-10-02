@@ -15,7 +15,7 @@ interface Props {
 
 const DEFAULT_LIMITS = { maxBytes: 50 * 1024 * 1024, maxDurationSec: 5 * 60 };
 
-/** Drag & drop / pick a video, upload straight to storage with progress, then queue transcription. */
+/** Drag & drop / pick a video: checked and saved on this device (never uploaded), then captions start. */
 export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note, limits = DEFAULT_LIMITS }) => {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,14 +65,14 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note, limi
       >
         <div className="mb-3 text-4xl">🎬</div>
         <h2 className="text-lg font-semibold">
-          {prep?.stage === "check" ? "Checking your video…" : prep?.stage === "convert" ? "Preparing your video…" : busy ? "Uploading your video…" : "Drop your video here"}
+          {prep?.stage === "check" ? "Checking your video…" : prep?.stage === "convert" ? "Preparing your video…" : busy ? "Saving your video…" : "Drop your video here"}
         </h2>
         <p className="mt-1 text-sm text-st-muted">
           {prep?.stage === "convert"
             ? prep.reason === "size"
-              ? "Making it smaller on your device so it uploads fast. Captions look the same."
+              ? "Making it lighter so editing stays smooth. Captions look the same."
               : "Converting it so it plays in every browser. This happens on your device."
-            : note ?? `MP4, MOV or WebM, up to ${Math.round(limits.maxDurationSec / 60)} minutes. Big phone videos are shrunk automatically.`}
+            : note ?? `MP4, MOV or WebM, up to ${Math.round(limits.maxDurationSec / 60)} minutes. Your video stays on this device.`}
         </p>
 
         {prep ? (
@@ -96,7 +96,7 @@ export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note, limi
             <div className="h-2 overflow-hidden rounded-full bg-st-raised">
               <div className="h-full rounded-full bg-st-em transition-all" style={{ width: `${progress}%` }} />
             </div>
-            <Button className="mt-4" onClick={() => abortRef.current?.()}>Cancel upload</Button>
+            <Button className="mt-4" onClick={() => abortRef.current?.()}>Cancel</Button>
           </div>
         ) : (
           <>

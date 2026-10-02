@@ -8,7 +8,8 @@ export interface EnqueueInput {
   projectId: string;
   kind: JobKind;
   payload: JobPayload;
-  engine?: "local" | "cloud";
+  /** browser = only the user's tab can run it (the desktop helper never claims these) */
+  engine?: "local" | "cloud" | "browser";
   priority?: number;
   idempotencyKey?: string;
 }

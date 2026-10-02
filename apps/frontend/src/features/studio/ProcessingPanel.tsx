@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { canTranscribeInBrowser, runBrowserTranscription, type BrowserStatus } from "@/features/transcribe/browserWhisper";
 import { ConnectComputer } from "@/features/companion/ConnectComputer";
-import { localVideoFile, studioService, type StudioJob } from "@/services/studio";
+import { studioService, type StudioJob } from "@/services/studio";
 import { Button } from "./controls";
 
 interface Props {
@@ -44,7 +44,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     job?.kind === "transcribe" && !companionOnline && !!videoUrl && canTranscribeInBrowser() &&
     (job.status === "queued" || (job.status === "processing" && (job.stage ?? "").startsWith("browser")));
   if (browserJob && job && videoUrl) {
-    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} localFile={localVideoFile(videoId)} language={language ?? null} isPhone={isPhone} onDone={onChanged} fallback={null} />;
+    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} localFile={null} language={language ?? null} isPhone={isPhone} onDone={onChanged} fallback={null} />;
   }
 
   if (job?.status === "failed") {

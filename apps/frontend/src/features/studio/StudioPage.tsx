@@ -21,6 +21,9 @@ import { StudioPlayer } from "./StudioPlayer";
 import { Timeline } from "./Timeline";
 import { UploadPanel } from "./UploadPanel";
 import { SignupGate } from "./SignupGate";
+import { projectsService } from "@/services/projects";
+import { ReattachPanel } from "@/features/upload/ReattachPanel";
+import { useDeviceVideo } from "@/features/upload/useDeviceVideo";
 import { currentUserIsGuest } from "@/services/auth/guest";
 import { useWaveform } from "./useWaveform";
 import { useStudio, type SaveState } from "./useStudio";
@@ -97,7 +100,9 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     if (!authService.isAuthenticated()) router.replace(`/login?redirect=${encodeURIComponent(`/projects/${projectId}`)}`);
   }, [router, projectId]);
 
-  const video = data?.video ?? null;
+  // the video plays from this device; Supabase only stores the captions
+  const device = useDeviceVideo(data?.video ?? null);
+  const video = device.video;
   const width = video?.width || 1080;
   const height = video?.height || 1920;
   const fps = video?.fps || 30;
@@ -194,6 +199,22 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             Desktop helper on
           </span>
         ) : null}
+        <Button
+          aria-label="Delete project"
+          title="Delete project"
+          className="!px-2.5"
+          onClick={async () => {
+            if (!window.confirm("Delete this project? Its captions and video are removed for good.")) return;
+            try {
+              await projectsService.deleteProject(projectId);
+              router.replace("/dashboard");
+            } catch (e) {
+              window.alert(e instanceof Error ? e.message : "Couldn't delete the project.");
+            }
+          }}
+        >
+          🗑
+        </Button>
         <Button tone="primary" disabled={!hasEditor} onClick={() => void openExport()} className="!rounded-full !px-4">Export</Button>
       </div>
     </header>
@@ -215,7 +236,10 @@ export default function StudioPage({ projectId }: { projectId: string }) {
     />
   ) : null;
 
-  const stage = player ?? (noVideoYet || replacing ? (
+  const reattach = !noVideoYet && !replacing && device.status === "missing" ? (
+    <ReattachPanel filename={video?.filename ?? null} durationMs={video?.durationMs ?? null} onPick={device.attach} onReplace={() => setReplacing(true)} />
+  ) : null;
+  const stage = reattach ?? player ?? (noVideoYet || replacing ? (
     <UploadPanel
       projectId={projectId}
       limits={data.limits}

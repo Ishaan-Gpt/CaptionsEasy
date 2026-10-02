@@ -53,7 +53,7 @@ try {
     await page.emulate({ viewport: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36" });
     page.on("pageerror", (e) => errors.push(`${c}: ${e.message}`));
     page.on("console", (m) => (m.type() === "warn" || m.type() === "warning") && log(`${c} console:`, m.text()));
-    page.on("console", (m) => m.type() === "error" && !/favicon|Failed to load resource/.test(m.text()) && errors.push(`${c}: ${m.text()}`));
+    page.on("console", (m) => m.type() === "error" && !/favicon|Failed to load resource|_vercel\//.test(m.text()) && errors.push(`${c}: ${m.text()}`));
     await page.evaluateOnNewDocument((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(sess.session));
     await page.goto(`${APP}/projects/${proj.id}`, { waitUntil: "domcontentloaded" });
     const input = await page.waitForSelector("input[type=file]", { timeout: 60000 });

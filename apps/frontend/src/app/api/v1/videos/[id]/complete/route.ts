@@ -18,7 +18,8 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   const { data: video } = await user.db.from("videos").select("id, project_id, storage_path, status, file_size, has_audio").eq("id", videoId).maybeSingle();
   if (!video) throw notFound("Video");
 
-  const size = await objectSize(video.storage_path);
+  const local = video.storage_path.startsWith("local:");
+  const size = local ? video.file_size : await objectSize(video.storage_path);
   if (size === null || size === 0) throw new ApiFailure("CONFLICT", "The upload did not finish. Please try again.");
   await getAdmin().from("videos").update({ status: "uploaded", file_size: size, uploaded_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", videoId);
 

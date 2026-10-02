@@ -21,6 +21,8 @@ export const CreateVideoBody = z.object({
   size: z.number().int().positive(),
   mime: z.string(),
   probe: ProbeSchema.optional(),
+  /** the file stays on the user's device (IndexedDB); nothing is uploaded */
+  local: z.boolean().optional(),
 });
 
 export const CompleteVideoBody = z.object({ needsProxy: z.boolean().optional() }).default({});

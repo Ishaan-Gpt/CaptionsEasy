@@ -6,14 +6,8 @@
 import type { CaptionDoc, CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
 import { apiClient, ApiError } from "./api-client";
 import type { PreparedVideo } from "@/features/upload/prepareVideo";
+import { saveLocalVideo } from "@/features/upload/localVideos";
 
-/** The file the user just uploaded, kept in memory so in-browser captions read it locally instead of downloading it again. */
-const localVideos = new Map<string, File>();
-const rememberLocalVideo = (videoId: string, file: File) => {
-  localVideos.clear();
-  localVideos.set(videoId, file);
-};
-export const localVideoFile = (videoId: string | null | undefined) => (videoId ? localVideos.get(videoId) ?? null : null);
 
 export interface StudioJob {
   id: string;
@@ -51,6 +45,8 @@ export interface StudioData {
     hasAudio: boolean | null;
     filename: string | null;
     size: number | null;
+    /** the file is kept on the user's device, not on our servers */
+    local?: boolean;
   } | null;
   document: { revision: number; doc: CaptionDoc | null };
   job: StudioJob | null;
@@ -85,24 +81,6 @@ export class RevisionConflict extends Error {
 
 const ALLOWED = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
 
-/** PUT to a Supabase signed-upload URL as multipart (same wire format as supabase-js), with progress + abort. */
-function putSigned(url: string, file: File, onProgress: (pct: number) => void, onAbortReady?: (abort: () => void) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const form = new FormData();
-    form.append("cacheControl", "3600");
-    form.append("", file, file.name);
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("x-upsert", "true");
-    onAbortReady?.(() => xhr.abort());
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed (${xhr.status}).`)));
-    xhr.onerror = () => reject(new Error("Network error during upload. Check your connection and try again."));
-    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
-    xhr.send(form);
-  });
-}
-
 export const studioService = {
   getStudio(projectId: string) {
     return apiClient.get<StudioData>(`/projects/${projectId}/studio`);
@@ -118,16 +96,19 @@ export const studioService = {
     const file = v.file;
     const mime = file.type || (file.name.toLowerCase().endsWith(".mov") ? "video/quicktime" : file.name.toLowerCase().endsWith(".mkv") ? "video/x-matroska" : "");
     if (!ALLOWED.includes(mime)) throw new Error("Unsupported file. Use MP4, MOV, WebM or MKV.");
-    const reg = await apiClient.post<{ videoId: string; uploadUrl: string }>(`/projects/${projectId}/videos`, {
+    const reg = await apiClient.post<{ videoId: string }>(`/projects/${projectId}/videos`, {
       json: {
+        local: true,
         filename: file.name,
         size: file.size,
         mime,
         probe: { durationMs: v.durationMs, width: v.width, height: v.height, rotation: v.rotation, videoCodec: v.videoCodec, audioCodec: v.audioCodec, hasAudio: v.hasAudio },
       },
     });
-    await putSigned(reg.uploadUrl, file, onProgress, onAbortReady);
-    rememberLocalVideo(reg.videoId, file);
+    // the video stays on this device: saved in the browser, never uploaded
+    onAbortReady?.(() => undefined);
+    await saveLocalVideo(reg.videoId, file);
+    onProgress(100);
     return apiClient.post(`/videos/${reg.videoId}/complete`, { json: { needsProxy: false } });
   },
 

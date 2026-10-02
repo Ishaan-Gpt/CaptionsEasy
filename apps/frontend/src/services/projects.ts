@@ -93,8 +93,11 @@ export const projectsService = {
     return toProject(project);
   },
 
+  /** Deletes the project everywhere: our storage and database, and the video copy saved on this device. */
   async deleteProject(id: string): Promise<void> {
-    await apiClient.delete(`/projects/${id}`);
+    const r = await apiClient.delete<{ videoIds?: string[] }>(`/projects/${id}`);
+    const { deleteLocalVideo } = await import("@/features/upload/localVideos");
+    await Promise.all((r?.videoIds ?? []).map(deleteLocalVideo));
   },
 
   async archiveProject(id: string): Promise<Project> {

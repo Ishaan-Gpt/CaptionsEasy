@@ -27,7 +27,8 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   }
 
   const videoId = crypto.randomUUID();
-  const path = `${user.id}/${projectId}/source/${videoId}.${extFromMime(body.mime, body.filename)}`;
+  // on-device videos have no storage object: the path only marks them as local
+  const path = body.local ? `local:${videoId}` : `${user.id}/${projectId}/source/${videoId}.${extFromMime(body.mime, body.filename)}`;
   const p = body.probe;
   const { error } = await user.db.from("videos").insert({
     id: videoId,
@@ -50,6 +51,7 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   });
   if (error) throw new ApiFailure("INTERNAL", "Could not register the video", error.message);
 
+  if (body.local) return ok({ videoId, bucket: null, path, uploadUrl: null, token: null, uploadId: newId() }, 201);
   const up = await signedPut(path);
   return ok({ videoId, bucket: "media", path, uploadUrl: up.url, token: up.token, uploadId: newId() }, 201);
 });

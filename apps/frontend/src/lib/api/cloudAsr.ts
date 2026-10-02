@@ -36,6 +36,7 @@ export interface CloudEligibility { ok: boolean; reason?: string }
 /** Can this video be transcribed in the cloud for this user right now? */
 export async function cloudEligibility(ownerId: string, video: { mime_type: string | null; file_size: number | null; storage_path: string }): Promise<CloudEligibility> {
   if (!cloudConfigured()) return { ok: false, reason: "Cloud transcription isn't set up on this server." };
+  if (video.storage_path.startsWith("local:")) return { ok: false, reason: "This video is only on your device." };
   const mime = video.mime_type ?? (video.storage_path.endsWith(".mp4") ? "video/mp4" : null);
   if (!mime || !CLOUD_MIME.has(mime)) return { ok: false, reason: "Cloud transcription supports MP4 and WebM. Use your computer for this file." };
   if (video.file_size && video.file_size > MAX_BYTES) return { ok: false, reason: `Cloud transcription is limited to ${Math.round(MAX_BYTES / 1048576)} MB files. Use your computer for bigger videos.` };
