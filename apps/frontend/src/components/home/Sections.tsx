@@ -508,7 +508,7 @@ function AnimatedTerminal({ origin }: { origin: string }) {
   }, []);
 
   return (
-    <div ref={ref} className="relative rounded-2xl border border-white/10 bg-[#050505] shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col w-full h-full min-h-[290px] lg:min-h-full">
+    <div ref={ref} className="relative rounded-2xl border border-white/10 bg-[#050505] shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col w-full h-full min-h-[340px] sm:min-h-[300px] lg:min-h-full">
       {/* Mac Titlebar */}
       <div className="flex items-center px-4 py-3 bg-[#111111] border-b border-white/5 relative shrink-0">
         <div className="flex gap-2">
@@ -516,19 +516,19 @@ function AnimatedTerminal({ origin }: { origin: string }) {
           <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-white/10"></div>
           <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-white/10"></div>
         </div>
-        <div className="text-[11px] font-mono font-medium text-[#FFFFEB]/40 absolute left-1/2 -translate-x-1/2">
+        <div className="text-[11px] font-mono font-medium text-[#FFFFEB]/40 absolute left-1/2 -translate-x-1/2 max-w-[60%] truncate">
           desktop helper — optional
         </div>
       </div>
       
       {/* Terminal Body */}
-      <div className="p-5 font-mono text-[13px] leading-relaxed text-[#FFFFEB]/90 flex-1 overflow-hidden">
+      <div className="p-4 sm:p-5 font-mono text-[12px] sm:text-[13px] leading-relaxed text-[#FFFFEB]/90 flex-1 min-w-0 overflow-x-hidden">
          {step >= 1 && (
            <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
              <p className="text-[#FFFFEB]/40"># macOS / Linux</p>
              <p className="flex">
-               <span className="text-[#FFA946] mr-2">~</span>
-               <span><span className="text-[#34D399]">curl</span> -fsSL {origin}/install.sh | bash</span>
+               <span className="text-[#FFA946] mr-2 shrink-0">~</span>
+               <span className="min-w-0 break-all"><span className="text-[#34D399]">curl</span> -fsSL {origin}/install.sh | bash</span>
              </p>
            </div>
          )}
@@ -537,7 +537,7 @@ function AnimatedTerminal({ origin }: { origin: string }) {
            <div className="mt-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
              <p className="text-[#FFFFEB]/40"># Windows (PowerShell, Command Prompt or Win+R)</p>
              <p className="flex">
-               <span className="text-[#FFA946] mr-2">~</span>
+               <span className="text-[#FFA946] mr-2 shrink-0">~</span>
                <span className="break-all"><span className="text-[#34D399]">powershell</span> -ExecutionPolicy Bypass -c &quot;irm {origin}/install.ps1 | iex&quot;</span>
              </p>
            </div>
@@ -552,7 +552,7 @@ function AnimatedTerminal({ origin }: { origin: string }) {
          
          {step >= 4 && (
            <div className="mt-1.5 animate-in fade-in duration-300 flex items-center gap-2">
-             <p className="text-[#34D399]"><span className="opacity-80">✓</span> Paired · Watching for new videos</p>
+             <p className="text-[#34D399] min-w-0"><span className="opacity-80">✓</span> Paired · Watching for new videos</p>
              <span className="w-2 h-4 bg-[#34D399] animate-pulse inline-block" />
            </div>
          )}
@@ -585,7 +585,7 @@ export function Privacy() {
             </p>
           </div>
           
-          <div className="h-[320px] lg:h-full">
+          <div className="min-w-0 lg:h-full">
             <AnimatedTerminal origin={origin} />
           </div>
         </div>
