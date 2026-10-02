@@ -199,11 +199,12 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const stage = player ?? (noVideoYet || replacing ? (
     <UploadPanel
       projectId={projectId}
+      limits={data.limits}
       onUploaded={() => { setReplacing(false); void s.refetch(); }}
       note={replacing ? "Choose the new video. Captions will be generated for it." : video?.status === "uploading" ? "The last upload didn't finish. Choose your video again." : undefined}
     />
   ) : (
-    <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} pairedComputers={data.pairedComputers ?? []} canTranscribe={data.canTranscribe} cloudAvailable={data.cloudAvailable} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} videoUrl={video?.url ?? null} language={data.project.language ?? null} />
+    <ProcessingPanel projectId={projectId} job={data.job} companionOnline={data.companionOnline} pairedComputers={data.pairedComputers ?? []} canTranscribe={data.canTranscribe} cloudAvailable={data.cloudAvailable} onChanged={() => void s.refetch()} onReplaceVideo={() => setReplacing(true)} videoUrl={video?.url ?? null} videoId={video?.id ?? null} language={data.project.language ?? null} />
   ));
 
   const heroSupported = style ? getTemplate(style.templateId).layout !== "typewriter" : true;

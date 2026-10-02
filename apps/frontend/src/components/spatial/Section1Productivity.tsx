@@ -23,10 +23,10 @@ export function Section1Productivity() {
       wash="radial-gradient(70% 110% at 82% 45%, rgba(52,211,153,0.16) 0%, rgba(52,211,153,0.05) 45%, transparent 75%)"
       title="Word-perfect"
       titleAccent="timing."
-      body="Whisper runs on your own computer and stamps every single word with its start and end, so captions land on the syllable instead of drifting a beat behind."
+      body="Speech recognition runs right in your browser and stamps every single word with its start and end, so captions land on the syllable instead of drifting a beat behind."
       points={[
         { k: "Word-level timestamps,", v: "not sentence blocks." },
-        { k: "Private and free:", v: "speech never leaves your machine." },
+        { k: "Nothing to install:", v: "it runs in the tab you already have open." },
         { k: "Drag any word", v: "on the timeline to nudge it by a frame." },
       ]}
     >
@@ -60,8 +60,8 @@ export function Section1Productivity() {
       </div>
 
       <div className="absolute left-[322px] top-[300px] flex w-[204px] flex-col gap-2">
-        <Tag dark>whisper.cpp · on-device</Tag>
-        <Tag>no upload · no per-minute bill</Tag>
+        <Tag dark>whisper · in your browser</Tag>
+        <Tag>no install · no per-minute bill</Tag>
       </div>
 
       {/* timeline */}
@@ -101,7 +101,8 @@ export function Section1Productivity() {
                     <span className="absolute inset-y-1 right-0.5 w-[3px] rounded-full bg-[#06281C]/40" />
                   </>
                 ) : null}
-                {((w.endMs - w.startMs) / dur) * 460 > 34 ? <span className="truncate">{w.text.replace(/[.,!?]$/, "")}</span> : null}
+                {/* label only when the whole word fits: a cut-off "tha..." reads as placeholder text */}
+                {((w.endMs - w.startMs) / dur) * 460 >= w.text.replace(/[.,!?]$/, "").length * 6.4 + 10 ? <span className="whitespace-nowrap">{w.text.replace(/[.,!?]$/, "")}</span> : null}
               </div>
             );
           })}

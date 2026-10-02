@@ -18,3 +18,10 @@ venv/
 # local test output
 packages/companion/.e2e-out/
 apps/frontend/.e2e-ui/
+apps/frontend/.e2e-upload/
+.next-start.log
+
+# Launch film folders
+captions-easy-film/
+captionseasy-launch/
+lemo-opuscar/

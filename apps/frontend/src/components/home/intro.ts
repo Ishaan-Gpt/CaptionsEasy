@@ -12,7 +12,7 @@ const CAP_MS = 6000;
 export const introScript = (dev: boolean) => `(function(){try{
 var h=document.documentElement;if(location.pathname!=="/")return;
 var k="ce_intro",force=${dev ? "true" : "false"}||/[?&]intro\\b/.test(location.search);
-if(!force&&sessionStorage.getItem(k)){h.dataset.intro="skip";return}
+if(!force&&(sessionStorage.getItem(k)||matchMedia("(pointer:coarse)").matches)){h.dataset.intro="skip";return}
 try{sessionStorage.setItem(k,"1")}catch(e){}
 h.dataset.intro="play";
 var started=false;

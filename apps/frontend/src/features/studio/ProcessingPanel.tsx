@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { canTranscribeInBrowser, runBrowserTranscription, type BrowserStatus } from "@/features/transcribe/browserWhisper";
 import { ConnectComputer } from "@/features/companion/ConnectComputer";
-import { studioService, type StudioJob } from "@/services/studio";
+import { localVideoFile, studioService, type StudioJob } from "@/services/studio";
 import { Button } from "./controls";
 
 interface Props {
@@ -17,10 +17,11 @@ interface Props {
   onReplaceVideo: () => void;
   /** signed URL of the uploaded video (the browser reads its audio) */
   videoUrl?: string | null;
+  videoId?: string | null;
   language?: string | null;
 }
 
-export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnline, pairedComputers, canTranscribe, cloudAvailable, onChanged, onReplaceVideo, videoUrl, language }) => {
+export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnline, pairedComputers, canTranscribe, cloudAvailable, onChanged, onReplaceVideo, videoUrl, videoId, language }) => {
   const [busy, setBusy] = useState(false);
   // phones can't run the Companion: they drive a computer the user already paired
   const isPhone = useSyncExternalStore(
@@ -43,15 +44,15 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     job?.kind === "transcribe" && !companionOnline && !!videoUrl && canTranscribeInBrowser() &&
     (job.status === "queued" || (job.status === "processing" && (job.stage ?? "").startsWith("browser")));
   if (browserJob && job && videoUrl) {
-    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} language={language ?? null} auto={!isPhone} onDone={onChanged} fallback={<ConnectComputer compact />} />;
+    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} localFile={localVideoFile(videoId)} language={language ?? null} isPhone={isPhone} onDone={onChanged} fallback={isPhone ? null : <ConnectComputer compact />} />;
   }
 
   if (job?.status === "failed") {
     return (
       <Center>
         <div className="mb-2 text-3xl">⚠️</div>
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="mt-2 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{job.error_message ?? "The job failed."}</p>
+        <h2 className="text-lg font-semibold">We couldn&apos;t finish this one</h2>
+        <p className="mt-2 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{friendlyError(job)}</p>
         <div className="mt-5 flex justify-center gap-2">
           <Button tone="primary" disabled={busy} onClick={() => act(() => studioService.retryJob(job.id))}>Try again</Button>
           <Button onClick={onReplaceVideo}>Upload a different video</Button>
@@ -155,6 +156,17 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
   );
 };
 
+/** Job errors in plain words, with what to do next. Raw provider messages never reach the screen. */
+function friendlyError(job: StudioJob): string {
+  const raw = `${job.error_code ?? ""} ${job.error_message ?? ""}`.toLowerCase();
+  if (raw.includes("no_audio") || raw.includes("no audio")) return "This video has no sound, so there is nothing to caption. Upload a video with speech, or add captions yourself.";
+  if (raw.includes("lease_expired")) return "The device making your captions went to sleep or closed. Press Try again and keep this tab open.";
+  if (raw.includes("too large") || raw.includes("file_too_large") || raw.includes("413")) return "This video is too big to process. Trim it to a shorter clip and upload again.";
+  if (raw.includes("decode") || raw.includes("unsupported")) return "We couldn't read the audio in this video. Try exporting it again as MP4 from your phone or editor.";
+  if (job.kind === "render") return "The export stopped before it finished. Press Try again.";
+  return "Something interrupted the captions. Press Try again; it usually works the second time.";
+}
+
 const STAGE_TEXT: Record<BrowserStatus["stage"], string> = {
   audio: "Getting the audio ready…",
   download: "Downloading the speech model (one time, about 80 MB)…",
@@ -166,7 +178,7 @@ const overall = (s: BrowserStatus) =>
   s.stage === "audio" ? 3 : s.stage === "download" ? 5 + s.progress * 25 : s.stage === "load" ? 30 : s.stage === "transcribe" ? 30 + s.progress * 67 : 99;
 
 /** Captions made in this tab. Nothing is installed and the audio never leaves the device. */
-const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; language: string | null; auto: boolean; onDone: () => void; fallback: React.ReactNode }> = ({ jobId, videoUrl, language, auto, onDone, fallback }) => {
+const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Blob | null; language: string | null; isPhone: boolean; onDone: () => void; fallback: React.ReactNode }> = ({ jobId, videoUrl, localFile, language, isPhone, onDone, fallback }) => {
   const [status, setStatus] = useState<BrowserStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
@@ -178,18 +190,28 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; language: str
     const ctrl = new AbortController();
     abort.current = ctrl;
     try {
-      await runBrowserTranscription({ jobId, videoUrl, language, onStatus: setStatus, signal: ctrl.signal });
+      await runBrowserTranscription({ jobId, videoUrl, localFile, language, onStatus: setStatus, signal: ctrl.signal });
       onDone();
     } catch (e) {
       started.current = false;
       setStatus(null);
-      if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : "Couldn't make captions in this browser.");
+      if (!ctrl.signal.aborted) {
+        console.warn("[captions] in-browser transcription failed:", e);
+        const m = e instanceof Error ? e.message.toLowerCase() : "";
+        setError(
+          /memory|allocat|oom|array buffer/.test(m)
+            ? "This device ran out of memory while listening. Close other apps and tabs, then try again, or use a shorter clip."
+            : /network|fetch|load/.test(m)
+              ? "The speech model didn't finish downloading. Check your connection and try again."
+              : "Something interrupted the captions in this browser. Try again; the speech model is already saved, so it's faster now.",
+        );
+      }
       onDone();
     }
   };
 
   useEffect(() => {
-    const t = auto ? setTimeout(() => void start(), 0) : undefined;
+    const t = setTimeout(() => void start(), 0);
     return () => {
       clearTimeout(t);
       abort.current?.abort();
@@ -197,21 +219,23 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; language: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error || (!auto && !status)) {
+  if (error) {
     return (
       <Center>
         <div className="mb-2 text-3xl">🎙️</div>
-        <h2 className="text-lg font-semibold">{error ? "Couldn't finish in this browser" : "Make your captions"}</h2>
+        <h2 className="text-lg font-semibold">Couldn&apos;t finish in this browser</h2>
         <p className="mt-2 text-sm text-st-muted">
-          {error ?? "Captions are made right here on this device. Free and private: your audio never leaves it."}
+          {error}
         </p>
         <div className="mt-5 flex justify-center">
-          <Button tone="primary" onClick={() => { setError(null); void start(); }}>{error ? "Try again" : "Make captions here"}</Button>
+          <Button tone="primary" onClick={() => { setError(null); void start(); }}>Try again</Button>
         </div>
-        <div className="mt-6 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
-          <p className="mb-2 text-st-text/80">Or let your computer do it (more accurate, any length):</p>
-          {fallback}
-        </div>
+        {fallback ? (
+          <div className="mt-6 rounded-xl bg-st-raised/70 p-4 text-left text-sm">
+            <p className="mb-2 text-st-text/80">Or let your computer do it (more accurate, any length):</p>
+            {fallback}
+          </div>
+        ) : null}
       </Center>
     );
   }
@@ -228,7 +252,7 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; language: str
       <p className="mt-2 text-xs tabular-nums text-st-faint">
         {pct}%{status?.device ? ` · ${status.device === "webgpu" ? "using your graphics card" : "using your processor"}` : ""}
       </p>
-      <p className="mt-1 text-xs text-st-faint">Keep this tab open.</p>
+      <p className="mt-1 text-xs text-st-faint">{isPhone ? "Keep this tab open and your screen on." : "Keep this tab open."}</p>
       <Button className="mt-4" onClick={() => abort.current?.abort()}>Stop</Button>
     </Center>
   );

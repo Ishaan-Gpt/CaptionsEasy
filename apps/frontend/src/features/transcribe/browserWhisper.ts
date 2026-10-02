@@ -17,10 +17,15 @@ export type BrowserStatus = { stage: "audio" | "download" | "load" | "transcribe
 const SR = 16_000;
 
 /** Whole audio track -> 16 kHz mono Float32Array (the browser's own decoder; works for MP4/MOV/WebM). */
-export async function decodeAudio(url: string, signal?: AbortSignal): Promise<Float32Array> {
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`Couldn't read the video (HTTP ${res.status}).`);
-  const buf = await res.arrayBuffer();
+export async function decodeAudio(src: string | Blob, signal?: AbortSignal): Promise<Float32Array> {
+  let buf: ArrayBuffer;
+  if (typeof src === "string") {
+    const res = await fetch(src, { signal });
+    if (!res.ok) throw new Error(`Couldn't read the video (HTTP ${res.status}).`);
+    buf = await res.arrayBuffer();
+  } else {
+    buf = await src.arrayBuffer(); // the file just uploaded from this device: no second download
+  }
   const ctx = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: SR });
   let audio: AudioBuffer;
   try {
@@ -69,6 +74,21 @@ export function transcribeAudio(audio: Float32Array, language: string | null, on
   });
 }
 
+/** Retries a save on network/server errors (not on 4xx answers), backing off 2 s, 5 s, 10 s, 20 s. */
+async function withRetry<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  const waits = [2000, 5000, 10000, 20000];
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const status = (e as { status?: number }).status;
+      const clientError = typeof status === "number" && status >= 400 && status < 500;
+      if (clientError || i >= waits.length || signal?.aborted) throw e;
+      await new Promise((r) => setTimeout(r, waits[i]));
+    }
+  }
+}
+
 /** Can this browser run it at all? (Web Workers + WebAssembly + Web Audio.) */
 export const canTranscribeInBrowser = () =>
   typeof window !== "undefined" && typeof Worker !== "undefined" && typeof WebAssembly !== "undefined" && typeof OfflineAudioContext !== "undefined";
@@ -80,6 +100,8 @@ export const canTranscribeInBrowser = () =>
 export async function runBrowserTranscription(opts: {
   jobId: string;
   videoUrl: string;
+  /** the same video still in memory on this device (skips downloading it back) */
+  localFile?: Blob | null;
   language: string | null;
   onStatus: (s: BrowserStatus) => void;
   signal?: AbortSignal;
@@ -99,11 +121,21 @@ export async function runBrowserTranscription(opts: {
   };
   try {
     report({ stage: "audio", progress: 0 });
-    const audio = await decodeAudio(videoUrl, signal);
+    let audio: Float32Array;
+    try {
+      audio = await decodeAudio(opts.localFile ?? videoUrl, signal);
+    } catch (e) {
+      if ((e as { code?: string }).code !== "NO_AUDIO") throw e;
+      // no sound: finish with an empty document so the editor opens for typed captions
+      onStatus({ stage: "save", progress: 1 });
+      await withRetry(() => call({ action: "complete", language: language ?? "en", model: BROWSER_MODEL, words: [] }), signal);
+      return { words: 0, device: "none" };
+    }
     const durationMs = (audio.length / SR) * 1000;
     const { words, device } = await transcribeAudio(audio, language, report, signal);
     onStatus({ stage: "save", progress: 1, device });
-    await call({ action: "complete", language: language ?? "en", model: BROWSER_MODEL, durationMs, words });
+    // the words took minutes to make: a network blip while saving must not throw them away
+    await withRetry(() => call({ action: "complete", language: language ?? "en", model: BROWSER_MODEL, durationMs, words }), signal);
     return { words: words.length, device };
   } catch (e) {
     await call({ action: "release", reason: e instanceof Error ? e.message.slice(0, 280) : "failed" }).catch(() => {});

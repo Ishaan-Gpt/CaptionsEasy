@@ -51,6 +51,11 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; name?: string }>({});
   const [resent, setResent] = useState(false);
 
+  // "Start free" links arrive with ?mode=signup: open on Create Account, not Welcome Back
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "signup") setMode("signup");
+  }, []);
+
   // Redirect if already authenticated; also catches the OAuth return.
   useEffect(() => {
     if (authService.isAuthenticated()) {

@@ -19,7 +19,8 @@ export default function LandingPage() {
 
   // smooth scroll, driven by GSAP's ticker so ScrollTrigger and Lenis agree on every frame
   useEffect(() => {
-    if (prefersReducedMotion()) return;
+    // phones scroll natively (smooth-scroll emulation costs a frame budget they don't have)
+    if (prefersReducedMotion() || window.matchMedia("(pointer: coarse)").matches) return;
     const { gsap, ScrollTrigger } = ensureGsap();
     const lenis = new Lenis({ duration: 1.1, easing: (t) => 1 - Math.pow(2, -10 * t), anchors: { offset: -80 } });
     lenis.on("scroll", ScrollTrigger.update);
@@ -84,7 +85,10 @@ export default function LandingPage() {
       <Control />
       {/* <Features /> */}
       {/* the heavy showcase (live players) mounts after the intro, so the intro and hero entrance get the main thread */}
-      {ready ? <SpatialScroll /> : <div className="h-screen w-full bg-[#FFFFEB]" />}
+      {/* the #looks anchor lives outside the late-mounting showcase, so nav and footer links always land */}
+      <div id="looks" className="scroll-mt-20">
+        {ready ? <SpatialScroll /> : <div className="h-screen w-full bg-[#FFFFEB]" />}
+      </div>
       <Privacy />
       {/* <Pricing /> */}
       <Faq />

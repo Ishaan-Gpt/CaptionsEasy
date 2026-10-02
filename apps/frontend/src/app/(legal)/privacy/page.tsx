@@ -11,11 +11,11 @@ export default function PrivacyPage() {
     <LegalDoc
       title="Privacy"
       accent="Policy"
-      intro={<>{LEGAL.product} is built so your voice stays on your computer by default. This policy explains what we collect when you use the website, the studio and the Companion app, why, who processes it for us, how long we keep it, and the choices you have. {LEGAL.operator} is the controller of this data.</>}
+      intro={<>This policy explains what we collect when you use the website, the studio and the optional desktop helper app, why, who processes it for us, how long we keep it, and the choices you have. {LEGAL.operator} is the controller of this data.</>}
     >
       <Sec id="summary" title="In short">
         <ul>
-          <li>Transcription and rendering run on <strong>your own computer</strong> by default. Your video is only sent to a cloud transcription provider if you choose cloud transcription (or it is used as a fallback you enabled).</li>
+          <li>Speech recognition runs <strong>in your browser</strong>, on your own device. We do not send your audio to a third-party speech service.</li>
           <li>We store your account, your projects, your uploaded videos and your exports so the studio works across devices.</li>
           <li>We do not sell personal data, do not show ads, and do not train AI models on your videos or transcripts.</li>
         </ul>
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
         <ul>
           <li>To provide the service: store and show your projects, transcribe and render when you ask, keep your edits in sync (performance of our contract with you).</li>
           <li>To keep it secure and working: detect abuse, prevent fraud, rate-limit, debug (legitimate interests).</li>
-          <li>To apply plan limits and, when paid plans exist, to bill you (contract; legal obligations for tax records).</li>
+          <li>To apply usage limits (contract).</li>
           <li>To contact you about your account and important changes (contract; legitimate interests). Product newsletters only with your consent, with an unsubscribe link in every one.</li>
         </ul>
       </Sec>
@@ -44,8 +44,8 @@ export default function PrivacyPage() {
         <p>The CaptionsEasy Companion downloads your video from our storage to your computer, transcribes it with a speech model that runs locally, renders exports locally, and uploads the results back to your account. The speech model and rendering never send your audio anywhere else. The Companion keeps a local cache of videos it has processed, which you can clear by deleting its cache folder.</p>
       </Sec>
 
-      <Sec id="cloud" title="4. Cloud transcription">
-        <p>If you choose cloud transcription, the audio of your video is sent to our transcription provider, which returns the text and timings. The provider processes it on our behalf under its terms for API customers; we do not permit it to train on your data. Cloud minutes are counted against your plan.</p>
+      <Sec id="cloud" title="4. Transcription">
+        <p>Speech recognition runs in your browser with a speech model downloaded once to your device. The audio of your video is processed there and is not sent to a third-party speech service.</p>
       </Sec>
 
       <Sec id="sharing" title="5. Who processes data for us">
@@ -53,13 +53,13 @@ export default function PrivacyPage() {
       </Sec>
 
       <Sec id="transfers" title="6. International transfers">
-        <p>Our providers may store or process data outside your country, including in South Korea (database and file storage) and the United States (website hosting and cloud transcription). Where the law requires it, we rely on appropriate safeguards such as standard contractual clauses.</p>
+        <p>Our providers may store or process data outside your country, including in South Korea (database and file storage) and the United States (website hosting). Where the law requires it, we rely on appropriate safeguards such as standard contractual clauses.</p>
       </Sec>
 
       <Sec id="retention" title="7. How long we keep it">
         <ul>
           <li>Projects, videos and captions: until you delete them or close your account.</li>
-          <li>Exports: {PLANS.free.exportRetentionDays} days on the Free plan (longer on paid plans), then deleted automatically.</li>
+          <li>Exports: {PLANS.free.exportRetentionDays} days, then deleted automatically.</li>
           <li>Deleted projects: removed from storage within 30 days, including backups.</li>
           <li>Account data: until you close your account, then deleted within 30 days, except records we must keep by law (for example invoices).</li>
           <li>Security and request logs: typically up to 30 days.</li>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useSyncExternalStore, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { CaptionedVideo } from "@capseasy/compositions";
 import { getLook, type LookDefinition } from "@capseasy/templates";
@@ -38,6 +38,7 @@ export function LivePreview({ lookId, text = "Stop scrolling and watch this incr
   const ref = useRef<PlayerRef>(null);
   const box = useRef<HTMLDivElement>(null);
   const doc = useMemo(() => demoDoc(text), [text]);
+  const lite = useSyncExternalStore(() => () => {}, () => window.matchMedia("(pointer: coarse) and (max-width: 900px)").matches, () => false);
   const durationMs = doc.words[doc.words.length - 1]!.endMs + 900;
   const input = useMemo(
     () => (look ? { src: null, media: { width: 1080, height: 1920, fps: FPS, durationMs, rotation: 0 }, doc, style: look.style, settings: look.settings, mode: "overlay" as const } : null),
@@ -52,6 +53,14 @@ export function LivePreview({ lookId, text = "Stop scrolling and watch this incr
   }, [playWhenVisible]);
 
   if (!look || !input) return null;
+  if (lite) {
+    // phones: the same look, pre-rendered by the real composition (`pnpm --filter @capseasy/compositions previews`)
+    return (
+      <div className={`relative overflow-hidden ${className}`} style={{ background: BACKDROPS[backdrop % BACKDROPS.length] }}>
+        <video src={`/looks/${lookId}.mp4`} poster={`/looks/${lookId}.webp`} className="absolute inset-0 h-full w-full object-contain" autoPlay muted loop playsInline preload="metadata" />
+      </div>
+    );
+  }
   return (
     <div ref={box} className={`relative overflow-hidden ${className}`} style={{ background: BACKDROPS[backdrop % BACKDROPS.length] }}>
       {/* soft "subject" silhouette so captions read like they sit on real footage */}

@@ -104,7 +104,16 @@ export function ClipPlayer({ clip, doc, durationMs, style, settings, mode = "bur
     () => ({ src: mode === "overlay" ? null : `/hero/${clip}.raw.mp4`, media: { width: CLIP_W, height: CLIP_H, fps: FPS, durationMs, rotation: 0 }, doc: bare || !doc ? empty : doc, style, settings, mode }),
     [clip, durationMs, doc, bare, empty, style, settings, mode],
   );
-  useVisiblePlay(box, ref, !!doc);
+  // mount the player only once it is near the screen: a page of idle players is what made phones stutter
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || near) return;
+    const io = new IntersectionObserver(([e]) => e?.isIntersecting && setNear(true), { rootMargin: "400px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [near]);
+  useVisiblePlay(box, ref, !!doc && near);
   useEffect(() => {
     const p = ref.current;
     if (!p || !onTime) return;
@@ -119,7 +128,7 @@ export function ClipPlayer({ clip, doc, durationMs, style, settings, mode = "bur
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/hero/${clip}.raw.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
-      {doc ? (
+      {doc && near ? (
         <Player
           ref={ref}
           component={CaptionedVideo as unknown as React.ComponentType<Record<string, unknown>>}

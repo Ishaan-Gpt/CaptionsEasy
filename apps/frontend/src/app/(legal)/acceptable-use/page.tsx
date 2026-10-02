@@ -28,7 +28,7 @@ export default function AcceptableUsePage() {
         <ul>
           <li>Do not try to access other people&rsquo;s accounts, projects or files, or get around security, rate limits or plan limits.</li>
           <li>Do not probe, scan or load-test the service, or interfere with its operation, without our written permission. Security researchers: please report issues to {LEGAL.email}; we welcome responsible disclosure.</li>
-          <li>Do not resell access, share one paid account among an organisation beyond what the plan allows, or create accounts automatically.</li>
+          <li>Do not resell access or create accounts automatically.</li>
           <li>Do not scrape the service, copy the looks library, or use the service to build a competing product.</li>
           <li>Do not modify the Companion app to send us falsified jobs or results.</li>
         </ul>

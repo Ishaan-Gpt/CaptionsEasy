@@ -93,7 +93,7 @@ export function SpatialScroll() {
     // The key matters: without it React reuses this div when the layout switches to mobile and tries to remove
     // the (moved) section from it -> "removeChild: the node to be removed is not a child of this node".
     <div key="desktop" className="mb-24 sm:mb-36">
-      <section ref={wrapperRef} id="looks" className="relative w-screen h-screen overflow-hidden bg-[#FFFFEB]">
+      <section ref={wrapperRef} className="relative w-screen h-screen overflow-hidden bg-[#FFFFEB]">
         <ShowcaseHeading className="absolute inset-x-0 top-[3.5vh] z-40" />
 
         <div ref={canvasRef} className="absolute top-0 left-0 w-[200vw] h-[200vh] flex flex-wrap will-change-transform">

@@ -1,5 +1,6 @@
 import { CompleteVideoBody } from "@capseasy/shared";
 import { requireUser } from "@/lib/api/auth";
+import { openSilentVideo } from "@/lib/api/cloudAsr";
 import { startTranscription } from "@/lib/api/engine";
 import { ApiFailure, notFound, ok, parseBody, route, type Ctx } from "@/lib/api/http";
 import { enqueueJob } from "@/lib/api/jobs";
@@ -14,12 +15,18 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   const { id: videoId } = await params;
   const body = await parseBody(req, CompleteVideoBody);
 
-  const { data: video } = await user.db.from("videos").select("id, project_id, storage_path, status, file_size").eq("id", videoId).maybeSingle();
+  const { data: video } = await user.db.from("videos").select("id, project_id, storage_path, status, file_size, has_audio").eq("id", videoId).maybeSingle();
   if (!video) throw notFound("Video");
 
   const size = await objectSize(video.storage_path);
   if (size === null || size === 0) throw new ApiFailure("CONFLICT", "The upload did not finish. Please try again.");
   await getAdmin().from("videos").update({ status: "uploaded", file_size: size, uploaded_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", videoId);
+
+  // checked on the device before upload: no sound means nothing to transcribe, open the editor to type captions
+  if (video.has_audio === false) {
+    await openSilentVideo({ projectId: video.project_id, ownerId: user.id, videoId });
+    return ok({ jobId: null, engine: "none", companionOnline: false, cloudAvailable: false, noAudio: true });
+  }
 
   // idempotent per video: a retried "complete" returns the same job
   const r = await startTranscription({ ownerId: user.id, projectId: video.project_id, videoId, idempotencyKey: `transcribe:${videoId}` });

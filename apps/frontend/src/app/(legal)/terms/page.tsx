@@ -16,8 +16,8 @@ export default function TermsPage() {
     >
       <Sec id="service" title="1. The service">
         <p>{LEGAL.product} turns your videos into captioned videos and subtitle files. You upload a video, captions are transcribed, you style and edit them in the studio, and you export the result.</p>
-        <p>Transcription and video rendering normally run on <strong>your own computer</strong> through the free CaptionsEasy Companion app. Where offered, you can choose cloud transcription instead, in which case the audio of your video is sent to our transcription provider (see the <Link href="/subprocessors">subprocessors</Link>).</p>
-        <p>We improve the service continuously, so features may change. We will not remove a core paid feature during a paid billing period without notice.</p>
+        <p>Transcription and MP4 export run <strong>in your browser</strong>, on your own device. Transparent overlay exports use the optional free desktop helper app on your computer. Your uploaded videos, projects and exports are stored with our hosting providers (see the <Link href="/subprocessors">subprocessors</Link>).</p>
+        <p>We improve the service continuously, so features may change. We will tell you in advance before removing a core feature.</p>
       </Sec>
 
       <Sec id="accounts" title="2. Your account">
@@ -28,9 +28,9 @@ export default function TermsPage() {
         </ul>
       </Sec>
 
-      <Sec id="plans" title="3. Plans, limits and pricing">
-        <p>The <strong>Free</strong> plan currently includes videos up to {Math.round(free.maxDurationSec / 60)} minutes and {Math.round(free.maxUploadBytes / 1048576)} MB, up to {free.maxProjects} projects, {free.cloudAsrMinutesPerMonth} cloud transcription minutes a month, unlimited transcription on your own computer, and exports kept for {free.exportRetentionDays} days.</p>
-        <p>Paid plans, when available, will list their price, limits and billing period on the pricing page before you buy. Prices exclude taxes unless stated. We may change plan limits or prices for the future; changes to a paid plan take effect at your next renewal and we will tell you in advance. Our <Link href="/refunds">refund and cancellation policy</Link> applies to purchases.</p>
+      <Sec id="plans" title="3. Free service and limits">
+        <p>The <strong>Free</strong> plan currently includes videos up to {Math.round(free.maxDurationSec / 60)} minutes and {Math.round(free.maxUploadBytes / 1048576)} MB, up to {free.maxProjects} projects and up to {free.maxProjects} projects, with exports kept for {free.exportRetentionDays} days. Transcription runs in your browser and is unlimited.</p>
+        <p>{LEGAL.product} is free to use and we do not take payment. If we ever introduce paid plans, we will publish their price and terms first, and nothing will be charged unless you explicitly choose a paid plan.</p>
       </Sec>
 
       <Sec id="content" title="4. Your content">

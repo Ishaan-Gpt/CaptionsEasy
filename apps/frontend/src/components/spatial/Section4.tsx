@@ -43,7 +43,7 @@ export function Section4() {
       body="Editing in Premiere, Resolve or Final Cut? Export just the animated captions on a transparent background and lay them over your own grade. Your footage is never recompressed."
       points={[
         { k: "ProRes 4444 or WebM", v: "with a real alpha channel." },
-        { k: "Rendered on your computer", v: "at full quality, no watermark." },
+        { k: "With the free desktop helper,", v: "at full quality, no watermark." },
         { k: "Or skip video entirely:", v: "SRT, VTT, ASS and TXT in one click." },
       ]}
     >

@@ -76,7 +76,10 @@ export const CaptionsPanel: React.FC<Props> = ({ doc, pages, currentPageId, time
       </div>
 
       <div ref={listRef} className="relative min-h-0 flex-1 overflow-y-auto">
-        {pages.length === 0 ? <p className="p-6 text-center text-sm text-st-faint">No captions yet.</p> : null}
+        {pages.length === 0 ? <div className="p-6 text-center text-sm text-st-muted">
+            <p className="font-semibold text-st-text">No spoken words found</p>
+            <p className="mt-1">This video has no speech we could hear. Add captions with <b>Import SRT</b> above, or double-click the captions track in the timeline to type a word at the playhead.</p>
+          </div> : null}
         {pages.map((page) => (
           <div key={page.id} data-page={page.id} className={`border-b border-l-4 border-b-st-line/60 px-3 py-2.5 transition-colors ${page.id === currentPageId ? "border-l-st-or bg-st-lav/35" : "border-l-transparent"}`}>
             <div className="mb-1.5 flex items-center justify-between">

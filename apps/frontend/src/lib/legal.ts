@@ -1,19 +1,20 @@
 /**
  * Facts the legal pages depend on. Fill every value marked TODO before launch (and have a lawyer review the
- * pages); they are rendered verbatim on /terms, /privacy, /cookies, /acceptable-use, /refunds, /copyright,
+ * pages); they are rendered verbatim on /terms, /privacy, /cookies, /acceptable-use, /copyright,
  * /subprocessors.
  */
 export const LEGAL = {
   product: "CaptionsEasy",
-  /** TODO: the registered legal entity that operates the service, e.g. "Acme Media Private Limited" */
-  operator: "[Company legal name]",
-  /** TODO: registered business address */
-  address: "[Registered address]",
-  /** TODO: support / privacy / legal inbox */
-  email: "[contact email]",
-  /** TODO: confirm governing law and courts */
+  /** Run by one person (no company yet): "<Full legal name>, an individual trading as CaptionsEasy". Swap for the
+   *  company name if one is registered later. */
+  operator: "Ishaan Gupta, an individual trading as CaptionsEasy",
+  /** City and state only: an individual doesn't need to publish a home address. */
+  address: "Bengaluru, Karnataka, India",
+  /** public support / privacy inbox */
+  email: "ishaangofficial@gmail.com",
   jurisdiction: "India",
-  courts: "the courts of [city], India",
+  
+  courts: "the courts of Bengaluru, Karnataka, India",
   /** date the current versions took effect */
   effective: "30 September 2026",
   /** minimum age to hold an account */
@@ -26,7 +27,6 @@ export const LEGAL_PAGES = [
   { href: "/privacy", title: "Privacy Policy" },
   { href: "/cookies", title: "Cookie Policy" },
   { href: "/acceptable-use", title: "Acceptable Use" },
-  { href: "/refunds", title: "Refunds & Cancellation" },
   { href: "/copyright", title: "Copyright & Takedowns" },
   { href: "/subprocessors", title: "Subprocessors" },
 ] as const;

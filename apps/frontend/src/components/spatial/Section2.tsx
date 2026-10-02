@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { LOOKS, getLook } from "@capseasy/templates";
+import { getLook } from "@capseasy/templates";
 import { ClipPlayer, Frame, ShowcaseCard, Tag, lookFor, useTranscript } from "./ShowcaseKit";
 
 const VIOLET = "#A855F7";
@@ -29,7 +29,7 @@ export function Section2() {
       eyebrow="Looks"
       accent={VIOLET}
       wash="radial-gradient(70% 110% at 82% 45%, rgba(240,215,255,0.85) 0%, rgba(240,215,255,0.35) 45%, transparent 78%)"
-      title={`${LOOKS.length} looks,`}
+      title="20+ looks,"
       titleAccent="one click."
       body="Viral boxes, karaoke fills, glowing neon, three-line stacks. Every look is a complete, tuned style: font, colour, motion and the spoken-word effect. Your words and timing never change."
       points={[

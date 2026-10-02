@@ -41,13 +41,12 @@ function ConnectedComputerSection() {
 
   return (
     <section className="pt-10">
-      <h2 className="font-sora text-[15px] font-bold text-ink">Processing</h2>
+      <h2 className="font-sora text-[15px] font-bold text-ink">Desktop helper (optional)</h2>
 
       <div className="mt-4 rounded-xl border border-sand-200 bg-white p-6">
         <p className="text-[14px] leading-relaxed text-sand-800 max-w-[60ch]">
-          CaptionsEasy makes captions <strong className="text-ink">privately on your own computer</strong>:
-          your video is transcribed and rendered locally, for free. Connect a computer once; after that it
-          starts by itself and every upload and export is picked up automatically.
+          Captions and MP4 exports are made <strong className="text-ink">right in your browser</strong>. Nothing to install.
+          Optional: connect the free desktop helper for transparent overlay exports (ProRes / WebM) and very long videos.
         </p>
 
         <div className="mt-5">

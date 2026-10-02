@@ -21,7 +21,7 @@ const NAV_LINKS = [
   ["How it works", "#how"],
   ["Controls", "#control"],
   ["Looks", "#looks"],
-  ["Local Engine", "#privacy"],
+  ["No install", "#privacy"],
   ["FAQ", "#faq"],
 ] as const;
 
@@ -45,7 +45,7 @@ export function Nav() {
           <Link href="/login" className="hidden whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
           {/* phones: this moves into the menu */}
           <div className="conic-glow-pill hidden rounded-full p-[1px] sm:block">
-            <Link href="/login" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+            <Link href="/login?mode=signup" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Start free <span aria-hidden>→</span>
             </Link>
           </div>
@@ -63,7 +63,7 @@ export function Nav() {
             <a key={href} href={href} onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 text-base font-semibold text-[#1A1A1A] hover:bg-[#E4E4D0]/60">{label}</a>
           ))}
           <div className="mt-2 grid gap-2 border-t border-[#1A1A1A]/10 pt-3 sm:hidden">
-            <Link href="/login" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
+            <Link href="/login?mode=signup" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
               Start free <span aria-hidden>→</span>
             </Link>
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-full px-5 py-3 text-center text-base font-semibold text-[#1A1A1A]/70">Sign in</Link>
@@ -121,13 +121,13 @@ export function Hero() {
         </h1>
 
         <p data-hero="sub" className="mx-auto mt-5 max-w-2xl text-[15px] sm:text-[17px] leading-relaxed text-[#1A1A1A]/70 px-4 font-medium">
-          Drop in a video. CaptionsEasy generates word-perfect animated captions and renders studio-ready reels in seconds.
+          Animated captions for your Shorts, Reels and TikToks, made right in your browser. 20+ viral looks, every word editable, no install and no watermark.
         </p>
 
 
         <div data-hero="cta" className="mt-7 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
           <div className="conic-glow-pill w-full rounded-full p-[1px] sm:w-auto">
-            <Link href="/login" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base font-bold text-[#1A1A1A] shadow-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
+            <Link href="/login?mode=signup" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base font-bold text-[#1A1A1A] shadow-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
               Caption your first video free <span aria-hidden>→</span>
             </Link>
           </div>
@@ -517,7 +517,7 @@ function AnimatedTerminal({ origin }: { origin: string }) {
           <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-white/10"></div>
         </div>
         <div className="text-[11px] font-mono font-medium text-[#FFFFEB]/40 absolute left-1/2 -translate-x-1/2">
-          companion — bash
+          desktop helper — optional
         </div>
       </div>
       
@@ -546,7 +546,7 @@ function AnimatedTerminal({ origin }: { origin: string }) {
          {step >= 3 && (
            <div className="mt-5 animate-in fade-in duration-300 space-y-1.5">
              <p className="text-[#34D399] flex items-center gap-2"><span className="opacity-80">✓</span> Dependencies installed.</p>
-             <p className="text-[#34D399] flex items-center gap-2"><span className="opacity-80">✓</span> Local Whisper initialized.</p>
+             <p className="text-[#34D399] flex items-center gap-2"><span className="opacity-80">✓</span> Transparent exports enabled.</p>
            </div>
          )}
          
@@ -579,9 +579,9 @@ export function Privacy() {
         
         <div className="relative grid items-center gap-10 lg:grid-cols-2">
           <div className="lg:pr-8">
-            <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight sm:text-5xl">Your voice stays <em className="font-normal italic text-[#F0D7FF]">on your computer.</em></h2>
+            <h2 className="font-styled text-4xl font-bold leading-tight tracking-tight sm:text-5xl">Nothing to install. <em className="font-normal italic text-[#F0D7FF]">It runs in your browser.</em></h2>
             <p className="mt-6 text-base sm:text-lg leading-relaxed text-[#FFFFEB]/75">
-              The free CaptionsEasy Companion transcribes and renders on your own machine with local Whisper, so there&apos;s no per-minute cloud bill and no queue. One command installs it; after that it just works in the background.
+              Captions are written, styled and exported right in the tab you have open, on your phone or your laptop. No app, no plugin, no per-minute bill. Editing in Premiere, Resolve or Final Cut? The optional free desktop helper adds transparent ProRes and WebM caption overlays.
             </p>
           </div>
           
@@ -599,7 +599,7 @@ export function Pricing() {
   const pro = PLANS.pro;
   const mb = (b: number) => (b >= 1024 ** 3 ? `${b / 1024 ** 3} GB` : `${Math.round(b / 1024 ** 2)} MB`);
   const tiers = [
-    { name: "Free", price: "₹0", note: "forever", cta: "Start free", href: "/login", hi: false,
+    { name: "Free", price: "₹0", note: "forever", cta: "Start free", href: "/login?mode=signup", hi: false,
       items: [`Videos up to ${free.maxDurationSec / 60} min / ${mb(free.maxUploadBytes)}`, "Unlimited local transcription on your computer", `${free.cloudAsrMinutesPerMonth} cloud minutes / month`, "Every look, full editor, all export formats", `${free.maxProjects} projects · exports kept ${free.exportRetentionDays} days`] },
     { name: "Pro", price: "Soon", note: "join the waitlist", cta: "Get notified", href: "/login", hi: true,
       items: [`Videos up to ${pro.maxDurationSec / 3600} hours / ${mb(pro.maxUploadBytes)}`, `${pro.cloudAsrMinutesPerMonth} cloud minutes / month`, "Unlimited projects", `Exports kept ${pro.exportRetentionDays} days`, "Priority support"] },
@@ -712,8 +712,8 @@ const FAQS = [
     a: "Standard video editors apply plain static text. CaptionsEasy delivers syllable-accurate word timing, automatically highlights high-impact hero words with distinct motion, and lets you export transparent overlays (ProRes 4444 / WebM) directly into your NLE timeline.",
   },
   {
-    q: "Do I need a high-end GPU or cloud server to render videos?",
-    a: "No! The lightweight CaptionsEasy Companion runs on your own computer with local Whisper and Remotion hardware acceleration. There are zero cloud render queues and no per-minute bills.",
+    q: "Do I need to install anything?",
+    a: "No. Transcription, editing and MP4 export all run in your browser, on desktop or phone. The only optional extra is a free desktop helper, for transparent overlay exports (ProRes 4444 / WebM) and very long videos.",
   },
   {
     q: "Can I customize the font, colors, and keyframe animations?",
@@ -806,9 +806,9 @@ export function Faq() {
               <div className="mt-6 pt-4 border-t border-[#1A1A1A]/5 flex items-center justify-between text-xs text-[#1A1A1A]/50">
                 <span className="flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-[#34D399]" />
-                  Verified for CapsEasy v2
+                  CaptionsEasy
                 </span>
-                <span className="font-mono">Local + Cloud</span>
+                <span className="font-mono">Runs in your browser</span>
               </div>
             </div>
 
@@ -828,7 +828,7 @@ export function ClosingCta() {
         <p className="relative mx-auto mt-5 max-w-lg text-[#FFFFEB]/70 text-base sm:text-lg leading-relaxed">Your next video deserves captions people actually watch. Start free, in under a minute.</p>
         <div className="relative mt-9 inline-block">
           <div className="conic-glow-pill rounded-full p-[1px]">
-            <Link href="/login" className="flex items-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base sm:text-lg font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+            <Link href="/login?mode=signup" className="flex items-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base sm:text-lg font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Create free captions <span aria-hidden>→</span>
             </Link>
           </div>
@@ -873,7 +873,6 @@ const FOOTER_COLUMNS = [
       { label: "Terms of service", href: "/terms" },
       { label: "Privacy policy", href: "/privacy" },
       { label: "Cookie policy", href: "/cookies" },
-      { label: "Refund policy", href: "/refunds" },
     ],
   },
 ];

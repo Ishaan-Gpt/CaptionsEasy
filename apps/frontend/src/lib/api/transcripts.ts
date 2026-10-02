@@ -27,7 +27,7 @@ export async function saveTranscription(job: JobRow, r: TranscriptionResult) {
 
   const { data: transcript, error: tErr } = await admin.from("transcripts").insert({
     project_id: job.project_id, owner_id: job.owner_id, language: r.language, provider: r.engine, engine: r.engine, model: r.model,
-    version: 1, duration_ms: r.durationMs ?? null, words_json: r.words,
+    version: 1, duration_ms: r.durationMs != null ? Math.round(r.durationMs) : null, // int column; browsers measure fractions words_json: r.words,
     // legacy shape (seconds), kept for older tooling
     transcript_json: { language: r.language, provider: r.engine, words: r.words.map((w) => ({ word: w.text, start: w.startMs / 1000, end: w.endMs / 1000, probability: w.confidence ?? null })) },
   }).select("id").single();

@@ -7,7 +7,6 @@ export const metadata: Metadata = { title: "Subprocessors · CaptionsEasy", desc
 const ROWS: [string, string, string, string][] = [
   ["Supabase", "Database, file storage, sign-in", "Account, projects, captions, uploaded videos and exports", "South Korea (Seoul)"],
   ["Vercel", "Website and API hosting", "Requests to the site and API, request logs", "United States (global edge)"],
-  ["Groq", "Cloud transcription (only when you choose it)", "Audio of the video being transcribed", "United States"],
   ["Google", "Sign in with Google (optional); caption fonts", "Sign-in identity; font requests from your browser", "Global"],
 ];
 
@@ -37,8 +36,8 @@ export default function SubprocessorsPage() {
         </div>
       </Sec>
 
-      <Sec id="local" title="Processed on your own computer">
-        <p>Local transcription and all video rendering run in the CaptionsEasy Companion on your own computer, so no third party processes that audio or video.</p>
+      <Sec id="local" title="Processed on your own device">
+        <p>Speech recognition and MP4 export run in your browser, and transparent overlay exports run in the optional desktop helper on your own computer, so no third party processes that audio for transcription. The speech model itself is downloaded once from Hugging Face; no audio is sent to it.</p>
       </Sec>
     </LegalDoc>
   );

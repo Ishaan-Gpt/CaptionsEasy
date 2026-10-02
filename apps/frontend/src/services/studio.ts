@@ -5,6 +5,15 @@
 
 import type { CaptionDoc, CaptionStyleV2, ProjectSettings } from "@capseasy/shared";
 import { apiClient, ApiError } from "./api-client";
+import type { PreparedVideo } from "@/features/upload/prepareVideo";
+
+/** The file the user just uploaded, kept in memory so in-browser captions read it locally instead of downloading it again. */
+const localVideos = new Map<string, File>();
+const rememberLocalVideo = (videoId: string, file: File) => {
+  localVideos.clear();
+  localVideos.set(videoId, file);
+};
+export const localVideoFile = (videoId: string | null | undefined) => (videoId ? localVideos.get(videoId) ?? null : null);
 
 export interface StudioJob {
   id: string;
@@ -48,6 +57,8 @@ export interface StudioData {
   canTranscribe: boolean;
   cloudAvailable: boolean;
   companionOnline: boolean;
+  /** what this user may upload (videos are shrunk on the device to fit) */
+  limits?: { maxBytes: number; maxDurationSec: number };
   /** paired computers (names), most recently seen first; empty = never paired */
   pairedComputers: string[];
 }
@@ -70,40 +81,6 @@ export class RevisionConflict extends Error {
   constructor(public server: { revision: number; doc: CaptionDoc }) {
     super("This project was changed somewhere else.");
   }
-}
-
-export interface VideoProbe {
-  durationMs: number;
-  width: number;
-  height: number;
-  playable: boolean;
-}
-
-/** Reads dimensions/duration in the browser before uploading, so the UI (and plan limits) know immediately. */
-export function probeVideoFile(file: File): Promise<VideoProbe> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const v = document.createElement("video");
-    v.preload = "metadata";
-    v.muted = true;
-    const done = (fn: () => void) => {
-      URL.revokeObjectURL(url);
-      v.removeAttribute("src");
-      fn();
-    };
-    v.onloadedmetadata = () =>
-      done(() =>
-        resolve({
-          durationMs: Math.round((v.duration || 0) * 1000),
-          width: v.videoWidth,
-          height: v.videoHeight,
-          playable: v.videoWidth > 0 && v.videoHeight > 0,
-        }),
-      );
-    // most often HEVC/ProRes: the browser cannot decode it, so we ask the companion for an H.264 preview
-    v.onerror = () => done(() => reject(new Error("unplayable")));
-    v.src = url;
-  });
 }
 
 const ALLOWED = ["video/mp4", "video/quicktime", "video/webm", "video/x-matroska"];
@@ -131,33 +108,27 @@ export const studioService = {
     return apiClient.get<StudioData>(`/projects/${projectId}/studio`);
   },
 
-  /** Register, upload (with progress) and complete. Resolves when the transcribe job has been queued. */
+  /** Register, upload (with progress) and complete a video already checked/shrunk by prepareVideo(). */
   async uploadVideo(
     projectId: string,
-    file: File,
+    v: PreparedVideo,
     onProgress: (pct: number) => void,
     onAbortReady?: (abort: () => void) => void,
-  ): Promise<{ jobId: string; companionOnline: boolean }> {
+  ): Promise<{ jobId: string | null; companionOnline: boolean; noAudio?: boolean }> {
+    const file = v.file;
     const mime = file.type || (file.name.toLowerCase().endsWith(".mov") ? "video/quicktime" : file.name.toLowerCase().endsWith(".mkv") ? "video/x-matroska" : "");
     if (!ALLOWED.includes(mime)) throw new Error("Unsupported file. Use MP4, MOV, WebM or MKV.");
-
-    let probe: VideoProbe | null = null;
-    try {
-      probe = await probeVideoFile(file);
-    } catch {
-      probe = null; // unplayable in this browser: still upload, the companion will make a preview
-    }
-
     const reg = await apiClient.post<{ videoId: string; uploadUrl: string }>(`/projects/${projectId}/videos`, {
       json: {
         filename: file.name,
         size: file.size,
         mime,
-        probe: probe ? { durationMs: probe.durationMs, width: probe.width, height: probe.height } : undefined,
+        probe: { durationMs: v.durationMs, width: v.width, height: v.height, rotation: v.rotation, videoCodec: v.videoCodec, audioCodec: v.audioCodec, hasAudio: v.hasAudio },
       },
     });
     await putSigned(reg.uploadUrl, file, onProgress, onAbortReady);
-    return apiClient.post(`/videos/${reg.videoId}/complete`, { json: { needsProxy: probe === null } });
+    rememberLocalVideo(reg.videoId, file);
+    return apiClient.post(`/videos/${reg.videoId}/complete`, { json: { needsProxy: false } });
   },
 
   async saveDocument(projectId: string, expectedRevision: number, doc: CaptionDoc): Promise<number> {
