@@ -863,7 +863,6 @@ const FOOTER_COLUMNS = [
       { label: "Frequently asked questions", href: "/#faq" },
       { label: "Companion setup", href: "/settings" },
       { label: "Project studio", href: "/dashboard" },
-      { label: "All looks archive", href: "/landing-classic" },
     ],
   },
   {
