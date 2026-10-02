@@ -1,4 +1,4 @@
-// Drives the REAL studio UI in headless Chrome against the live API + a real companion process.
+// Drives the REAL studio UI in headless Chrome against the live API (captions made in the browser).
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -56,7 +56,7 @@ try {
 
   // ---------- 1. UI: empty project shows the upload panel
   const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
-  browser = await puppeteer.launch({ executablePath: `${REPO}/packages/compositions/node_modules/.remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/chrome-headless-shell.exe`, headless: "shell", args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"], defaultViewport: { width: 1440, height: 900 } });
+  browser = await puppeteer.launch({ executablePath: `${REPO}/packages/compositions/node_modules/.remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/chrome-headless-shell.exe`, headless: "shell", userDataDir: join(REPO, "apps", "frontend", ".e2e-upload", "profile"), args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"], defaultViewport: { width: 1440, height: 900 } });
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
@@ -70,15 +70,16 @@ try {
   // ---------- 2. UI upload: feed the real file through the actual <input type=file>
   const input = await page.$('input[type="file"]');
   await input.uploadFile(mp4);
-  await page.waitForFunction(() => /Waiting for your computer/.test(document.body.innerText), { timeout: 90000 });
-  check("after UI upload: 'Waiting for your computer' (companion offline)", true);
-  await page.screenshot({ path: join(SHOTS, "2-waiting.png") });
+  // browser-first: captions are made in this tab, no computer needed
+  const t0 = Date.now();
+  await page.waitForFunction(() => /Listening|speech model|Getting the audio/i.test(document.body.innerText) || document.querySelector('[aria-label="Timeline"]'), { timeout: 90000 });
+  check("after UI upload: captions start in the browser (no 'waiting for computer')", !/Waiting for your computer/.test(await page.evaluate(() => document.body.innerText)));
+  await page.screenshot({ path: join(SHOTS, "2-browser-captions.png") });
+  await page.waitForFunction(() => document.querySelector('[aria-label="Timeline"]') !== null, { timeout: 300000 });
+  log("editor appeared", ((Date.now() - t0) / 1000).toFixed(0), "s after upload");
+  check("studio turned into the editor by itself when captions were ready", true);
 
-  // ---------- 3. pair companion (approve through the real pair page API) and process
-  let code = null;
-  const lg = runCli(["login", "--api", APP, "--no-open", "--name", "UI Test PC"], (l) => { const m = /matches:\s+([A-Z0-9]{4}-[A-Z0-9]{4})/.exec(l); if (m && !code) { code = m[1]; api("POST", "/device/approve", token, { userCode: code }); } });
-  check("companion paired", (await lg).code === 0);
-  // the pair page in the real UI
+  // ---------- 3. the optional desktop helper can still be paired from the pair page
   const pair = await browser.newPage();
   await pair.evaluateOnNewDocument((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(sess.session));
   const start = await api("POST", "/device/start", null, { workerName: "Pair Page PC", platform: "win32" });
@@ -89,14 +90,6 @@ try {
   check("pair page (device-code) approves a computer", true);
   await pair.screenshot({ path: join(SHOTS, "3-pair.png") });
   await pair.close();
-
-  const t0 = Date.now();
-  const comp = runCli(["start", "--once"], (l) => log("   [companion]", l));
-  // the open studio tab should flip from 'waiting' to progress to the editor by itself (polling)
-  await page.waitForFunction(() => document.querySelector('[aria-label="Timeline"]') !== null, { timeout: 240000 });
-  log("editor appeared", ((Date.now() - t0) / 1000).toFixed(0), "s after starting companion");
-  check("studio auto-updated into the editor when captions were ready", true);
-  await comp;
   await sleep(2500); // fonts + player
   await page.screenshot({ path: join(SHOTS, "4-editor.png") });
 
@@ -216,11 +209,15 @@ try {
   await sleep(500);
   const exps = await api("GET", `/projects/${pid}/exports`, token);
   check("clicking 'Subtitles (.srt)' created a ready export", exps.data.some((e) => e.kind === "srt" && e.status_v2 === "ready"), JSON.stringify(exps.data));
+  // browser-first: exactly two choices, MP4 marked as the popular one, and MP4 is made in this tab (never queued)
+  const choices = await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] button')].map((b) => b.textContent).filter((t) => /Video with captions|Subtitles|overlay|transcript|.vtt|.ass/i.test(t)));
+  check("export offers only MP4 + SRT", choices.length === 2 && /MP4/.test(choices[0]) && /\.srt/.test(choices[1]), JSON.stringify(choices));
+  check("MP4 is marked 'Most popular'", /Most popular/i.test(choices[0] ?? ""), choices[0]);
   await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] button')].find((b) => /Video with captions/.test(b.textContent))?.click());
-  await sleep(3000);
+  const started = await page.waitForFunction(() => /Rendering your MP4 in this tab|Your MP4 is downloading|can't make MP4s|WebCodecs/i.test(document.body.innerText), { timeout: 20000 }).then(() => true, () => false);
   const exps2 = await api("GET", `/projects/${pid}/exports`, token);
-  check("clicking MP4 queues a render job", exps2.data.some((e) => e.kind === "mp4" && e.status_v2 === "queued"), JSON.stringify(exps2.data.map((e) => e.kind + ":" + e.status_v2)));
-  await page.screenshot({ path: join(SHOTS, "10-export-queued.png") });
+  check("MP4 renders in the browser (no server render job)", started && !exps2.data.some((e) => e.kind === "mp4"), JSON.stringify(exps2.data.map((e) => e.kind + ":" + e.status_v2)));
+  await page.screenshot({ path: join(SHOTS, "10-export-mp4.png") });
 
   const realErrors = errors.filter((e) => !/favicon|Download the React DevTools|hydrat/i.test(e));
   check("no unexpected browser console errors", realErrors.length === 0, realErrors.slice(0, 4).join(" | "));

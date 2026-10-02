@@ -3,6 +3,8 @@ import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 import QueryProvider from "@/providers/QueryProvider";
 import { introScript } from "@/components/home/intro";
 import { authReturnScript } from "@/lib/authReturn";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 /**
@@ -51,6 +53,8 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>{children}</QueryProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
