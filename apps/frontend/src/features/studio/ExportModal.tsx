@@ -3,21 +3,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { CaptionedVideoInput } from "@capseasy/compositions";
 import { canExportInBrowser, exportMp4InBrowser, saveBlob } from "./browserExport";
-import { ConnectComputer } from "@/features/companion/ConnectComputer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { studioService, type ExportKind, type ExportRow } from "@/services/studio";
 import { ApiError } from "@/services/api-client";
 import { Button, fmtBytes, fmtTime, triggerDownload } from "./controls";
 
-interface Option { kind: ExportKind; title: string; desc: string; needsComputer: boolean }
+interface Option { kind: ExportKind; title: string; desc: string; needsComputer: boolean; popular?: boolean }
+/** Browser-first launch: the two exports that work everywhere with nothing installed. */
 const OPTIONS: Option[] = [
-  { kind: "mp4", title: "Video with captions (MP4)", desc: "Captions burned into your video. Renders right here in your browser.", needsComputer: true },
-  { kind: "mov_alpha", title: "Transparent overlay (ProRes .mov)", desc: "Captions only, with transparency, for Premiere, Final Cut and DaVinci.", needsComputer: true },
-  { kind: "webm_alpha", title: "Transparent overlay (WebM)", desc: "Captions only with transparency, smaller files for web editors.", needsComputer: true },
-  { kind: "srt", title: "Subtitles (.srt)", desc: "Works on YouTube, Facebook, LinkedIn and every editor.", needsComputer: false },
-  { kind: "vtt", title: "Subtitles (.vtt)", desc: "For web players and HTML5 video.", needsComputer: false },
-  { kind: "ass", title: "Styled subtitles (.ass)", desc: "Keeps font, colors and position for editors that support ASS.", needsComputer: false },
-  { kind: "txt", title: "Plain transcript (.txt)", desc: "Just the words, one caption per line.", needsComputer: false },
+  { kind: "mp4", title: "Video with captions (MP4)", desc: "Ready to post on Reels, Shorts and TikTok. Made right here in your browser.", needsComputer: true, popular: true },
+  { kind: "srt", title: "Subtitles file (.srt)", desc: "For YouTube, LinkedIn, Premiere, CapCut and every editor.", needsComputer: false },
 ];
 
 /** wall-clock for "made in …" (kept out of render: only called from event handlers) */
@@ -121,7 +116,7 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
   };
 
   const start = async (o: Option) => {
-    if (o.kind === "mp4" && webReady) return exportHere();
+    if (o.kind === "mp4") return webReady ? exportHere() : undefined; // MP4 is made in the browser only
     setError(null);
     setBusyKind(o.kind);
     try {
@@ -154,15 +149,6 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           {saving ? <p className="mb-3 rounded-lg bg-st-raised/70 px-3 py-2 text-xs text-st-muted">Saving your latest edits first…</p> : null}
-          {!companionOnline ? (
-            <div className="mb-4 rounded-xl bg-st-raised/60 px-3 py-3 text-sm text-st-text">
-              <p>
-                {webReady ? "MP4 and subtitles export right here in your browser." : "Subtitles download right away."} Transparent overlays{webReady ? "" : " and MP4"} are made on your computer with the free CaptionsEasy app.
-              </p>
-              <div className="mt-2.5"><ConnectComputer compact /></div>
-            </div>
-          ) : null}
-
           <div className="mb-3 flex flex-col gap-1.5 text-sm text-st-text/80 sm:flex-row sm:items-center sm:justify-between">
             <span>Video quality</span>
             <div className="grid grid-cols-3 rounded-lg border border-st-line bg-st-raised p-0.5 sm:inline-flex">
@@ -197,18 +183,22 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
             ) : null}
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            {OPTIONS.map((o) => (
-              <button
-                key={o.kind}
-                disabled={busyKind !== null || webProgress !== null || (o.needsComputer && !trimValid)}
-                onClick={() => void start(o)}
-                className="rounded-xl border border-st-line bg-st-raised/50 p-3 text-left transition hover:border-st-ink/30 hover:bg-st-lav/30 disabled:opacity-50"
-              >
-                <div className="text-sm font-medium text-st-text">{busyKind === o.kind ? "Working…" : o.title}</div>
-                <div className="mt-0.5 text-xs text-st-muted">{o.desc}</div>
-              </button>
-            ))}
+          <div className="grid gap-2">
+            {OPTIONS.map((o) => {
+              const unavailable = o.kind === "mp4" && web !== null && !webReady;
+              return (
+                <button
+                  key={o.kind}
+                  disabled={busyKind !== null || webProgress !== null || unavailable || (o.needsComputer && !trimValid)}
+                  onClick={() => void start(o)}
+                  className={`relative rounded-xl border p-4 text-left transition disabled:opacity-50 ${o.popular ? "border-st-ink bg-st-lav/40 hover:bg-st-lav/60" : "border-st-line bg-st-raised/50 hover:border-st-ink/30 hover:bg-st-lav/30"}`}
+                >
+                  {o.popular ? <span className="absolute -top-2.5 right-3 rounded-full bg-st-or px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-obsidian">Most popular</span> : null}
+                  <div className={`text-sm ${o.popular ? "font-semibold" : "font-medium"} text-st-text`}>{busyKind === o.kind ? "Working…" : o.title}</div>
+                  <div className="mt-0.5 text-xs text-st-muted">{unavailable ? web?.reason ?? "This browser can't make MP4s. Use Chrome, Edge or Safari." : o.desc}</div>
+                </button>
+              );
+            })}
           </div>
           {webProgress !== null ? (
             <div className="mt-3 rounded-xl border border-st-line bg-st-raised/60 p-3">
@@ -224,7 +214,6 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
           ) : webDone ? (
             <p className="mt-3 rounded-lg bg-st-em/15 px-3 py-2 text-sm text-st-text">✓ Your MP4 is downloading ({webDone}).</p>
           ) : null}
-          {web && !web.ok ? <p className="mt-3 text-xs text-st-muted">{web.reason} MP4 exports will use your computer instead.</p> : null}
           {error ? <p role="alert" className="mt-3 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
 
           {rows.length > 0 ? (

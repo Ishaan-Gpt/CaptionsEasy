@@ -28,6 +28,7 @@ export const POST = route(async (req: Request, { params }: Ctx<{ id: string }>) 
   const { id: projectId } = await params;
   await rateLimit(user.id, "export", 120, 3600);
   const body = await parseBody(req, CreateExportBody);
+  if (user.guest) throw new ApiFailure("FORBIDDEN", "Create a free account to export your video.", { signupRequired: true });
   if (body.kind === "png") throw new ApiFailure("VALIDATION", "PNG stills are not available yet.");
 
   const { data: project } = await user.db.from("projects").select("id, title, look_id, style_json, settings_json").eq("id", projectId).is("deleted_at", null).maybeSingle();

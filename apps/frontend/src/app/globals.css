@@ -268,6 +268,8 @@ html[data-intro="play"]:not(.ce-out) [data-hero] { animation-play-state: paused 
 [data-hero="cta"] { animation: hero-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--hero-at) + 460ms) both; }
 [data-hero="points"] { animation: hero-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--hero-at) + 560ms) both; }
 [data-hero="stream"] { animation: hero-stream 1.5s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--hero-at) + 380ms) both; }
+/* phones: the subtitle and buttons are the main content; show them at first paint instead of fading in */
+@media (pointer: coarse) { [data-hero="sub"], [data-hero="cta"] { animation: none; } }
 @keyframes hero-up { from { transform: translateY(110%); } to { transform: none; } }
 @keyframes hero-fade-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes hero-stream { from { opacity: 0; transform: translateY(48px) scale(0.97); } to { opacity: 1; transform: none; } }

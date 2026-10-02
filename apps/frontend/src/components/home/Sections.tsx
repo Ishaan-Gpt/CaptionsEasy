@@ -45,7 +45,7 @@ export function Nav() {
           <Link href="/login" className="hidden whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
           {/* phones: this moves into the menu */}
           <div className="conic-glow-pill hidden rounded-full p-[1px] sm:block">
-            <Link href="/login?mode=signup" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+            <Link href="/start" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Start free <span aria-hidden>→</span>
             </Link>
           </div>
@@ -63,7 +63,7 @@ export function Nav() {
             <a key={href} href={href} onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 text-base font-semibold text-[#1A1A1A] hover:bg-[#E4E4D0]/60">{label}</a>
           ))}
           <div className="mt-2 grid gap-2 border-t border-[#1A1A1A]/10 pt-3 sm:hidden">
-            <Link href="/login?mode=signup" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
+            <Link href="/start" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
               Start free <span aria-hidden>→</span>
             </Link>
             <Link href="/login" onClick={() => setOpen(false)} className="rounded-full px-5 py-3 text-center text-base font-semibold text-[#1A1A1A]/70">Sign in</Link>
@@ -127,7 +127,7 @@ export function Hero() {
 
         <div data-hero="cta" className="mt-7 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
           <div className="conic-glow-pill w-full rounded-full p-[1px] sm:w-auto">
-            <Link href="/login?mode=signup" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base font-bold text-[#1A1A1A] shadow-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
+            <Link href="/start" className="flex w-full items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base font-bold text-[#1A1A1A] shadow-sm transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto">
               Caption your first video free <span aria-hidden>→</span>
             </Link>
           </div>
@@ -599,7 +599,7 @@ export function Pricing() {
   const pro = PLANS.pro;
   const mb = (b: number) => (b >= 1024 ** 3 ? `${b / 1024 ** 3} GB` : `${Math.round(b / 1024 ** 2)} MB`);
   const tiers = [
-    { name: "Free", price: "₹0", note: "forever", cta: "Start free", href: "/login?mode=signup", hi: false,
+    { name: "Free", price: "₹0", note: "forever", cta: "Start free", href: "/start", hi: false,
       items: [`Videos up to ${free.maxDurationSec / 60} min / ${mb(free.maxUploadBytes)}`, "Unlimited local transcription on your computer", `${free.cloudAsrMinutesPerMonth} cloud minutes / month`, "Every look, full editor, all export formats", `${free.maxProjects} projects · exports kept ${free.exportRetentionDays} days`] },
     { name: "Pro", price: "Soon", note: "join the waitlist", cta: "Get notified", href: "/login", hi: true,
       items: [`Videos up to ${pro.maxDurationSec / 3600} hours / ${mb(pro.maxUploadBytes)}`, `${pro.cloudAsrMinutesPerMonth} cloud minutes / month`, "Unlimited projects", `Exports kept ${pro.exportRetentionDays} days`, "Priority support"] },
@@ -828,7 +828,7 @@ export function ClosingCta() {
         <p className="relative mx-auto mt-5 max-w-lg text-[#FFFFEB]/70 text-base sm:text-lg leading-relaxed">Your next video deserves captions people actually watch. Start free, in under a minute.</p>
         <div className="relative mt-9 inline-block">
           <div className="conic-glow-pill rounded-full p-[1px]">
-            <Link href="/login?mode=signup" className="flex items-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base sm:text-lg font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+            <Link href="/start" className="flex items-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-8 py-4 text-base sm:text-lg font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
               Create free captions <span aria-hidden>→</span>
             </Link>
           </div>

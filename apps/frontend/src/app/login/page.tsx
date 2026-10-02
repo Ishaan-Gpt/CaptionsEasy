@@ -58,14 +58,14 @@ export default function LoginPage() {
 
   // Redirect if already authenticated; also catches the OAuth return.
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      router.replace("/start");
-      return;
-    }
+    // a guest (anonymous) session may still sign in to a real account here
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session && !data.session.user.is_anonymous) router.replace("/start");
+    });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) router.replace("/start");
+      if (session && !session.user.is_anonymous) router.replace("/start");
     });
     return () => subscription.unsubscribe();
   }, [router]);

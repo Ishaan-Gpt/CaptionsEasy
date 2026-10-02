@@ -8,6 +8,8 @@ export interface AuthedUser {
   id: string;
   email: string | null;
   token: string;
+  /** anonymous guest who hasn't signed up yet (may edit, may not export) */
+  guest: boolean;
   /** acts as the user; Postgres RLS enforces ownership */
   db: SupabaseClient;
 }
@@ -23,7 +25,9 @@ export async function requireUser(req: Request): Promise<AuthedUser> {
   if (!token) throw new ApiFailure("UNAUTHORIZED", "Missing bearer token");
   const { data, error } = await getAdmin().auth.getUser(token);
   if (error || !data.user) throw new ApiFailure("UNAUTHORIZED", "Invalid or expired token");
-  return { id: data.user.id, email: data.user.email ?? null, token, db: getUserClient(token) };
+  const u = data.user;
+  const guest = !!u.is_anonymous && !u.email && !u.new_email;
+  return { id: u.id, email: u.email ?? null, token, guest, db: getUserClient(token) };
 }
 
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");

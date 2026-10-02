@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useLowEndDevice } from "@/lib/device";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -245,6 +246,7 @@ export function CoverflowCarousel({
     [],
   );
 
+  const lowEnd = useLowEndDevice();
   const active = slides[selected];
 
   return (
@@ -302,18 +304,19 @@ export function CoverflowCarousel({
                 )}
                 style={{ width: "var(--cf-card)", height: "calc(var(--cf-card) * var(--cf-ratio))" }}
               >
-                {slide.video ? (
+                {slide.video && Math.min(Math.abs(index - selected), count - Math.abs(index - selected)) <= (lowEnd ? 0 : 1) ? (
                   <video
                     src={slide.video}
                     poster={slide.src}
                     autoPlay
+                    preload="metadata"
                     muted
                     loop
                     playsInline
                     className="h-full w-full select-none object-cover pointer-events-none"
                   />
                 ) : (
-                  <img
+                  <img loading={Math.abs(index - selected) <= 1 ? "eager" : "lazy"} decoding="async"
                     src={slide.src}
                     alt={slide.alt}
                     draggable={false}

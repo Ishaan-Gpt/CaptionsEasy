@@ -20,6 +20,8 @@ import { ProcessingPanel } from "./ProcessingPanel";
 import { StudioPlayer } from "./StudioPlayer";
 import { Timeline } from "./Timeline";
 import { UploadPanel } from "./UploadPanel";
+import { SignupGate } from "./SignupGate";
+import { currentUserIsGuest } from "@/services/auth/guest";
 import { useWaveform } from "./useWaveform";
 import { useStudio, type SaveState } from "./useStudio";
 
@@ -71,6 +73,20 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const [playing, setPlaying] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
+  // guests edit freely; exporting is the moment to create the (free) account
+  const openExport = useCallback(async () => {
+    if (await currentUserIsGuest()) setShowSignup(true);
+    else setShowExport(true);
+  }, []);
+  // back from Google sign-up with ?export=1: carry on to the export dialog
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("export")) return;
+    url.searchParams.delete("export");
+    window.history.replaceState(null, "", url.toString());
+    void openExport();
+  }, [openExport]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState("");
   const [fontsReady, setFontsReady] = useState(false);
@@ -171,11 +187,14 @@ export default function StudioPage({ projectId }: { projectId: string }) {
             <Button onClick={s.redo} disabled={!s.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo" className="!px-2.5">↷</Button>
           </>
         ) : null}
-        <span className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs xl:inline-flex ${data.companionOnline ? "border-st-em/60 bg-st-em/15 text-st-text" : "border-st-line text-st-muted"}`} title={data.companionOnline ? "Your computer is connected" : "No computer connected"}>
-          <span className={`h-1.5 w-1.5 rounded-full ${data.companionOnline ? "bg-st-em" : "bg-st-faint"}`} />
-          {data.companionOnline ? "Computer connected" : "Computer offline"}
-        </span>
-        <Button tone="primary" disabled={!hasEditor} onClick={() => setShowExport(true)} className="!rounded-full !px-4">Export</Button>
+        {/* browser-first: only mention a computer when the optional desktop helper is actually connected */}
+        {data.companionOnline ? (
+          <span className="hidden items-center gap-1.5 rounded-full border border-st-em/60 bg-st-em/15 px-2.5 py-1 text-xs text-st-text xl:inline-flex" title="Your desktop helper is connected">
+            <span className="h-1.5 w-1.5 rounded-full bg-st-em" />
+            Desktop helper on
+          </span>
+        ) : null}
+        <Button tone="primary" disabled={!hasEditor} onClick={() => void openExport()} className="!rounded-full !px-4">Export</Button>
       </div>
     </header>
   );
@@ -290,6 +309,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
 
   const overlays = (
     <>
+      {showSignup ? <SignupGate onClose={() => setShowSignup(false)} onDone={() => { setShowSignup(false); setShowExport(true); }} /> : null}
       {showExport ? <ExportModal projectId={projectId} title={data.project.title} video={{ width, height, durationMs, fps }} renderInput={input} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
       {s.conflict ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">

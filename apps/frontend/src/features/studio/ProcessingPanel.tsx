@@ -44,7 +44,7 @@ export const ProcessingPanel: React.FC<Props> = ({ projectId, job, companionOnli
     job?.kind === "transcribe" && !companionOnline && !!videoUrl && canTranscribeInBrowser() &&
     (job.status === "queued" || (job.status === "processing" && (job.stage ?? "").startsWith("browser")));
   if (browserJob && job && videoUrl) {
-    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} localFile={localVideoFile(videoId)} language={language ?? null} isPhone={isPhone} onDone={onChanged} fallback={isPhone ? null : <ConnectComputer compact />} />;
+    return <BrowserCaptions key={job.id} jobId={job.id} videoUrl={videoUrl} localFile={localVideoFile(videoId)} language={language ?? null} isPhone={isPhone} onDone={onChanged} fallback={null} />;
   }
 
   if (job?.status === "failed") {

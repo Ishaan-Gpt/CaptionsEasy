@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLowEndDevice } from "@/lib/device";
 import { motion } from "framer-motion";
 import { Player, type PlayerRef } from "@remotion/player";
 import { CaptionedVideo, computePages } from "@capseasy/compositions";
@@ -106,6 +107,7 @@ export function ClipPlayer({ clip, doc, durationMs, style, settings, mode = "bur
   );
   // mount the player only once it is near the screen: a page of idle players is what made phones stutter
   const [near, setNear] = useState(false);
+  const lowEnd = useLowEndDevice(); // budget phones: the still frame only, no live player
   useEffect(() => {
     const el = box.current;
     if (!el || near) return;
@@ -126,9 +128,9 @@ export function ClipPlayer({ clip, doc, durationMs, style, settings, mode = "bur
     <div ref={box} className={`relative overflow-hidden ${className}`} style={style_}>
       {mode === "burn" ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/hero/${clip}.raw.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={`/hero/${clip}.raw.webp`} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
-      {doc && near ? (
+      {doc && near && !lowEnd ? (
         <Player
           ref={ref}
           component={CaptionedVideo as unknown as React.ComponentType<Record<string, unknown>>}

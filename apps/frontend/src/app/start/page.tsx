@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/auth/supabaseClient";
 import { projectsService } from "@/services/projects";
+import { startGuestSession } from "@/services/auth/guest";
 import type { Project } from "@/services/types";
 
 /**
@@ -45,8 +46,9 @@ export default function StartPage() {
     if (once.current) return; // Strict Mode runs effects twice: never create two projects
     once.current = true;
     void (async () => {
-      const session = await waitForSession();
-      if (!session) return router.replace("/login");
+      // new visitor: straight into the studio as a guest; they sign up only when they export
+      const session = (await waitForSession(/[?&]code=|access_token=|token_hash=/.test(window.location.search + window.location.hash) ? 6000 : 400)) ?? ((await startGuestSession()) ? (await supabase.auth.getSession()).data.session : null);
+      if (!session) return router.replace("/login?mode=signup");
       try {
         const projects = await projectsService.getProjects();
         const draft = projects
