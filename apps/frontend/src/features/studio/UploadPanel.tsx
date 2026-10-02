@@ -1,7 +1,8 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { preloadSpeechModel } from "@/features/transcribe/browserWhisper";
 import { studioService } from "@/services/studio";
 import { ApiError } from "@/services/api-client";
 import { PrepareError, prepareVideo, type PrepareStage } from "@/features/upload/prepareVideo";
@@ -18,6 +19,11 @@ const DEFAULT_LIMITS = { maxBytes: 50 * 1024 * 1024, maxDurationSec: 5 * 60 };
 
 /** Drag & drop / pick a video: checked and saved on this device (never uploaded), then captions start. */
 export const UploadPanel: React.FC<Props> = ({ projectId, onUploaded, note, limits = DEFAULT_LIMITS }) => {
+  // get the speech model ready while they pick and upload a video, so captions start the moment it's in.
+  // Desktop only: phones may re-encode the video in this tab and need the memory for that.
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 767px), (pointer: coarse) and (hover: none)").matches) preloadSpeechModel();
+  }, []);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);

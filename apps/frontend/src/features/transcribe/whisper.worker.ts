@@ -15,7 +15,7 @@ const SR = 16_000;
 const WINDOW_S = 28;
 const SEARCH_S = 2.5;
 
-type In = { type: "run"; audio: Float32Array; language: string | null };
+type In = { type: "run"; audio: Float32Array; language: string | null } | { type: "preload" };
 export type Out =
   | { type: "status"; stage: "download" | "load" | "transcribe"; progress: number; device?: string }
   | { type: "done"; words: { text: string; startMs: number; endMs: number }[]; device: string }
@@ -26,7 +26,18 @@ const post = (m: Out) => (self as unknown as DedicatedWorkerGlobalScope).postMes
 let asr: AutomaticSpeechRecognitionPipeline | null = null;
 let device = "wasm";
 
-async function load(forceWasm = false) {
+let loading: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
+
+/** One load at a time: a run that arrives while a preload is still going waits for the same model. */
+function load(forceWasm = false): Promise<AutomaticSpeechRecognitionPipeline> {
+  if (asr) return Promise.resolve(asr);
+  if (!forceWasm && loading) return loading;
+  const p = loadModel(forceWasm).finally(() => { if (loading === p) loading = null; });
+  if (!forceWasm) loading = p;
+  return p;
+}
+
+async function loadModel(forceWasm: boolean) {
   if (asr) return asr;
   let gpuF16 = false;
   if (!forceWasm) try {
@@ -92,7 +103,10 @@ function windows(audio: Float32Array): [number, number][] {
 }
 
 self.onmessage = async (e: MessageEvent<In>) => {
-  if (e.data.type !== "run") return;
+  if (e.data.type === "preload") {
+    load().catch(() => { /* the real run retries and reports the error */ });
+    return;
+  }
   try {
     let model = await load();
     const { audio, language } = e.data;

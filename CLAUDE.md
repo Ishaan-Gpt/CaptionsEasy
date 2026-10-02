@@ -1533,6 +1533,12 @@ pm`, brings its own Node (x64/arm64/x86), stops a running Companion before updat
 - **Landing perf:** carousel mounts video only for the front slide +/-1 (front only on low-end, `lib/device.ts`); showcase players are stills on low-end; hero subtitle/CTA don't fade in on touch devices (LCP). `node apps/frontend/scripts/perf-mobile.mjs`.
 - Test: `node apps/frontend/scripts/e2e-upload.mjs` (phone viewport, silent / HEVC / 80 MB clips in `apps/frontend/.e2e-upload/`).
 
+**Returning users round (2026-10-02):**
+- `/start` is the hub: signed-in account -> pending guest claim, then the page they were headed to (`ce:after-signin`), else `/dashboard`; guest -> their latest project; signed out on a browser that has had an account (`ce:had-account`) -> `/login`, never a guest; brand-new visitor -> guest + new project. `/login?redirect=` and the dashboard guard send people back where they were.
+- **Guest -> existing account:** the export sign-up box has "Already have an account? Sign in"; an email that already exists, or Google `identity_already_exists`, takes the same path. The browser keeps the guest's tokens (`rememberGuestForClaim`), and after sign-in `POST /api/v1/guest/claim` moves every row the guest owns to the account (service role, guest proven by its tokens). They land back in the project with Export open.
+- **Speech model:** first run says "Building your experience for the first time…" with rotating verbs, a live time estimate and a "grab a coffee" note; no MB / "downloading" wording. One worker per tab stays alive with the model loaded; `preloadSpeechModel()` starts on the upload screen (desktop); `isSpeechModelSaved()` checks Cache Storage; `navigator.storage.persist()` keeps it from being evicted.
+- Test: `APP_URL=http://localhost:3000 node apps/frontend/scripts/e2e-returning.mjs` (18 checks, throwaway users).
+
 **What's left (as of MVP2, 2026-09-30):**
 1. **Owner actions** (only you can do these): rotate both Groq keys (old installer leaked them; the local copy in `apps/backend/.env` was deleted with the legacy backend), set Vercel env (`SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`, `GROQ_API_KEY`, `GROQ_API_KEY_BACKUP`, `NEXT_PUBLIC_API_URL=/api/v1`), enable Supabase leaked-password protection, then smoke-test the install command on the live URL.
 2. **macOS / Linux companion verification** on real machines (code + unit tests are in place; whisper.cpp builds from source there and needs git + make).

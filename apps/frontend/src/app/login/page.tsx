@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth";
 import { supabase } from "@/services/auth/supabaseClient";
+import { setAfterSignIn } from "@/services/auth/guest";
 import AuthShell, {
   Field,
   PasswordField,
@@ -53,7 +54,12 @@ export default function LoginPage() {
 
   // "Start free" links arrive with ?mode=signup: open on Create Account, not Welcome Back
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "signup") setMode("signup");
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("mode") === "signup") setMode("signup");
+    // a page that sent them here (e.g. a project link) is where they continue after signing in
+    setAfterSignIn(q.get("redirect"));
+    const e = q.get("email");
+    if (e) setEmail(e);
   }, []);
 
   // Redirect if already authenticated; also catches the OAuth return.

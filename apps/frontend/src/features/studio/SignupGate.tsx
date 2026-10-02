@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { upgradeWithEmail, upgradeWithGoogle } from "@/services/auth/guest";
+import { rememberGuestForClaim, upgradeWithEmail, upgradeWithGoogle } from "@/services/auth/guest";
 import { Button } from "./controls";
 
 /**
@@ -14,6 +14,15 @@ export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> =
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [exists, setExists] = useState(false);
+
+  /** They already have an account: sign in to it; this project moves over and the export dialog reopens. */
+  const signInInstead = async () => {
+    const back = new URL(window.location.href);
+    back.searchParams.set("export", "1");
+    await rememberGuestForClaim(back.pathname + back.search);
+    window.location.href = `/login${email ? `?email=${encodeURIComponent(email.trim())}` : ""}`;
+  };
 
   const google = async () => {
     setError(null);
@@ -38,7 +47,9 @@ export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> =
       await upgradeWithEmail(email.trim(), password);
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create the account. Try again.");
+      const m = err instanceof Error ? err.message : "";
+      if (/already|registered|exists/i.test(m)) setExists(true);
+      else setError(m || "Couldn't create the account. Try again.");
     } finally {
       setBusy(null);
     }
@@ -66,8 +77,15 @@ export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> =
               <input type="password" autoComplete="new-password" placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-lg border border-st-line bg-st-raised px-3 py-2.5 text-sm" />
               <Button type="submit" className="w-full !py-2.5" disabled={busy !== null}>{busy === "email" ? "Creating…" : "Create account with email"}</Button>
             </form>
+            {exists ? (
+              <div role="alert" className="mt-3 rounded-lg border border-st-line bg-st-raised px-3 py-3 text-sm">
+                <p>That email already has a CaptionsEasy account. Sign in and this project comes with you.</p>
+                <Button tone="primary" className="mt-2 w-full !py-2.5" onClick={() => void signInInstead()}>Sign in to my account</Button>
+              </div>
+            ) : null}
             {error ? <p role="alert" className="mt-3 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
-            <p className="mt-4 text-center text-xs text-st-faint">Free. No card. By continuing you agree to the <a href="/terms" className="underline">Terms</a> and <a href="/privacy" className="underline">Privacy Policy</a>.</p>
+            <p className="mt-4 text-center text-sm text-st-muted">Already have an account? <button type="button" className="font-semibold text-st-text underline" onClick={() => void signInInstead()}>Sign in</button>. This project comes with you.</p>
+            <p className="mt-2 text-center text-xs text-st-faint">Free. No card. By continuing you agree to the <a href="/terms" className="underline">Terms</a> and <a href="/privacy" className="underline">Privacy Policy</a>.</p>
           </>
         )}
       </div>

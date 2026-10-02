@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/auth/supabaseClient";
 import { projectsService } from "@/services/projects";
-import { startGuestSession } from "@/services/auth/guest";
+import { claimPendingGuest, hadAccountHere, isGuestUser, startGuestSession, takeAfterSignIn } from "@/services/auth/guest";
 import type { Project } from "@/services/types";
 
 /**
- * Where every sign-in lands (password, Google/OAuth, email confirmation): straight into the studio.
- * Reuses the newest EMPTY draft (no video yet) so repeated logins don't pile up blank projects; otherwise
- * creates the next "Untitled 001". `replace`, never `push`, so Back doesn't bounce through here.
+ * The hub every "Start free" click and every sign-in (password, Google, email confirmation) lands on:
+ * - signed-in account: moves a pending guest project over (see guest.ts), then the page they were headed to, else the dashboard
+ * - guest coming back: their latest project
+ * - signed out on a browser that had an account: sign in (never a guest account)
+ * - brand-new visitor: a guest account and a fresh project
+ * `replace`, never `push`, so Back doesn't bounce through here.
  */
-const isEmptyDraft = (p: Project) => !p.archived_at && !p.deleted_at && String(p.status ?? "").toUpperCase() === "CREATED";
 
 function nextUntitled(projects: Project[]) {
   const used = projects.map((p) => /^Untitled (\d+)$/i.exec(p.title.trim())?.[1]).filter(Boolean).map(Number);
@@ -46,15 +48,22 @@ export default function StartPage() {
     if (once.current) return; // Strict Mode runs effects twice: never create two projects
     once.current = true;
     void (async () => {
-      // new visitor: straight into the studio as a guest; they sign up only when they export
-      const session = (await waitForSession(/[?&]code=|access_token=|token_hash=/.test(window.location.search + window.location.hash) ? 6000 : 400)) ?? ((await startGuestSession()) ? (await supabase.auth.getSession()).data.session : null);
-      if (!session) return router.replace("/login?mode=signup");
+      const fromAuth = /[?&]code=|access_token=|token_hash=/.test(window.location.search + window.location.hash);
+      let session = await waitForSession(fromAuth ? 6000 : 400);
+      if (session && !isGuestUser(session.user)) {
+        await claimPendingGuest();
+        return router.replace(takeAfterSignIn() ?? "/dashboard");
+      }
+      if (!session) {
+        if (hadAccountHere()) return router.replace("/login");
+        session = (await startGuestSession()) ? (await supabase.auth.getSession()).data.session : null;
+        if (!session) return router.replace("/login?mode=signup");
+      }
       try {
         const projects = await projectsService.getProjects();
-        const draft = projects
-          .filter(isEmptyDraft)
-          .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0];
-        const project = draft ?? (await projectsService.createProject(nextUntitled(projects)));
+        const live = projects.filter((p) => !p.archived_at && !p.deleted_at).sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+        // a guest continues where they left off
+        const project = live[0] ?? (await projectsService.createProject(nextUntitled(projects)));
         router.replace(`/projects/${project.id}`);
       } catch {
         setFailed(true);

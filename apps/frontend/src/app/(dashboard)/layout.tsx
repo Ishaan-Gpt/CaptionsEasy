@@ -10,7 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
-      router.push("/login");
+      router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     setAuthorized(true);

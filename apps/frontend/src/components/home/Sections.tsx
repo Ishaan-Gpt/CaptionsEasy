@@ -25,8 +25,23 @@ const NAV_LINKS = [
   ["FAQ", "#faq"],
 ] as const;
 
+/** Signed in to a real account in this browser? Read straight from Supabase's stored session so the landing page doesn't load the auth SDK. */
+function readSignedIn() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !/^sb-.*-auth-token$/.test(k)) continue;
+      const user = (JSON.parse(localStorage.getItem(k) ?? "null") as { user?: { is_anonymous?: boolean; email?: string } } | null)?.user;
+      if (user && (!user.is_anonymous || user.email)) return true;
+    }
+  } catch { /* storage blocked: show the signed-out header */ }
+  return false;
+}
+const useSignedIn = () => useSyncExternalStore(() => () => {}, readSignedIn, () => false);
+
 export function Nav() {
   const [open, setOpen] = useState(false);
+  const signedIn = useSignedIn();
   return (
     <div data-nav className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-4 sm:pt-4">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-2xl border border-[#1A1A1A]/10 bg-[#FFFFEB]/85 px-4 py-2.5 shadow-[0_8px_30px_-12px_rgba(26,26,26,0.25)] backdrop-blur-md">
@@ -42,7 +57,7 @@ export function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">Sign in</Link>
+          <Link href={signedIn ? "/dashboard" : "/login"} className="hidden whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#1A1A1A]/80 transition hover:text-[#1A1A1A] sm:block">{signedIn ? "Dashboard" : "Sign in"}</Link>
           {/* phones: this moves into the menu */}
           <div className="conic-glow-pill hidden rounded-full p-[1px] sm:block">
             <Link href="/start" className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-4 py-2 text-sm font-bold text-[#1A1A1A] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
@@ -66,7 +81,7 @@ export function Nav() {
             <Link href="/start" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/30 bg-[#F0D7FF] px-5 py-3.5 text-base font-bold text-[#1A1A1A] active:scale-[0.98]">
               Start free <span aria-hidden>→</span>
             </Link>
-            <Link href="/login" onClick={() => setOpen(false)} className="rounded-full px-5 py-3 text-center text-base font-semibold text-[#1A1A1A]/70">Sign in</Link>
+            <Link href={signedIn ? "/dashboard" : "/login"} onClick={() => setOpen(false)} className="rounded-full px-5 py-3 text-center text-base font-semibold text-[#1A1A1A]/70">{signedIn ? "Dashboard" : "Sign in"}</Link>
           </div>
         </nav>
       ) : null}

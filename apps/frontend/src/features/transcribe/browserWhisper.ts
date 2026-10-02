@@ -5,6 +5,8 @@ import type { Word } from "@capseasy/shared";
 import { apiClient } from "@/services/api-client";
 import type { Out } from "./whisper.worker";
 
+const MODEL_ID = "onnx-community/whisper-base_timestamped";
+
 /**
  * Captions with no Companion and no cloud: Whisper runs in this tab (whisper.worker.ts), the words are normalized by
  * the same caption-engine code the Companion uses, and the result is saved through the regular transcribe job.
@@ -42,14 +44,56 @@ export async function decodeAudio(src: string | Blob, signal?: AbortSignal): Pro
   return out;
 }
 
+/**
+ * One speech worker per tab, kept alive between runs so a model that was preloaded (or used once) stays in memory.
+ * Stopping a run terminates it; the next run starts a fresh one.
+ */
+let shared: Worker | null = null;
+const speechWorker = () => (shared ??= new Worker(new URL("./whisper.worker.ts", import.meta.url), { type: "module" }));
+const dropWorker = (w: Worker) => {
+  w.terminate();
+  if (shared === w) shared = null;
+};
+
+/** Has this browser saved the speech model already? (transformers.js keeps it in Cache Storage.) */
+export async function isSpeechModelSaved(): Promise<boolean> {
+  try {
+    if (typeof caches === "undefined") return false;
+    const c = await caches.open("transformers-cache");
+    const keys = await c.keys();
+    return keys.some((r) => r.url.includes(MODEL_ID) && r.url.endsWith(".onnx"));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Starts getting the speech model ready in the background (download if needed, then into memory) so captions start
+ * right away once a video is in. Also asks the browser to keep it, so it isn't evicted when the disk gets full.
+ */
+let preloaded = false;
+export function preloadSpeechModel() {
+  if (preloaded || !canTranscribeInBrowser()) return;
+  preloaded = true;
+  void navigator.storage?.persist?.().catch(() => false);
+  speechWorker().postMessage({ type: "preload" });
+}
+
 /** Runs Whisper in a worker. Resolves to normalized, id-stamped words on the clip's clock. */
 export function transcribeAudio(audio: Float32Array, language: string | null, onStatus: (s: BrowserStatus) => void, signal?: AbortSignal): Promise<{ words: Word[]; device: string }> {
   // measured BEFORE the samples are transferred to the worker (the transfer empties this array)
   const durationMs = (audio.length / SR) * 1000;
+  void navigator.storage?.persist?.().catch(() => false);
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL("./whisper.worker.ts", import.meta.url), { type: "module" });
+    const worker = speechWorker();
+    const detach = () => {
+      worker.onmessage = null;
+      worker.onerror = null;
+      signal?.removeEventListener("abort", stop);
+    };
     const stop = () => {
-      worker.terminate();
+      detach();
+      dropWorker(worker);
       reject(Object.assign(new Error("Stopped."), { name: "AbortError" }));
     };
     signal?.addEventListener("abort", stop, { once: true });
@@ -57,16 +101,17 @@ export function transcribeAudio(audio: Float32Array, language: string | null, on
       const m = e.data;
       if (m.type === "status") onStatus({ stage: m.stage, progress: m.progress, device: m.device });
       else if (m.type === "error") {
-        worker.terminate();
+        detach();
+        dropWorker(worker);
         reject(new Error(m.message));
       } else {
-        worker.terminate();
-        signal?.removeEventListener("abort", stop);
+        detach(); // keep the worker: the model stays loaded for the next video
         resolve({ words: fromWhisperCaptions(m.words, { durationMs }), device: m.device });
       }
     };
     worker.onerror = (e) => {
-      worker.terminate();
+      detach();
+      dropWorker(worker);
       reject(new Error(e.message || "The speech model crashed in this browser."));
     };
     // transfer the samples (no copy); the caller doesn't need them afterwards

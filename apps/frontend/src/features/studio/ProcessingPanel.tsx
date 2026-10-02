@@ -2,7 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { canTranscribeInBrowser, runBrowserTranscription, type BrowserStatus } from "@/features/transcribe/browserWhisper";
+import { canTranscribeInBrowser, isSpeechModelSaved, runBrowserTranscription, type BrowserStatus } from "@/features/transcribe/browserWhisper";
 import { ConnectComputer } from "@/features/companion/ConnectComputer";
 import { studioService, type StudioJob } from "@/services/studio";
 import { Button } from "./controls";
@@ -169,14 +169,40 @@ function friendlyError(job: StudioJob): string {
 }
 
 const STAGE_TEXT: Record<BrowserStatus["stage"], string> = {
-  audio: "Getting the audio ready…",
-  download: "Downloading the speech model (one time, about 80 MB)…",
-  load: "Loading the speech model…",
-  transcribe: "Listening and writing your captions…",
-  save: "Saving your captions…",
+  audio: "Listening to your video…",
+  download: "Building your experience for the first time…",
+  load: "Getting everything ready…",
+  transcribe: "Writing your captions…",
+  save: "Putting the finishing touches…",
 };
 const overall = (s: BrowserStatus) =>
   s.stage === "audio" ? 3 : s.stage === "download" ? 5 + s.progress * 25 : s.stage === "load" ? 30 : s.stage === "transcribe" ? 30 + s.progress * 67 : 99;
+
+const VERBS = [
+  "Synthesizing", "Listening closely", "Tuning in", "Catching every word", "Untangling syllables", "Decoding vibes",
+  "Polishing punchlines", "Lining up words", "Finding the beat", "Counting syllables", "Sharpening timing",
+  "Warming up the mic", "Reading lips (kind of)", "Sprinkling style", "Herding words", "Flibbertigibbeting",
+  "Pondering", "Choreographing", "Brewing", "Calibrating", "Kerning", "Riffing", "Composing", "Harmonizing",
+  "Stitching sentences", "Spotting the hook", "Marinating", "Percolating", "Crafting", "Orchestrating",
+  "Noodling", "Clarifying", "Smoothing edges", "Measuring pauses", "Finessing", "Wrangling commas",
+  "Conjuring", "Assembling", "Fine-tuning", "Making it pop",
+];
+
+function etaText(sec: number) {
+  if (sec < 45) return "Almost there, less than a minute left";
+  const m = Math.round(sec / 60);
+  return `About ${m} minute${m === 1 ? "" : "s"} left`;
+}
+
+/** Bouncing sound bars: the "something is happening" animation. */
+const Bars = () => (
+  <div className="mx-auto mb-4 flex h-12 items-end justify-center gap-1.5" aria-hidden>
+    <style>{`@keyframes ce-bar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}`}</style>
+    {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+      <span key={i} className="h-full w-2 origin-bottom rounded-full" style={{ background: i % 2 ? "var(--color-st-em, #34D399)" : "#FFA946", animation: `ce-bar 1s ease-in-out ${i * 0.12}s infinite` }} />
+    ))}
+  </div>
+);
 
 /** Captions made in this tab. Nothing is installed and the audio never leaves the device. */
 const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Blob | null; language: string | null; isPhone: boolean; onDone: () => void; fallback: React.ReactNode }> = ({ jobId, videoUrl, localFile, language, isPhone, onDone, fallback }) => {
@@ -184,6 +210,33 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Bl
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
   const abort = useRef<AbortController | null>(null);
+  // the model is already saved in this browser -> no first-time setup, just a short warm-up
+  const [saved, setSaved] = useState<boolean | null>(null);
+  useEffect(() => { void isSpeechModelSaved().then(setSaved); }, []);
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  const [verb, setVerb] = useState(() => Math.floor(Math.random() * VERBS.length));
+  const [display, setDisplay] = useState(2);
+  const loadSince = useRef<number | null>(null);
+
+  // 2 Hz tick: rotate the verb, keep the bar creeping while the model compiles, refresh the ETA
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = Date.now();
+      setNow(n);
+      if (n % 2500 < 500) setVerb((v) => v + 1);
+      setDisplay((d) => {
+        if (!status) return Math.min(d + 0.1, 4);
+        let target = overall(status);
+        if (status.stage === "load") {
+          loadSince.current ??= n;
+          target = 30 + 8 * (1 - Math.exp(-(n - loadSince.current) / 60000));
+        } else loadSince.current = null;
+        return Math.max(d, d + (target - d) * 0.3); // never goes backwards
+      });
+    }, 500);
+    return () => clearInterval(t);
+  }, [status]);
 
   const start = async () => {
     if (started.current) return;
@@ -204,8 +257,8 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Bl
           /memory|allocat|oom|array buffer/.test(m)
             ? "This device ran out of memory while listening. Close other apps and tabs, then try again, or use a shorter clip."
             : /network|fetch|load/.test(m)
-              ? "The speech model didn't finish downloading. Check your connection and try again."
-              : "Something interrupted the captions in this browser. Try again; the speech model is already saved, so it's faster now.",
+              ? "Setup didn't finish because the connection dropped. Check your internet and try again."
+              : "Something interrupted the captions in this browser. Try again; it picks up where it left off, so it's faster now.",
         );
       }
       onDone();
@@ -242,19 +295,27 @@ const BrowserCaptions: React.FC<{ jobId: string; videoUrl: string; localFile: Bl
     );
   }
 
-  const pct = status ? Math.max(2, Math.round(overall(status))) : 2;
+  const firstTime = saved === false || status?.stage === "download";
+  const elapsed = (now - startedAt) / 1000;
+  const shown = Math.max(2, Math.round(display));
+  const eta = shown > 6 && elapsed > 8 ? (elapsed * (100 - shown)) / shown : null;
+  const title = !status ? (firstTime ? "Building your experience for the first time…" : "Warming up…") : status.stage === "download" ? STAGE_TEXT.download : status.stage === "load" && firstTime ? "Building your experience for the first time…" : STAGE_TEXT[status.stage];
   return (
     <Center>
-      <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-st-line border-t-st-ink" />
-      <h2 className="text-lg font-semibold">{status ? STAGE_TEXT[status.stage] : "Starting…"}</h2>
-      <p className="mt-1 text-sm text-st-muted">Made right here in your browser: free, private, nothing to install.</p>
+      <Bars />
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm font-medium text-st-text/70" aria-live="polite">{VERBS[verb % VERBS.length]}…</p>
       <div className="mx-auto mt-5 h-2 w-72 max-w-full overflow-hidden rounded-full bg-st-line">
-        <div className="h-full rounded-full bg-st-em transition-all duration-500" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-st-em transition-all duration-500" style={{ width: `${shown}%` }} />
       </div>
       <p className="mt-2 text-xs tabular-nums text-st-faint">
-        {pct}%{status?.device ? ` · ${status.device === "webgpu" ? "using your graphics card" : "using your processor"}` : ""}
+        {shown}% · {eta != null ? etaText(eta) : firstTime ? "First time takes about 2–3 minutes" : "Just a moment"}
       </p>
-      <p className="mt-1 text-xs text-st-faint">{isPhone ? "Keep this tab open and your screen on." : "Keep this tab open."}</p>
+      {firstTime ? (
+        <p className="mt-3 text-sm text-st-muted">Go grab a coffee ☕ We&apos;ll be done when you&apos;re back. Just don&apos;t close this tab{isPhone ? " or lock your screen" : ""}. Next time it&apos;s instant.</p>
+      ) : (
+        <p className="mt-3 text-xs text-st-faint">{isPhone ? "Keep this tab open and your screen on." : "Keep this tab open."}</p>
+      )}
       <Button className="mt-4" onClick={() => abort.current?.abort()}>Stop</Button>
     </Center>
   );

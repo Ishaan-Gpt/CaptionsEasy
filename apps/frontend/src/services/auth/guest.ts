@@ -36,3 +36,79 @@ export async function upgradeWithEmail(email: string, password: string) {
   // some projects only accept the password once the email is confirmed; the reset flow covers that case
   await supabase.auth.updateUser({ password }).catch(() => undefined);
 }
+
+/* ---------- returning users ---------- */
+
+const HAD_ACCOUNT = "ce:had-account";
+const CLAIM = "ce:guest-claim";
+const AFTER = "ce:after-signin";
+const store = {
+  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+  del: (k: string) => { try { localStorage.removeItem(k); } catch { /* private mode */ } },
+};
+
+/** This browser has been signed in to a real account before: never hand it a guest account again. */
+export const hadAccountHere = () => store.get(HAD_ACCOUNT) === "1";
+if (typeof window !== "undefined") {
+  supabase.auth.onAuthStateChange((_e, s) => {
+    if (s && !isGuestUser(s.user)) store.set(HAD_ACCOUNT, "1");
+  });
+}
+
+/** Where to go once signed in (survives the Google round trip). Only same-site paths. */
+export function setAfterSignIn(path: string | null) {
+  if (path && path.startsWith("/") && !path.startsWith("//")) store.set(AFTER, path);
+}
+export function takeAfterSignIn(): string | null {
+  const p = store.get(AFTER);
+  store.del(AFTER);
+  return p && p.startsWith("/") && !p.startsWith("//") ? p : null;
+}
+
+/**
+ * Before a guest signs in to an EXISTING account, keep the guest's tokens: once signed in, /start hands them to
+ * the server, which moves the guest's projects onto the account. `returnTo` is where they continue (the project).
+ */
+export async function rememberGuestForClaim(returnTo: string) {
+  const { data } = await supabase.auth.getSession();
+  const s = data.session;
+  if (!s || !isGuestUser(s.user)) return;
+  store.set(CLAIM, JSON.stringify({ accessToken: s.access_token, refreshToken: s.refresh_token, at: Date.now() }));
+  setAfterSignIn(returnTo);
+}
+
+/** Runs a pending claim (if any) for the now signed-in user. Never throws: the user's own data is untouched on failure. */
+export async function claimPendingGuest(): Promise<void> {
+  const raw = store.get(CLAIM);
+  if (!raw) return;
+  store.del(CLAIM);
+  try {
+    const { accessToken, refreshToken, at } = JSON.parse(raw) as { accessToken: string; refreshToken?: string; at: number };
+    if (Date.now() - at > 7 * 86_400_000) return;
+    const { apiClient } = await import("@/services/api-client");
+    await apiClient.post("/guest/claim", { json: { accessToken, refreshToken } });
+  } catch (e) {
+    console.warn("[auth] couldn't move the guest project to this account", e);
+  }
+}
+
+/** The Google account already has CaptionsEasy (linking failed): sign in to it and bring this project along. */
+export async function signInExistingWithGoogle(returnTo: string) {
+  await rememberGuestForClaim(returnTo);
+  const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/start` } });
+  if (error) throw new Error(error.message);
+}
+
+/** Google linking bounced back with "this Google account is already in use"? Reads (and strips) it from the URL. */
+export function takeIdentityExistsError(): boolean {
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const code = url.searchParams.get("error_code") ?? hash.get("error_code") ?? "";
+  const desc = (url.searchParams.get("error_description") ?? hash.get("error_description") ?? "").toLowerCase();
+  if (!code && !desc) return false;
+  for (const k of ["error", "error_code", "error_description"]) url.searchParams.delete(k);
+  url.hash = "";
+  window.history.replaceState(null, "", url.toString());
+  return code === "identity_already_exists" || /already (linked|exists|in use|registered)/.test(desc);
+}

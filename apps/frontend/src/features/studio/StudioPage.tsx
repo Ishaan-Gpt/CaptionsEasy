@@ -24,7 +24,7 @@ import { SignupGate } from "./SignupGate";
 import { projectsService } from "@/services/projects";
 import { ReattachPanel } from "@/features/upload/ReattachPanel";
 import { useDeviceVideo } from "@/features/upload/useDeviceVideo";
-import { currentUserIsGuest } from "@/services/auth/guest";
+import { currentUserIsGuest, signInExistingWithGoogle, takeIdentityExistsError } from "@/services/auth/guest";
 import { useWaveform } from "./useWaveform";
 import { useStudio, type SaveState } from "./useStudio";
 
@@ -84,6 +84,13 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   }, []);
   // back from Google sign-up with ?export=1: carry on to the export dialog
   useEffect(() => {
+    // that Google account already has CaptionsEasy: sign in to it; /start moves this project over and comes back here
+    if (takeIdentityExistsError()) {
+      const back = new URL(window.location.href);
+      back.searchParams.set("export", "1");
+      void signInExistingWithGoogle(back.pathname + back.search);
+      return;
+    }
     const url = new URL(window.location.href);
     if (!url.searchParams.has("export")) return;
     url.searchParams.delete("export");
