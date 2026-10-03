@@ -17,7 +17,7 @@ const only = process.env.ONLY ? process.env.ONLY.split(",") : null;
 mkdirSync(out, { recursive: true });
 const env = Object.fromEntries(readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]));
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const APP = "http://localhost:3000";
+const APP = process.env.APP_URL ?? "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let uid;

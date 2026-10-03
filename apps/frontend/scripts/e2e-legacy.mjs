@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { createClient } = createRequire(join(root, "package.json"))("@supabase/supabase-js");
 const env = Object.fromEntries(readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]));
-const BASE = `http://localhost:${process.env.API_PORT ?? "3000"}/api/v1`;
+const BASE = process.env.APP_URL ? `${process.env.APP_URL}/api/v1` : `http://localhost:${process.env.API_PORT ?? "3000"}/api/v1`;
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 let pass = 0, fail = 0;
 const check = (n, c, x = "") => { (c ? pass++ : fail++); console.log(`${c ? "PASS" : "FAIL"}  ${n}${c ? "" : "  -> " + String(x).slice(0, 300)}`); };

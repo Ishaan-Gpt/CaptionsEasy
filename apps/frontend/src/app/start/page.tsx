@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/services/auth/supabaseClient";
 import { projectsService } from "@/services/projects";
-import { claimPendingGuest, hadAccountHere, isGuestUser, startGuestSession, takeAfterSignIn } from "@/services/auth/guest";
+import { claimPendingGuest, clearPendingGuestClaim, hadAccountHere, isGuestUser, startGuestSession, takeAfterSignIn } from "@/services/auth/guest";
 import type { Project } from "@/services/types";
 
 /**
@@ -49,10 +49,23 @@ export default function StartPage() {
     once.current = true;
     void (async () => {
       const fromAuth = /[?&]code=|access_token=|token_hash=/.test(window.location.search + window.location.hash);
+      const fromAuthError = /[?&#]error(_code|_description)?=/.test(window.location.search + window.location.hash);
       let session = await waitForSession(fromAuth ? 6000 : 400);
       if (session && !isGuestUser(session.user)) {
         await claimPendingGuest();
         return router.replace(takeAfterSignIn() ?? "/dashboard");
+      }
+      // still a guest after a Google round trip (they cancelled, or Google/Supabase refused): back to the project
+      // they came from, without reopening the sign-up box, so nothing loops
+      if (session && fromAuthError) {
+        clearPendingGuestClaim();
+        const back = takeAfterSignIn();
+        if (back) {
+          const u = new URL(back, window.location.origin);
+          u.searchParams.delete("export");
+          u.searchParams.set("signin", "cancelled");
+          return router.replace(u.pathname + u.search);
+        }
       }
       if (!session) {
         if (hadAccountHere()) return router.replace("/login");

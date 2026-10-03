@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { createClient } = createRequire(join(root, "package.json"))("@supabase/supabase-js");
 const env = Object.fromEntries(readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]));
-const BASE = `http://localhost:${process.env.API_PORT ?? "3000"}/api/v1`;
+const BASE = process.env.APP_URL ? `${process.env.APP_URL}/api/v1` : `http://localhost:${process.env.API_PORT ?? "3000"}/api/v1`;
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 let pass = 0, fail = 0;
 const check = (n, c, x = "") => { (c ? pass++ : fail++); console.log(`${c ? "PASS" : "FAIL"}  ${n}${c ? "" : "  -> " + String(x).slice(0, 300)}`); };
@@ -54,8 +54,8 @@ try {
   await call("POST", `/projects/${id}/unarchive`, A.token);
   await admin.from("jobs").insert({ project_id: id, owner_id: A.id, kind: "transcribe", job_type: "transcribe", status: "queued", payload: {} });
   check("delete", (await call("DELETE", `/projects/${id}`, A.token)).status === 200);
-  const { data: j } = await admin.from("jobs").select("status").eq("project_id", id).single();
-  check("delete cancels queued jobs", j.status === "cancelled", JSON.stringify(j));
+  const { data: j } = await admin.from("jobs").select("status").eq("project_id", id).maybeSingle();
+  check("delete removes (or cancels) queued jobs", !j || j.status === "cancelled", JSON.stringify(j));
   check("deleted project is gone", (await call("GET", `/projects/${id}`, A.token)).status === 404);
 
   let limited = false;

@@ -23,11 +23,6 @@ export async function startGuestSession(): Promise<boolean> {
   return !error && !!data.session;
 }
 
-/** Keeps everything the guest made: Google is linked to the same user id, then returns to `returnTo`. */
-export async function upgradeWithGoogle(returnTo: string) {
-  const { error } = await supabase.auth.linkIdentity({ provider: "google", options: { redirectTo: returnTo } });
-  if (error) throw new Error(error.message);
-}
 
 /** Email + password on the same user id. Supabase emails a confirmation link; the work stays where it is. */
 export async function upgradeWithEmail(email: string, password: string) {
@@ -93,12 +88,20 @@ export async function claimPendingGuest(): Promise<void> {
   }
 }
 
-/** The Google account already has CaptionsEasy (linking failed): sign in to it and bring this project along. */
-export async function signInExistingWithGoogle(returnTo: string) {
+/**
+ * Google from the export box: a normal Google sign-in (new or existing account), then /start moves everything the
+ * guest made onto that account and returns to `returnTo`. One path for every case: linking Google onto the
+ * anonymous user failed whenever that Google account already had CaptionsEasy, and the error loop sent people
+ * straight back to the same sign-up box.
+ */
+export async function signInWithGoogleKeepingWork(returnTo: string) {
   await rememberGuestForClaim(returnTo);
   const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/start` } });
   if (error) throw new Error(error.message);
 }
+
+/** Old links / bookmarks still call it by its previous name. */
+export const signInExistingWithGoogle = signInWithGoogleKeepingWork;
 
 /** Google linking bounced back with "this Google account is already in use"? Reads (and strips) it from the URL. */
 export function takeIdentityExistsError(): boolean {
@@ -111,4 +114,9 @@ export function takeIdentityExistsError(): boolean {
   url.hash = "";
   window.history.replaceState(null, "", url.toString());
   return code === "identity_already_exists" || /already (linked|exists|in use|registered)/.test(desc);
+}
+
+/** The sign-in didn't happen (cancelled or refused): forget the stored guest tokens. */
+export function clearPendingGuestClaim() {
+  store.del(CLAIM);
 }

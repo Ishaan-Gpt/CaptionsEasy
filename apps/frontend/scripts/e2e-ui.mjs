@@ -18,7 +18,7 @@ const { createClient } = requireFE("@supabase/supabase-js");
 const puppeteer = requireFE("puppeteer-core");
 
 const env = Object.fromEntries(readFileSync(`${REPO}/apps/frontend/.env.local`, "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]));
-const APP = "http://localhost:3000";
+const APP = process.env.APP_URL ?? "http://localhost:3000";
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 let pass = 0, fail = 0;

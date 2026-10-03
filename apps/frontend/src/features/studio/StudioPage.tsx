@@ -77,6 +77,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [signupNotice, setSignupNotice] = useState<string | null>(null);
   // guests edit freely; exporting is the moment to create the (free) account
   const openExport = useCallback(async () => {
     if (await currentUserIsGuest()) setShowSignup(true);
@@ -92,6 +93,14 @@ export default function StudioPage({ projectId }: { projectId: string }) {
       return;
     }
     const url = new URL(window.location.href);
+    // Google sign-in didn't finish (cancelled or refused): say so, and let them pick again
+    if (url.searchParams.has("signin")) {
+      url.searchParams.delete("signin");
+      window.history.replaceState(null, "", url.toString());
+      setSignupNotice("Google sign-in didn't finish. Try again, or use your email below.");
+      setShowSignup(true);
+      return;
+    }
     if (!url.searchParams.has("export")) return;
     url.searchParams.delete("export");
     window.history.replaceState(null, "", url.toString());
@@ -340,7 +349,7 @@ export default function StudioPage({ projectId }: { projectId: string }) {
 
   const overlays = (
     <>
-      {showSignup ? <SignupGate onClose={() => setShowSignup(false)} onDone={() => { setShowSignup(false); setShowExport(true); }} /> : null}
+      {showSignup ? <SignupGate notice={signupNotice} onClose={() => { setShowSignup(false); setSignupNotice(null); }} onDone={() => { setShowSignup(false); setShowExport(true); }} /> : null}
       {showExport ? <ExportModal projectId={projectId} title={data.project.title} video={{ width, height, durationMs, fps }} renderInput={input} companionOnline={data.companionOnline} saving={s.saveState === "saving" || s.saveState === "dirty"} flushSave={s.saveNow} onClose={() => setShowExport(false)} /> : null}
       {s.conflict ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/40 backdrop-blur-sm p-4">

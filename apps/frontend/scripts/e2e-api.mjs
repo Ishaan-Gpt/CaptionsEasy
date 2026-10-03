@@ -13,7 +13,7 @@ const env = Object.fromEntries(
   readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim().replace(/^"|"$/g, "")]),
 );
 const PORT = process.env.API_PORT ?? "3000";
-const BASE = `http://localhost:${PORT}/api/v1`;
+const BASE = process.env.APP_URL ? `${process.env.APP_URL}/api/v1` : `http://localhost:${PORT}/api/v1`;
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const anon = () => createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 

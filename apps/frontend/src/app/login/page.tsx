@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth";
@@ -51,6 +51,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; name?: string }>({});
   const [resent, setResent] = useState(false);
+  // on a slow phone people type before the page script has loaded: keep what they typed, and keep the
+  // button off until then (pressing Enter earlier would reload the page and wipe the form)
+  const formRef = useRef<HTMLFormElement>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const typed = (sel: string) => formRef.current?.querySelector<HTMLInputElement>(sel)?.value ?? "";
+    const e = typed("input[type=email]"), pw = typed("input[type=password]");
+    if (e) setEmail((v) => v || e);
+    if (pw) setPassword((v) => v || pw);
+    setReady(true);
+  }, []);
 
   // "Start free" links arrive with ?mode=signup: open on Create Account, not Welcome Back
   useEffect(() => {
@@ -192,7 +203,7 @@ export default function LoginPage() {
       <div className="space-y-4">
         {error && <ErrorNote>{error}</ErrorNote>}
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
           {isSignUp && (
             <Field
               label="Full Name"
@@ -249,7 +260,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <SubmitButton loading={loading}>
+          <SubmitButton loading={loading} disabled={!ready}>
             {isSignUp ? "Sign Up" : "Sign In"}
           </SubmitButton>
         </form>

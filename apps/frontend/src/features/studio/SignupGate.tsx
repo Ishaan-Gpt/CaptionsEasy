@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { rememberGuestForClaim, upgradeWithEmail, upgradeWithGoogle } from "@/services/auth/guest";
+import { rememberGuestForClaim, signInWithGoogleKeepingWork, upgradeWithEmail } from "@/services/auth/guest";
 import { Button } from "./controls";
 
 /**
  * Shown when a guest clicks Export: one step to a free account. The account is linked to the guest's user id,
  * so the project, video and captions they already made stay exactly where they are.
  */
-export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> = ({ onDone, onClose }) => {
+export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void; notice?: string | null }> = ({ onDone, onClose, notice }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
@@ -30,7 +30,7 @@ export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> =
     try {
       const back = new URL(window.location.href);
       back.searchParams.set("export", "1"); // reopen the export dialog after Google brings them back
-      await upgradeWithGoogle(back.toString());
+      await signInWithGoogleKeepingWork(back.pathname + back.search);
     } catch (e) {
       setBusy(null);
       setError(e instanceof Error ? e.message : "Google sign-up didn't start. Try email instead.");
@@ -83,6 +83,7 @@ export const SignupGate: React.FC<{ onDone: () => void; onClose: () => void }> =
                 <Button tone="primary" className="mt-2 w-full !py-2.5" onClick={() => void signInInstead()}>Sign in to my account</Button>
               </div>
             ) : null}
+            {notice && !error ? <p role="status" className="mt-3 rounded-lg border border-st-line bg-st-raised px-3 py-2 text-sm text-st-text">{notice}</p> : null}
             {error ? <p role="alert" className="mt-3 rounded-lg border border-st-or/60 bg-st-or/15 px-3 py-2 text-sm text-st-text">{error}</p> : null}
             <p className="mt-4 text-center text-sm text-st-muted">Already have an account? <button type="button" className="font-semibold text-st-text underline" onClick={() => void signInInstead()}>Sign in</button>. This project comes with you.</p>
             <p className="mt-2 text-center text-xs text-st-faint">Free. No card. By continuing you agree to the <a href="/terms" className="underline">Terms</a> and <a href="/privacy" className="underline">Privacy Policy</a>.</p>

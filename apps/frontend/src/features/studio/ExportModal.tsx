@@ -118,7 +118,19 @@ export const ExportModal: React.FC<Props> = ({ projectId, title, video, renderIn
   };
 
   const start = async (o: Option) => {
-    if (o.kind === "mp4") return webReady ? exportHere() : undefined; // MP4 is made in the browser only
+    if (o.kind === "mp4") {
+      // MP4 is made in the browser only; a click while the support check is still running waits for it
+      let w = web;
+      if (!w) {
+        setBusyKind("mp4");
+        w = await canExportInBrowser(video.width, video.height);
+        setWeb(w);
+        setBusyKind(null);
+      }
+      if (w.ok && renderInput?.src) return exportHere();
+      setError(w.ok ? "The video isn't loaded yet. Wait a moment and try again." : w.reason ?? "This browser can't make MP4s. Use Chrome, Edge or Safari.");
+      return;
+    }
     setError(null);
     setBusyKind(o.kind);
     try {

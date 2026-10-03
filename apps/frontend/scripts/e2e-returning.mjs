@@ -45,7 +45,7 @@ try {
   const path = () => new URL(page.url()).pathname;
   const go = async (p) => { await page.goto(`${APP}${p}`, { waitUntil: "domcontentloaded" }); };
   const clickText = async (text) => page.evaluate((t) => {
-    const el = [...document.querySelectorAll("button, a")].find((b) => b.textContent?.trim() === t || b.textContent?.trim().startsWith(t));
+    const el = [...document.querySelectorAll("button, a")].find((b) => !b.disabled && (b.textContent?.trim() === t || b.textContent?.trim().startsWith(t)));
     if (!el) return false;
     el.click();
     return true;
