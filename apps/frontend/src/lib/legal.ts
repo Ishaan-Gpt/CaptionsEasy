@@ -11,7 +11,7 @@ export const LEGAL = {
   /** City and state only: an individual doesn't need to publish a home address. */
   address: "Bengaluru, Karnataka, India",
   /** public support / privacy inbox */
-  email: "ishaangofficial@gmail.com",
+  email: "hello@captionseasy.com",
   jurisdiction: "India",
   
   courts: "the courts of Bengaluru, Karnataka, India",
