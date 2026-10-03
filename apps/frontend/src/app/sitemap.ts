@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { LEGAL_PAGES } from "@/lib/legal";
 
-const BASE = process.env.APP_URL ?? "https://captionseasy.vercel.app";
+const BASE = process.env.APP_URL ?? "https://www.captionseasy.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

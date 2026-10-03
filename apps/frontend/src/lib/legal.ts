@@ -19,7 +19,7 @@ export const LEGAL = {
   effective: "30 September 2026",
   /** minimum age to hold an account */
   minAge: 13,
-  site: "captionseasy.vercel.app",
+  site: "captionseasy.com",
 } as const;
 
 export const LEGAL_PAGES = [

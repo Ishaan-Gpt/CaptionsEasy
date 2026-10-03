@@ -9,7 +9,7 @@ import StudioShell from "@/components/studio/StudioShell";
 import { macInstall, windowsInstall } from "@/lib/install";
 import { ConnectComputer } from "@/features/companion/ConnectComputer";
 
-const origin = () => (typeof window === "undefined" ? "https://captionseasy.vercel.app" : window.location.origin);
+const origin = () => (typeof window === "undefined" ? "https://www.captionseasy.com" : window.location.origin);
 const installCommand = (which: "mac" | "windows") => (which === "mac" ? macInstall(origin()) : windowsInstall(origin()));
 
 function ConnectedComputerSection() {
